@@ -1,0 +1,35 @@
+// Exercise 8 — Recursion
+//
+// Tutorial: section 6 (functions).
+//
+// Each of these calls itself on a smaller problem:
+//   factorial(n)  n * factorial(n - 1), and 1 when n <= 1
+//   fib(n)        fib(n-1) + fib(n-2), and n when n < 2
+//   digit_sum(n)  the last digit plus the digit sum of the rest
+//                 (n % 10 and n / 10), and n when n < 10
+//
+// Every one needs its stopping case first, or it runs forever.
+
+int factorial(n: int) {
+    return 1 // TODO
+}
+
+int fib(n: int) {
+    return 0 // TODO
+}
+
+int digit_sum(n: int) {
+    return 0 // TODO
+}
+
+void main() {
+    print(factorial(5))
+    print(factorial(10))
+
+    for i in 0..10 {
+        write("{fib(i)} ")
+    }
+    print("")
+
+    print(digit_sum(9481))
+}

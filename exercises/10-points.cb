@@ -1,0 +1,42 @@
+// Exercise 10 — Points
+//
+// Tutorial: section 9 (your own types).
+//
+// A struct groups values.  Fill in:
+//   distance_squared(a, b)  dx*dx + dy*dy
+//   shifted(p, dx, dy)      a new Point moved by dx and dy
+//
+// The last part walks a path of three points and adds up the squared
+// distance between each neighbouring pair.
+//
+// Watch what happens when you copy a struct: changing the copy leaves the
+// original alone.
+
+type Point = struct {
+    x: int,
+    y: int,
+}
+
+int distance_squared(a: Point, b: Point) {
+    return 0 // TODO
+}
+
+Point shifted(p: Point, dx: int, dy: int) {
+    return p // TODO
+}
+
+void main() {
+    let origin = Point { x: 0, y: 0 }
+    let target = Point { x: 3, y: 4 }
+
+    print(origin)
+    print(target)
+    // TODO: print distance_squared(origin, target)   -- 25
+    // TODO: print shifted(target, 10, -2)
+
+    var copy_of = target
+    // TODO: change copy_of.x to 99, then print target.x and copy_of.x
+
+    let path = [origin, target, Point { x: 6, y: 8 }]
+    // TODO: total the squared distance along the path and print it
+}

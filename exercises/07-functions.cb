@@ -1,0 +1,32 @@
+// Exercise 7 — Functions
+//
+// Tutorial: section 6 (functions).
+//
+// Three functions:
+//   is_even(n)   -> true when n divides by 2
+//   describe(n)  -> "negative", "zero", "positive and even",
+//                   or "positive and odd"
+//   banner(title)-> prints the title between two rows of `=`
+//                   the same length as the title (see `repeat`)
+//
+// `describe` returns something, so it leads with `string`.  `banner` only
+// prints, so it leads with `void`.
+
+bool is_even(n: int) {
+    return false // TODO
+}
+
+string describe(n: int) {
+    return "?" // TODO
+}
+
+void banner(title: string) {
+    // TODO
+}
+
+void main() {
+    banner("Numbers")
+    for n in [-4, 0, 7, 12] {
+        print("{n} is {describe(n)}")
+    }
+}

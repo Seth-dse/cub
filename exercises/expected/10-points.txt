@@ -1,0 +1,6 @@
+Point{x: 0, y: 0}
+Point{x: 3, y: 4}
+25
+Point{x: 13, y: 2}
+3 99
+50

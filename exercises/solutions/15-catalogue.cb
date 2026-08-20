@@ -1,0 +1,73 @@
+import "lib/format.cb"
+
+/// One item on the shelves.
+class Book {
+    title: string
+    author: string
+    copies: int
+
+    void init(title: string, author: string, copies: int) {
+        self.title = title
+        self.author = author
+        self.copies = copies
+    }
+
+    string to_string() {
+        return "{column(self.title, 16)} {column(self.author, 12)} x{self.copies}"
+    }
+}
+
+/// A shelf of books, and who wrote how many.
+class Catalogue {
+    books: [Book]
+    by_author: [string: int]
+
+    void add(book: Book) {
+        push(self.books, book)
+        self.by_author[book.author] = get(self.by_author, book.author, 0) + book.copies
+    }
+
+    int total() {
+        var n = 0
+        for b in self.books {
+            n += b.copies
+        }
+        return n
+    }
+
+    void report() {
+        for b in self.books {
+            print(b)
+        }
+        print("{self.total()} copies of {len(self.books)} titles")
+
+        var authors = keys(self.by_author)
+        sort(authors)
+        for a in authors {
+            print("  {column(a, 12)} {self.by_author[a]}")
+        }
+    }
+}
+
+/// Reads "title|author|copies" into a book.
+Book parse(line: string) {
+    let parts = split(line, "|")
+    return Book(trim(parts[0]), trim(parts[1]), int(trim(parts[2])))
+}
+
+void main() {
+    let lines = [
+        "Dune          | Herbert   | 3",
+        "Emma          | Austen    | 2",
+        "Persuasion    | Austen    | 1",
+        "Children Of D | Herbert   | 4",
+    ]
+
+    let shelf = Catalogue()
+    for line in lines {
+        shelf.add(parse(line))
+    }
+
+    shelf.report()
+    print(round2(float(shelf.total()) / float(len(shelf.books))))
+}

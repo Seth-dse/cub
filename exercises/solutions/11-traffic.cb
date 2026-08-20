@@ -1,0 +1,27 @@
+type Light = enum { Red, Green, Amber }
+
+Light next(current: Light) {
+    if current == Light.Red {
+        return Light.Green
+    } else if current == Light.Green {
+        return Light.Amber
+    }
+    return Light.Red
+}
+
+string advice(current: Light) {
+    if current == Light.Red {
+        return "stop"
+    } else if current == Light.Green {
+        return "go"
+    }
+    return "slow down"
+}
+
+void main() {
+    var light = Light.Red
+    for i in 0..6 {
+        print("{light}: {advice(light)}")
+        light = next(light)
+    }
+}

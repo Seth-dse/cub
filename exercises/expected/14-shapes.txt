@@ -1,0 +1,5 @@
+rectangle. 12.0
+square.... 25.0
+circle.... 3.14
+total 40.14
+largest is the square

@@ -1,0 +1,25 @@
+bool is_even(n: int) {
+    return n % 2 == 0
+}
+
+string describe(n: int) {
+    if n < 0 {
+        return "negative"
+    } else if n == 0 {
+        return "zero"
+    }
+    return if is_even(n) { "positive and even" } else { "positive and odd" }
+}
+
+void banner(title: string) {
+    print(repeat("=", len(title)))
+    print(title)
+    print(repeat("=", len(title)))
+}
+
+void main() {
+    banner("Numbers")
+    for n in [-4, 0, 7, 12] {
+        print("{n} is {describe(n)}")
+    }
+}

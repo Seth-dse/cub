@@ -1,0 +1,6 @@
+Red: stop
+Green: go
+Amber: slow down
+Red: stop
+Green: go
+Amber: slow down

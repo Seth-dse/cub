@@ -1,0 +1,8 @@
+[the Cub language]
+THE CUB LANGUAGE
+16
+["the", "Cub", "language"]
+3
+the-Cub-language
+truetruetrue
+the cub language

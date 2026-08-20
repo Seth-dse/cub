@@ -1,0 +1,8 @@
+Dune............ Herbert..... x3
+Emma............ Austen...... x2
+Persuasion...... Austen...... x1
+Children Of D... Herbert..... x4
+10 copies of 4 titles
+  Austen...... 3
+  Herbert..... 7
+2.5

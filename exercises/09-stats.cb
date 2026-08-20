@@ -1,0 +1,34 @@
+// Exercise 9 — Statistics
+//
+// Tutorial: section 7, plus the array built-ins in the reference.
+//
+// Now use the library instead of writing loops:
+//   sum, min_of, max_of, sort, reverse, copy
+//
+// `mean` gives the average as a float — remember `sum` returns an int, so
+// convert before dividing.  `median` sorts a *copy* and takes the middle
+// item; sorting the original would change the caller's array, which the
+// last line checks.
+
+import math
+
+float mean(values: [int]) {
+    return 0.0 // TODO
+}
+
+int median(values: [int]) {
+    return 0 // TODO
+}
+
+float round2(v: float) {
+    return math.round(v * 100.0) / 100.0
+}
+
+void main() {
+    let values = [8, 3, 17, 4, 9, 12]
+
+    // TODO: print sum, then min_of and max_of, then round2(mean), then median
+
+    // TODO: print a sorted copy, then that copy reversed,
+    //       then the original -- which must be unchanged
+}

@@ -17,3 +17,6 @@ tests/**/*.c
 
 # Packaged extension builds
 editors/vscode/*.vsix
+
+# Exercise output
+exercises/.out/

@@ -1,0 +1,8 @@
+void main() {
+    let name = "Ada"
+    let age = 36
+
+    print("Hello, {name}!")
+    print("{name} has {len(name)} letters.")
+    print("Next year {name} will be {age + 1}.")
+}

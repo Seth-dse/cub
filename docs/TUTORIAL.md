@@ -734,6 +734,8 @@ clearly when something does not add up.
 
 ## Where to go next
 
+- [the exercises](../exercises) — fifteen problems that follow these
+  sections, each checked against a worked answer
 - [LANGUAGE.md](LANGUAGE.md) — the full reference, including every built-in
 - `examples/` — larger programs: a sieve, a word counter, a task list,
   shapes built with classes, a shop inventory built with classes and maps,

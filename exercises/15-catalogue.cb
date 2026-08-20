@@ -1,0 +1,75 @@
+// Exercise 15 — A catalogue
+//
+// Everything at once: imports, classes, maps, arrays, sorting, and text.
+//
+// `lib/format.cb` next door already has `round2` and `column`; import it
+// rather than writing them again.
+//
+// Fill in:
+//   Book         a title, an author, a number of copies, and a to_string
+//                of "{column(title, 16)} {column(author, 12)} x{copies}"
+//   Catalogue    add(book) puts it on the shelf and adds its copies to
+//                by_author; total() counts every copy; report() prints each
+//                book, then "{total} copies of {n} titles", then each author
+//                sorted, as "  {column(author, 12)} {count}"
+//   parse(line)  splits "title|author|copies" and trims each piece;
+//                `int(text)` turns the last one into a number
+//
+// Catalogue has no init, so its array and map start empty on their own.
+
+import "lib/format.cb"
+
+/// One item on the shelves.
+class Book {
+    title: string
+    author: string
+    copies: int
+
+    void init(title: string, author: string, copies: int) {
+        // TODO: keep all three
+    }
+
+    string to_string() {
+        return "?" // TODO
+    }
+}
+
+/// A shelf of books, and who wrote how many.
+class Catalogue {
+    books: [Book]
+    by_author: [string: int]
+
+    void add(book: Book) {
+        // TODO: shelve it, and count its copies against its author
+    }
+
+    int total() {
+        return 0 // TODO
+    }
+
+    void report() {
+        // TODO
+    }
+}
+
+/// Reads "title|author|copies" into a book.
+Book parse(line: string) {
+    return Book("?", "?", 0) // TODO: split on "|", trim each piece
+}
+
+void main() {
+    let lines = [
+        "Dune          | Herbert   | 3",
+        "Emma          | Austen    | 2",
+        "Persuasion    | Austen    | 1",
+        "Children Of D | Herbert   | 4",
+    ]
+
+    let shelf = Catalogue()
+    for line in lines {
+        shelf.add(parse(line))
+    }
+
+    shelf.report()
+    print(round2(float(shelf.total()) / float(len(shelf.books))))
+}

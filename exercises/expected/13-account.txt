@@ -1,0 +1,7 @@
+Ada: 150
+true
+  Ada cannot take out 500, only has 120
+false
+Ada: 120
+  a deposit must be more than nothing
+Ada: 1120

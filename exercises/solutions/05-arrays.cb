@@ -1,0 +1,25 @@
+void main() {
+    var scores: [int] = []
+    push(scores, 10)
+    push(scores, 25)
+    push(scores, 7)
+    push(scores, 25)
+
+    print(scores)
+    print(len(scores))
+    print(scores[0], " ", scores[len(scores) - 1])
+
+    var total = 0
+    for s in scores {
+        total += s
+    }
+    print(total)
+
+    var largest = scores[0]
+    for s in scores {
+        if s > largest {
+            largest = s
+        }
+    }
+    print(largest)
+}

@@ -208,8 +208,9 @@ class App {
 }
 ```
 
-Read [the tutorial](docs/TUTORIAL.md) to learn it, or
-[the reference](docs/LANGUAGE.md) for the details and every built-in.
+Read [the tutorial](docs/TUTORIAL.md) to learn it, work through
+[the exercises](exercises) to make it stick, or keep
+[the reference](docs/LANGUAGE.md) open for the details and every built-in.
 
 ---
 

@@ -1,0 +1,21 @@
+// Exercise 5 — Arrays
+//
+// Tutorial: section 7 (lists of things).
+//
+// Build up [10, 25, 7, 25] with `push`, then print, in order:
+//   the whole array, its length, the first and last item,
+//   the total, and the largest item.
+//
+// Find the total and the largest with loops rather than `sum` and
+// `max_of` — those come in exercise 9.
+
+void main() {
+    var scores: [int] = []
+    // TODO: push 10, 25, 7, 25
+
+    // TODO: print the array, then len, then first and last
+
+    // TODO: add them up with a loop and print the total
+
+    // TODO: find the largest with a loop and print it
+}

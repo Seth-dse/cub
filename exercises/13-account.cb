@@ -1,0 +1,54 @@
+// Exercise 13 — A bank account
+//
+// Tutorial: section 11 (classes).
+//
+// A class holds data *and* what you can do with it.  Fill in:
+//   deposit(amount)   adds it on; refuses anything <= 0 and prints
+//                     "  a deposit must be more than nothing"
+//   withdraw(amount)  takes it out and gives back true, or prints
+//                     "  {owner} cannot take out {amount}, only has {balance}"
+//                     and gives back false
+//   to_string()       "{owner}: {balance}" -- print() picks this up
+//
+// `balance` is not set by `init`, so it starts at 0 on its own.
+//
+// The last two lines matter: objects are shared, not copied, so depositing
+// through `shared` changes `a` as well.
+
+class Account {
+    owner: string
+    balance: int
+
+    void init(owner: string) {
+        self.owner = owner
+    }
+
+    void deposit(amount: int) {
+        // TODO
+    }
+
+    bool withdraw(amount: int) {
+        return false // TODO
+    }
+
+    string to_string() {
+        return "?" // TODO
+    }
+}
+
+void main() {
+    let a = Account("Ada")
+    a.deposit(100)
+    a.deposit(50)
+    print(a)
+
+    print(a.withdraw(30))
+    print(a.withdraw(500))
+    print(a)
+
+    a.deposit(-5)
+
+    let shared = a
+    shared.deposit(1000)
+    print(a)
+}

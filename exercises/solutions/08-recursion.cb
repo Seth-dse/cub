@@ -1,0 +1,32 @@
+int factorial(n: int) {
+    if n <= 1 {
+        return 1
+    }
+    return n * factorial(n - 1)
+}
+
+int fib(n: int) {
+    if n < 2 {
+        return n
+    }
+    return fib(n - 1) + fib(n - 2)
+}
+
+int digit_sum(n: int) {
+    if n < 10 {
+        return n
+    }
+    return n % 10 + digit_sum(n / 10)
+}
+
+void main() {
+    print(factorial(5))
+    print(factorial(10))
+
+    for i in 0..10 {
+        write("{fib(i)} ")
+    }
+    print("")
+
+    print(digit_sum(9481))
+}

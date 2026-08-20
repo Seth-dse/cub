@@ -1,0 +1,3 @@
+Hello, Ada!
+Ada has 3 letters.
+Next year Ada will be 37.

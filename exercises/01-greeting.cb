@@ -1,0 +1,19 @@
+// Exercise 1 — Greeting
+//
+// Tutorial: sections 1 and 2.
+//
+// Print three lines:
+//   Hello, Ada!
+//   Ada has 3 letters.
+//   Next year Ada will be 37.
+//
+// Use `let` for the name and the age, and put values into the text with
+// braces: "Hello, {name}!".  Work the letter count and next year's age out
+// rather than typing 3 and 37.
+
+void main() {
+    let name = "Ada"
+    let age = 36
+
+    // TODO: print the three lines
+}

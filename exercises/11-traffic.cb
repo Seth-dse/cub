@@ -1,0 +1,28 @@
+// Exercise 11 — Traffic lights
+//
+// Tutorial: section 9 (enums).
+//
+// An enum is a fixed set of choices.  Fill in:
+//   next(current)    Red -> Green -> Amber -> Red
+//   advice(current)  "stop", "go", "slow down"
+//
+// Compare enums with ==, and always write the type in front:
+// `Light.Red`, never a bare `Red`.
+
+type Light = enum { Red, Green, Amber }
+
+Light next(current: Light) {
+    return current // TODO
+}
+
+string advice(current: Light) {
+    return "?" // TODO
+}
+
+void main() {
+    var light = Light.Red
+    for i in 0..6 {
+        print("{light}: {advice(light)}")
+        // TODO: move the light on
+    }
+}

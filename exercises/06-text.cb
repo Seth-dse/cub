@@ -1,0 +1,18 @@
+// Exercise 6 — Text
+//
+// Tutorial: section 8 (text).
+//
+// Starting from a padded string, print:
+//   [the Cub language]     the trimmed text in brackets
+//   THE CUB LANGUAGE       upper
+//   16                     its length
+//   ["the", "Cub", "language"]   split on a space
+//   3                      how many words
+//   the-Cub-language       joined with dashes
+//   truetruetrue           contains / starts_with / ends_with
+//   the cub language       "Cub" replaced with "cub"
+
+void main() {
+    let messy = "   the Cub language   "
+    // TODO: the eight lines above
+}

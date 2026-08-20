@@ -56,13 +56,17 @@ uninstall-vscode:
 	done; true
 
 fmt: cubc
-	@for f in examples/*.cb examples/*/*.cb tests/run/*.cb tests/run/*/*.cb tests/errors/*.cb tests/runtime/*.cb; do \
+	@for f in examples/*.cb examples/*/*.cb exercises/*.cb exercises/*/*.cb \
+	         exercises/solutions/lib/*.cb tests/run/*.cb tests/run/*/*.cb \
+	         tests/errors/*.cb tests/runtime/*.cb; do \
 	    ./cubc fmt -w $$f; \
 	done; echo "formatted"
 
 fmt-check: cubc
 	@bad=0; \
-	for f in examples/*.cb examples/*/*.cb tests/run/*.cb tests/run/*/*.cb tests/errors/*.cb tests/runtime/*.cb; do \
+	for f in examples/*.cb examples/*/*.cb exercises/*.cb exercises/*/*.cb \
+	         exercises/solutions/lib/*.cb tests/run/*.cb tests/run/*/*.cb \
+	         tests/errors/*.cb tests/runtime/*.cb; do \
 	    ./cubc fmt --check $$f || bad=1; \
 	done; \
 	if [ $$bad -eq 0 ]; then echo "all files are formatted"; else exit 1; fi
