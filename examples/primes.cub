@@ -1,5 +1,5 @@
 // Sieve of Eratosthenes.
-fn primes_below(limit: int) -> [int] {
+[int] primes_below(limit: int) {
     var sieve: [bool] = []
     for i in 0..limit {
         push(sieve, true)
@@ -26,7 +26,7 @@ fn primes_below(limit: int) -> [int] {
     return found
 }
 
-fn main() {
+void main() {
     let found = primes_below(100)
     print("{len(found)} primes below 100:")
     print(found)

@@ -2,7 +2,7 @@
   "name": "cub",
   "displayName": "Cub Language",
   "description": "Syntax highlighting, formatting, and errors as you type for the Cub programming language.",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "publisher": "Sethttech",
   "license": "MIT",
   "icon": "icon.png",

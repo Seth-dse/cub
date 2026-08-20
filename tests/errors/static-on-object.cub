@@ -1,0 +1,7 @@
+class Kit {
+    static int twice(n: int) { return n * 2 }
+}
+void main() {
+    let k = Kit()
+    print(k.twice(2))
+}

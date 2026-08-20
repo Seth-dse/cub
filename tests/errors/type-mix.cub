@@ -1,3 +1,3 @@
-fn main() {
+void main() {
     let n = 1 + "two"
 }

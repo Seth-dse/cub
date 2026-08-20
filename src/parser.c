@@ -26,6 +26,10 @@ static Token *cur(P *p)  { return &p->t[p->i]; }
 static Token *prev(P *p) { return &p->t[p->i > 0 ? p->i - 1 : 0]; }
 
 static bool at(P *p, TokKind k) { return cur(p)->kind == k; }
+static bool at_next(P *p, TokKind k) {
+    int j = p->i + 1 < p->n ? p->i + 1 : p->n - 1;
+    return p->t[j].kind == k;
+}
 
 static bool eat(P *p, TokKind k) {
     if (!at(p, k)) return false;
@@ -67,6 +71,7 @@ static Stmt *mkstmt(P *p, StmtKind k) {
 /* ---------------- types ---------------- */
 
 static Type *parse_type(P *p) {
+    if (eat(p, TK_VOID)) return ty_void();
     if (eat(p, TK_LBRACK)) {
         Type *el = parse_type(p);
         if (eat(p, TK_COLON)) {                 /* [key: value] is a map */
@@ -98,7 +103,12 @@ static Type *parse_type(P *p) {
 
 static Expr *parse_expr(P *p);
 static void  parse_block(P *p, Vec *out);
-static FnDecl *parse_fn(P *p);
+static FnDecl *parse_fn(P *p, bool is_static);
+
+/* A declaration leads with its type, so this is what starts one. */
+static bool starts_type(P *p) {
+    return at(p, TK_VOID) || at(p, TK_LBRACK) || at(p, TK_IDENT);
+}
 
 static Expr *parse_string(P *p, Token *t) {
     /* A literal with no interpolation is just text. */
@@ -511,8 +521,9 @@ static Stmt *parse_stmt(P *p) {
     }
 
     if (at(p, TK_FN)) {
-        err_at(t->line, t->col, "functions can only be declared at the top level");
-        err_help("move this `fn` outside the enclosing block");
+        err_at(t->line, t->col, "Cub does not use `fn`");
+        err_help("write what the function gives back first, as in "
+                 "`int add(a: int, b: int)`");
         stop_if_errors();
     }
 
@@ -558,11 +569,24 @@ static void parse_block(P *p, Vec *out) {
 
 /* ---------------- declarations ---------------- */
 
-static FnDecl *parse_fn(P *p) {
+/* `int add(a: int, b: int) { ... }` -- the return type comes first, and
+ * `void` means it gives nothing back, exactly as in C. */
+static FnDecl *parse_fn(P *p, bool is_static) {
     FnDecl *f = cx_alloc(sizeof(FnDecl));
     f->line = cur(p)->line;
     f->col = cur(p)->col;
-    p->i++;                                     /* fn */
+    f->is_static = is_static;
+
+    if (at(p, TK_FN)) {
+        Token *c = cur(p);
+        err_at(c->line, c->col, "Cub does not use `fn`");
+        err_help("write what the function gives back first: "
+                 "`int add(a: int, b: int)`, or `void` when it gives nothing");
+        stop_if_errors();
+    }
+
+    f->ret = parse_type(p);
+
     Token *nm = cur(p);
     expect(p, TK_IDENT, "a name for the function");
     f->name = nm->lex;
@@ -588,7 +612,13 @@ static FnDecl *parse_fn(P *p) {
     expect(p, TK_RPAREN, "`)` to close the parameter list");
     p->depth--;
 
-    f->ret = eat(p, TK_ARROW) ? parse_type(p) : ty_void();
+    if (at(p, TK_ARROW)) {
+        Token *c = cur(p);
+        err_at(c->line, c->col, "the return type goes before the name, not after");
+        err_help("write `%s %s(...)` instead of `%s(...) -> %s`",
+                 ty_show(f->ret), f->name, f->name, ty_show(f->ret));
+        stop_if_errors();
+    }
     parse_block(p, &f->body);
     return f;
 }
@@ -617,35 +647,40 @@ static void parse_class(P *p, Program *prog) {
     expect(p, TK_LBRACE, "`{` to start the class body");
     skip_semis(p);
     while (!at(p, TK_RBRACE) && !at(p, TK_EOF)) {
-        if (at(p, TK_FN)) {
-            FnDecl *m = parse_fn(p);
-            m->is_init = strcmp(m->name, "init") == 0;
-            if (m->is_init) {
-                if (cd->init)
-                    err_at(m->line, m->col, "`%s` already has an `init`", cd->name);
-                cd->init = m;
-            }
-            vec_push(&cd->methods, m);
+        /* `name: type` is a field; anything else leads with a type and is
+         * therefore a method. */
+        if (at(p, TK_IDENT) && at_next(p, TK_COLON)) {
+            Token *f = cur(p);
+            p->i += 2;
+            vec_push(&cd->fnames, f->lex);
+            vec_push(&cd->ftypes, parse_type(p));
+            eat(p, TK_COMMA);
             skip_semis(p);
             continue;
         }
-        Token *f = cur(p);
-        if (!at(p, TK_IDENT)) {
-            err_at(f->line, f->col, "expected a field or a method, but found `%s`",
-                   tok_name(f->kind));
-            err_help("a class holds `name: type` fields and `fn` methods");
-            stop_if_errors();
-        }
-        p->i++;
-        if (!eat(p, TK_COLON)) {
+
+        bool is_static = eat(p, TK_STATIC);
+        if (!starts_type(p) && !at(p, TK_FN)) {
             Token *c = cur(p);
-            err_at(c->line, c->col, "field `%s` needs a type", f->lex);
-            err_help("write `%s: int`, `%s: string`, and so on", f->lex, f->lex);
+            err_at(c->line, c->col, "expected a field or a method, but found `%s`",
+                   tok_name(c->kind));
+            err_help("a class holds `name: type` fields and methods "
+                     "written `int area()` or `void run()`");
             stop_if_errors();
         }
-        vec_push(&cd->fnames, f->lex);
-        vec_push(&cd->ftypes, parse_type(p));
-        eat(p, TK_COMMA);
+        FnDecl *m = parse_fn(p, is_static);
+        m->is_init = strcmp(m->name, "init") == 0;
+        if (m->is_init) {
+            if (is_static) {
+                err_at(m->line, m->col, "`init` sets up one object, so it is never static");
+                err_help("drop the `static`");
+            }
+            if (cd->init)
+                err_at(m->line, m->col, "`%s` already has an `init`", cd->name);
+            cd->init = m;
+        }
+        if (is_static) vec_push(&cd->statics, m);
+        else           vec_push(&cd->methods, m);
         skip_semis(p);
     }
     expect(p, TK_RBRACE, "`}` to close the class body");
@@ -711,16 +746,18 @@ Program *parse_program(Token *toks, int ntoks) {
 
     skip_semis(&p);
     while (!at(&p, TK_EOF)) {
-        if (at(&p, TK_FN))         vec_push(&prog->fns, parse_fn(&p));
-        else if (at(&p, TK_CLASS)) parse_class(&p, prog);
+        if (at(&p, TK_CLASS))      parse_class(&p, prog);
         else if (at(&p, TK_TYPE))  parse_type_decl(&p, prog);
-        else if (at(&p, TK_LET))  vec_push(&prog->globals, parse_let(&p, false));
-        else if (at(&p, TK_VAR))  vec_push(&prog->globals, parse_let(&p, true));
+        else if (at(&p, TK_LET))   vec_push(&prog->globals, parse_let(&p, false));
+        else if (at(&p, TK_VAR))   vec_push(&prog->globals, parse_let(&p, true));
+        else if (at(&p, TK_FN) || starts_type(&p))
+            vec_push(&prog->fns, parse_fn(&p, false));
         else {
             Token *c = cur(&p);
             err_at(c->line, c->col, "expected a declaration, but found `%s`", tok_name(c->kind));
-            err_help("the top level of a file holds `fn`, `class`, `type`, `let`, "
-                     "and `var` declarations; runnable code goes inside `fn main()`");
+            err_help("the top level of a file holds functions, `class`, `type`, "
+                     "`let`, and `var` declarations; runnable code goes inside "
+                     "`void main()`");
             stop_if_errors();
         }
         skip_semis(&p);

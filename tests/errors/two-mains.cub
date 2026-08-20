@@ -1,0 +1,4 @@
+class App {
+    void main() { print("a") }
+}
+void main() { print("b") }

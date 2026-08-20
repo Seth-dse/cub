@@ -2,20 +2,20 @@
 class Shape {
     name: string
 
-    fn init(name: string) {
+    void init(name: string) {
         self.name = name
     }
 
-    fn area() -> float {
+    float area() {
         return 0.0
     }
 
-    fn perimeter() -> float {
+    float perimeter() {
         return 0.0
     }
 
     // print() uses this whenever a class declares it.
-    fn to_string() -> string {
+    string to_string() {
         return "{pad_end(self.name, 10, " ")} area {pad_start(str(round2(self.area())), 8, " ")}" +
             "  perimeter {pad_start(str(round2(self.perimeter())), 8, " ")}"
     }
@@ -25,23 +25,23 @@ class Rectangle: Shape {
     width: float
     height: float
 
-    fn init(width: float, height: float) {
+    void init(width: float, height: float) {
         super.init("rectangle")
         self.width = width
         self.height = height
     }
 
-    fn area() -> float {
+    float area() {
         return self.width * self.height
     }
 
-    fn perimeter() -> float {
+    float perimeter() {
         return 2.0 * (self.width + self.height)
     }
 }
 
 class Square: Rectangle {
-    fn init(side: float) {
+    void init(side: float) {
         super.init(side, side)
         self.name = "square"
     }
@@ -50,25 +50,25 @@ class Square: Rectangle {
 class Circle: Shape {
     radius: float
 
-    fn init(radius: float) {
+    void init(radius: float) {
         super.init("circle")
         self.radius = radius
     }
 
-    fn area() -> float {
+    float area() {
         return PI * self.radius * self.radius
     }
 
-    fn perimeter() -> float {
+    float perimeter() {
         return TAU * self.radius
     }
 }
 
-fn round2(v: float) -> float {
+float round2(v: float) {
     return round(v * 100.0) / 100.0
 }
 
-fn main() {
+void main() {
     // Every one of these is a Shape, and each keeps its own behaviour.
     let shapes: [Shape] = [
         Rectangle(3.0, 4.0),

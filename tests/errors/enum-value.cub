@@ -1,5 +1,5 @@
 type Color = enum { Red, Green }
-fn main() {
+void main() {
     let c = Color.Blu
     print(c)
 }

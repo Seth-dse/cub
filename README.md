@@ -14,16 +14,16 @@ class Task {
     title: string
     done: bool
 
-    fn init(title: string) {
+    void init(title: string) {
         self.title = title
     }
 
-    fn to_string() -> string {
+    string to_string(){
         return "{if self.done { "[x]" } else { "[ ]" }} {self.title}"
     }
 }
 
-fn main() {
+void main() {
     let tasks = [Task("write a language"), Task("write the docs")]
     tasks[0].done = true
 
@@ -46,7 +46,7 @@ Nothing to install beyond a C compiler and `make`.
 
 ```bash
 make
-make test          # 43 tests: programs, compile errors, runtime failures
+make test          # 48 tests: programs, compile errors, runtime failures
 make examples      # run everything in examples/
 sudo make install  # optional: puts cubc in /usr/local/bin
 make install-vscode   # optional: editor support
@@ -103,7 +103,7 @@ explanation instead of corrupting memory.
 ```cub
 // no #include, no header, no forward declarations,
 // no semicolons, no `int argc, char **argv`
-fn main() {
+void main() {
     print("that is the whole program")
 }
 ```
@@ -151,7 +151,7 @@ for i in 1..=5 { }               // 1 2 3 4 5
 for name in names { }
 
 // Functions: typed, in any order, checked for every return path.
-fn area(w: float, h: float) -> float {
+float area(w: float, h: float){
     return w * h
 }
 
@@ -174,18 +174,27 @@ let label = if count > 0 { "some" } else { "none" }
 // Classes: data with behaviour, and one parent at most.
 class Animal {
     name: string
-    fn init(name: string) { self.name = name }
-    fn speak() -> string { return "{self.name} makes a sound" }
+    void init(name: string) { self.name = name }
+    string speak(){ return "{self.name} makes a sound" }
 }
 
 class Dog: Animal {
-    fn init(name: string) { super.init(name) }
-    fn speak() -> string { return "{self.name} says woof" }
+    void init(name: string) { super.init(name) }
+    string speak(){ return "{self.name} says woof" }
 }
 
 let pets: [Animal] = [Animal("Generic"), Dog("Rex")]
 for pet in pets {
     print(pet.speak())           // each one keeps its own voice
+}
+
+// A class can hold the starting point, and methods of its own.
+class App {
+    static int twice(n: int) { return n * 2 }
+
+    void main() {
+        print(App.twice(21))
+    }
 }
 ```
 
@@ -241,7 +250,7 @@ server meant to run for weeks. Reference counting is the next step.
 
 ## Status
 
-Version 0.2.0. The language described here works, and the test suite covers
+Version 0.3.0. The language described here works, and the test suite covers
 it. Not yet built: modules, optional values, generics, closures, interfaces,
 and private fields.
 [The reference](docs/LANGUAGE.md#19-what-cub-leaves-out-for-now) lists them
@@ -280,14 +289,14 @@ cannot damage your file.
 ```cub
 // before
 type   Point=struct{x:int,y:int}
-fn  dist( a:Point,b:Point )->int{
+int dist( a:Point,b:Point ){
 let dx=a.x-b.x
 return dx*dx
 }
 
 // after
 type Point = struct { x: int, y: int }
-fn dist(a: Point, b: Point) -> int {
+int dist(a: Point, b: Point){
     let dx = a.x - b.x
     return dx * dx
 }

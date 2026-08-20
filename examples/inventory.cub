@@ -4,20 +4,20 @@ class Item {
     price: float
     tags: [string]
 
-    fn init(name: string, price: float) {
+    void init(name: string, price: float) {
         self.name = name
         self.price = price
     }
 
-    fn tag(label: string) {
+    void tag(label: string) {
         push(self.tags, label)
     }
 
-    fn has_tag(label: string) -> bool {
+    bool has_tag(label: string) {
         return contains(self.tags, label)
     }
 
-    fn to_string() -> string {
+    string to_string() {
         return "{pad_end(self.name, 12, ".")} {pad_start(str(self.price), 7, " ")}"
     }
 }
@@ -27,16 +27,16 @@ class Shop {
     stock: [string: int]
     items: [string: Item]
 
-    fn init(name: string) {
+    void init(name: string) {
         self.name = name
     }
 
-    fn add(item: Item, count: int) {
+    void add(item: Item, count: int) {
         self.items[item.name] = item
         self.stock[item.name] = get(self.stock, item.name, 0) + count
     }
 
-    fn sell(name: string, count: int) -> bool {
+    bool sell(name: string, count: int) {
         if not has(self.stock, name) {
             print("  no such item: {name}")
             return false
@@ -49,7 +49,7 @@ class Shop {
         return true
     }
 
-    fn value() -> float {
+    float value() {
         var total = 0.0
         for name in keys(self.stock) {
             total += self.items[name].price * float(self.stock[name])
@@ -57,7 +57,7 @@ class Shop {
         return total
     }
 
-    fn report() {
+    void report() {
         print("{self.name}")
         var names = keys(self.stock)
         sort(names)
@@ -69,7 +69,7 @@ class Shop {
     }
 }
 
-fn main() {
+void main() {
     let shop = Shop("Corner Store")
 
     let apple = Item("apple", 0.5)

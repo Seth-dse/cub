@@ -72,8 +72,9 @@ Format on save:
 
 ### Snippets
 
-`main`, `fn`, `fnm`, `if`, `ife`, `ifx`, `for`, `fore`, `while`, `struct`,
-`enum`, `class`, `classx`, `map`, `print`, `printv`.
+`main`, `fn`, `void`, `fnm`, `static`, `if`, `ife`, `ifx`, `for`, `fore`,
+`while`, `struct`, `enum`, `class`, `classx`, `classmain`, `map`, `print`,
+`printv`.
 
 ### Commands
 
@@ -103,21 +104,21 @@ Command Palette, or right-click in a `.cub` file:
 class Animal {
     name: string
 
-    fn init(name: string) {
+    void init(name: string) {
         self.name = name
     }
 
-    fn speak() -> string {
+    string speak(){
         return "{self.name} makes a sound"
     }
 }
 
 class Dog: Animal {
-    fn init(name: string) { super.init(name) }
-    fn speak() -> string { return "{self.name} says woof" }
+    void init(name: string) { super.init(name) }
+    string speak(){ return "{self.name} says woof" }
 }
 
-fn main() {
+void main() {
     let pets: [Animal] = [Animal("Generic"), Dog("Rex")]
     for pet in pets {
         print(pet.speak())      // each one keeps its own voice

@@ -11,11 +11,11 @@ type Shape = struct {
     tags: [string],
 }
 
-fn shifted(p: Point, dx: int, dy: int) -> Point {
+Point shifted(p: Point, dx: int, dy: int) {
     return Point { x: p.x + dx, y: p.y + dy }
 }
 
-fn main() {
+void main() {
     let p = Point { x: 1, y: 2 }
     print(p)
     print("x is {p.x}, y is {p.y}")

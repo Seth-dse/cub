@@ -4,7 +4,7 @@ type Count = struct {
     times: int,
 }
 
-fn tidy(word: string) -> string {
+string tidy(word: string) {
     var out = ""
     for i in 0..len(word) {
         let c = code_at(word, i)
@@ -17,7 +17,7 @@ fn tidy(word: string) -> string {
     return lower(out)
 }
 
-fn tally(text: string) -> [Count] {
+[Count] tally(text: string) {
     var counts: [Count] = []
     for raw in split(text, " ") {
         let word = tidy(raw)
@@ -40,7 +40,7 @@ fn tally(text: string) -> [Count] {
 }
 
 // Selection sort, most frequent first.
-fn rank(counts: [Count]) {
+void rank(counts: [Count]) {
     for i in 0..len(counts) {
         var best = i
         for j in i + 1..len(counts) {
@@ -54,7 +54,7 @@ fn rank(counts: [Count]) {
     }
 }
 
-fn main() {
+void main() {
     let text = replace("the quick brown fox jumps over the lazy dog. " +
             "the dog barks, and the fox runs. the end.", "\n", " ")
     let counts = tally(text)

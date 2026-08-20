@@ -1,4 +1,4 @@
-fn classify(n: int) -> string {
+string classify(n: int) {
     if n < 0 {
         return "negative"
     } else if n == 0 {
@@ -10,7 +10,7 @@ fn classify(n: int) -> string {
     }
 }
 
-fn main() {
+void main() {
     for n in [-3, 0, 5, 50] {
         print("{n} is {classify(n)}")
     }

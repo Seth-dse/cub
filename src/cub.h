@@ -17,7 +17,7 @@
 #include <stdbool.h>
 #include <stdarg.h>
 
-#define CUB_VERSION "0.2.0"
+#define CUB_VERSION "0.3.0"
 
 /* ------------------------------------------------------------------ */
 /* small utilities                                                     */
@@ -72,7 +72,7 @@ typedef enum {
     TK_FN, TK_LET, TK_VAR, TK_IF, TK_ELSE, TK_WHILE, TK_FOR, TK_IN,
     TK_RETURN, TK_BREAK, TK_CONTINUE, TK_TYPE, TK_STRUCT, TK_ENUM,
     TK_TRUE, TK_FALSE, TK_AND, TK_OR, TK_NOT,
-    TK_CLASS, TK_SELF, TK_SUPER,
+    TK_CLASS, TK_SELF, TK_SUPER, TK_VOID, TK_STATIC,
     /* punctuation */
     TK_LPAREN, TK_RPAREN, TK_LBRACE, TK_RBRACE, TK_LBRACK, TK_RBRACK,
     TK_COMMA, TK_DOT, TK_RANGE, TK_RANGEEQ, TK_COLON, TK_SEMI, TK_ARROW,
@@ -237,6 +237,7 @@ struct FnDecl {
     char     *cname;
 
     /* methods only */
+    bool      is_static;  /* belongs to the class, not to an object */
     ClassDef *owner;      /* the class that declares this body     */
     ClassDef *slot_owner; /* the class whose table holds the slot   */
     bool      is_init;
@@ -258,6 +259,7 @@ struct ClassDef {
     Vec       own_slots;   /* FnDecl* -- new table slots added here   */
 
     FnDecl   *init;
+    Vec       statics;     /* FnDecl* -- methods without an object */
     int       line, col;
     bool      checked;     /* guards against inheritance loops */
 };
@@ -281,6 +283,10 @@ typedef struct {
     Vec enums;            /* EnumDef*   */
     Vec classes;          /* ClassDef*  */
     Vec globals;          /* Stmt* (ST_LET) */
+
+    /* where the program starts, worked out by the checker */
+    FnDecl   *entry;
+    ClassDef *entry_class;   /* set when the entry point is a method */
 } Program;
 
 Program *parse_program(Token *toks, int ntoks);

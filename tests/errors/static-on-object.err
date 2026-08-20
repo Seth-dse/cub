@@ -1,0 +1,2 @@
+belongs to the class `Kit`, not to one of its objects
+call it as `Kit.twice(...)`

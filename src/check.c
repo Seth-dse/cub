@@ -196,6 +196,16 @@ static FnDecl *find_method(ClassDef *c, const char *name) {
     return NULL;
 }
 
+/* Find a method that belongs to the class rather than to an object. */
+static FnDecl *find_static(ClassDef *c, const char *name) {
+    for (; c; c = c->base)
+        for (int i = 0; i < c->statics.len; i++) {
+            FnDecl *m = c->statics.items[i];
+            if (strcmp(m->name, name) == 0) return m;
+        }
+    return NULL;
+}
+
 /* Find a field, returning the class that declares it. */
 static ClassDef *find_field(ClassDef *c, const char *name, Type **out) {
     for (; c; c = c->base)
@@ -814,6 +824,40 @@ static Type *check_method_call(Expr *e) {
     const char *name = target->name;
     bool via_super = target->a->kind == EX_SUPER;
 
+    /* `Math.double(21)` -- a method reached through the class name */
+    if (target->a->kind == EX_IDENT && !lookup(target->a->name)) {
+        Type *named = find_named(target->a->name);
+        if (named && named->kind == TY_CLASS) {
+            FnDecl *sm = find_static(named->cdef, name);
+            if (!sm) {
+                for (int i = 0; i < e->args.len; i++) check_expr(arg(e, i), NULL);
+                if (find_method(named->cdef, name)) {
+                    err_at(target->line, target->col,
+                           "`%s.%s` belongs to an object, not to the class itself",
+                           named->cdef->name, name);
+                    err_help("make one first, as in `%s(...).%s(...)`",
+                             named->cdef->name, name);
+                } else {
+                    err_at(target->line, target->col,
+                           "`%s` has no method named `%s`", named->cdef->name, name);
+                    Vec cands = {0};
+                    for (ClassDef *c = named->cdef; c; c = c->base)
+                        for (int i = 0; i < c->statics.len; i++)
+                            vec_push(&cands, ((FnDecl *)c->statics.items[i])->name);
+                    const char *m = best_match(name, &cands);
+                    if (m) err_help("did you mean `%s.%s`?", named->cdef->name, m);
+                }
+                return ty_err();
+            }
+            e->kind = EX_METHOD;
+            e->fn = sm;
+            e->obj_type = named;
+            e->name = cx_strdup(name);
+            check_args(e, sm, cx_fmt("`%s.%s`", named->cdef->name, name));
+            return sm->ret;
+        }
+    }
+
     Type *obj = check_expr(target->a, NULL);
     if (is_err(obj)) {
         for (int i = 0; i < e->args.len; i++) check_expr(arg(e, i), NULL);
@@ -828,6 +872,14 @@ static Type *check_method_call(Expr *e) {
     }
 
     FnDecl *m = find_method(obj->cdef, name);
+    if (!m && find_static(obj->cdef, name)) {
+        for (int i = 0; i < e->args.len; i++) check_expr(arg(e, i), NULL);
+        err_at(target->line, target->col,
+               "`%s` belongs to the class `%s`, not to one of its objects",
+               name, obj->cdef->name);
+        err_help("call it as `%s.%s(...)`", obj->cdef->name, name);
+        return ty_err();
+    }
     if (!m) {
         for (int i = 0; i < e->args.len; i++) check_expr(arg(e, i), NULL);
         err_at(target->line, target->col, "`%s` has no method named `%s`",
@@ -1227,12 +1279,23 @@ static Type *check_expr(Expr *e, Type *hint) {
             err_at(e->line, e->col, "`self` only means something inside a method");
             break;
         }
+        if (cur_method && cur_method->is_static) {
+            err_at(e->line, e->col, "`%s.%s` is static, so there is no `self` here",
+                   cur_class->name, cur_method->name);
+            err_help("drop the `static`, or pass what you need as an argument");
+            break;
+        }
         t = find_named(cur_class->name);
         break;
 
     case EX_SUPER:
         if (!cur_class) {
             err_at(e->line, e->col, "`super` only means something inside a method");
+            break;
+        }
+        if (cur_method && cur_method->is_static) {
+            err_at(e->line, e->col, "`%s.%s` is static, so there is no `super` here",
+                   cur_class->name, cur_method->name);
             break;
         }
         if (!cur_class->base) {
@@ -1736,6 +1799,30 @@ void check_program(Program *p) {
             }
         }
     }
+    /* methods that belong to the class itself */
+    for (int i = 0; i < p->classes.len; i++) {
+        ClassDef *cd = p->classes.items[i];
+        for (int j = 0; j < cd->statics.len; j++) {
+            FnDecl *m = cd->statics.items[j];
+            m->owner = cd;
+            m->cname = cx_fmt("cubsm_%s_%s", cd->name, m->name);
+            m->ret = resolve_type(m->ret, m->line, m->col);
+            for (int k = 0; k < m->params.len; k++) {
+                VarSym *v = m->params.items[k];
+                v->type = resolve_type(v->type, m->line, m->col);
+                v->cname = cx_fmt("cubp_%s_%d", v->name, ++uid);
+            }
+            for (int k = 0; k < j; k++)
+                if (strcmp(((FnDecl *)cd->statics.items[k])->name, m->name) == 0)
+                    err_at(m->line, m->col, "`%s` already has a static method named `%s`",
+                           cd->name, m->name);
+            for (int k = 0; k < cd->methods.len; k++)
+                if (strcmp(((FnDecl *)cd->methods.items[k])->name, m->name) == 0)
+                    err_at(m->line, m->col,
+                           "`%s` already has a method named `%s`", cd->name, m->name);
+        }
+    }
+
     /* method signatures, overrides, and dispatch slots */
     for (int i = 0; i < p->classes.len; i++) {
         ClassDef *cd = p->classes.items[i];
@@ -1856,8 +1943,10 @@ void check_program(Program *p) {
         ClassDef *cd = p->classes.items[i];
         Type *self_type = find_named(cd->name);
 
-        for (int j = 0; j < cd->methods.len; j++) {
-            FnDecl *m = cd->methods.items[j];
+        for (int j = 0; j < cd->methods.len + cd->statics.len; j++) {
+            bool statics_now = j >= cd->methods.len;
+            FnDecl *m = statics_now ? cd->statics.items[j - cd->methods.len]
+                                    : cd->methods.items[j];
             cur_class = cd;
             cur_method = m;
             cur_fn = m;
@@ -1916,22 +2005,66 @@ void check_program(Program *p) {
         }
     }
 
-    /* 6. the entry point */
+    /* 6. the entry point, which may be a function or a method */
     FnDecl *m = find_fn("main");
-    if (!m) {
-        err_at(1, 1, "this program has no `main` function");
-        err_help("every Cub program starts at `fn main() { ... }`");
-    } else {
-        if (m->params.len != 0) {
-            err_at(m->line, m->col, "`main` does not take any arguments");
-            err_help("read the command line with `args()` in a future release; "
-                     "for now use `input()`");
+    ClassDef *entry_class = NULL;
+    FnDecl *class_main = NULL;
+
+    for (int i = 0; i < p->classes.len; i++) {
+        ClassDef *cd = p->classes.items[i];
+        FnDecl *cm = NULL;
+        for (int j = 0; j < cd->statics.len; j++)
+            if (strcmp(((FnDecl *)cd->statics.items[j])->name, "main") == 0)
+                cm = cd->statics.items[j];
+        for (int j = 0; j < cd->methods.len; j++)
+            if (strcmp(((FnDecl *)cd->methods.items[j])->name, "main") == 0)
+                cm = cd->methods.items[j];
+        if (!cm) continue;
+        if (class_main) {
+            err_at(cm->line, cm->col,
+                   "`%s` and `%s` both have a `main`, so it is unclear where to start",
+                   entry_class->name, cd->name);
+            err_help("leave one of them as the starting point");
+            continue;
         }
-        if (m->ret->kind != TY_VOID && m->ret->kind != TY_INT) {
-            err_at(m->line, m->col, "`main` returns nothing or an exit code, not %s",
-                   ty_show(m->ret));
+        class_main = cm;
+        entry_class = cd;
+    }
+
+    if (m && class_main) {
+        err_at(class_main->line, class_main->col,
+               "there is a `main` function and a `main` in `%s`, "
+               "so it is unclear where to start", entry_class->name);
+        err_help("keep one of the two");
+    }
+
+    FnDecl *entry = m ? m : class_main;
+    if (!entry) {
+        err_at(1, 1, "this program has no `main`");
+        err_help("start it with `void main() { ... }`, "
+                 "or give a class a `main` of its own");
+    } else {
+        if (entry->params.len != 0) {
+            err_at(entry->line, entry->col, "`main` does not take any arguments");
+            err_help("read the command line with `args()`");
+        }
+        if (entry->ret->kind != TY_VOID && entry->ret->kind != TY_INT) {
+            err_at(entry->line, entry->col,
+                   "`main` returns nothing or an exit code, not %s", ty_show(entry->ret));
+        }
+        /* an object has to exist before an ordinary method can run on it */
+        if (class_main && !class_main->is_static) {
+            FnDecl *ini = find_method(entry_class, "init");
+            if (ini && ini->params.len > 0) {
+                err_at(class_main->line, class_main->col,
+                       "`%s` starts the program, so Cub must be able to make one "
+                       "without arguments", entry_class->name);
+                err_help("make `main` static, or give `init` no parameters");
+            }
         }
     }
+    p->entry = entry;
+    p->entry_class = m ? NULL : entry_class;
 
     pop_scope();
     stop_if_errors();

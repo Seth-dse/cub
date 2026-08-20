@@ -24,7 +24,7 @@ static const char *tok_names[TK__COUNT] = {
     "fn", "let", "var", "if", "else", "while", "for", "in",
     "return", "break", "continue", "type", "struct", "enum",
     "true", "false", "and", "or", "not",
-    "class", "self", "super",
+    "class", "self", "super", "void", "static",
     "(", ")", "{", "}", "[", "]",
     ",", ".", "..", "..=", ":", ";", "->",
     "+", "-", "*", "/", "%",
@@ -45,6 +45,7 @@ static const struct { const char *word; TokKind kind; } keywords[] = {
     {"true", TK_TRUE}, {"false", TK_FALSE},
     {"and", TK_AND}, {"or", TK_OR}, {"not", TK_NOT},
     {"class", TK_CLASS}, {"self", TK_SELF}, {"super", TK_SUPER},
+    {"void", TK_VOID}, {"static", TK_STATIC},
     {NULL, TK_EOF}
 };
 

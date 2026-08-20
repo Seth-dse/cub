@@ -1,4 +1,4 @@
-fn main() {
+void main() {
     var nums = [3, 1, 2]
     push(nums, 4)
     print(nums)

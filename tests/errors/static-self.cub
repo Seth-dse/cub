@@ -1,0 +1,5 @@
+class Kit {
+    n: int
+    static int bad() { return self.n }
+}
+void main() { print(Kit.bad()) }

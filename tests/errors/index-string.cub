@@ -1,4 +1,4 @@
-fn main() {
+void main() {
     let s = "hello"
     print(s[0])
 }

@@ -692,8 +692,18 @@ static void gen_expr(Expr *e) {
     case EX_METHOD: {
         FnDecl *m = e->fn;
         Expr *target = e->a->a;           /* the object the method belongs to */
-        char *obj = expr_str(target);
 
+        if (m->is_static) {               /* no object involved at all */
+            E("%s(", m->cname);
+            for (int i = 0; i < e->args.len; i++) {
+                if (i) E(", ");
+                gen_expr(e->args.items[i]);
+            }
+            E(")");
+            break;
+        }
+
+        char *obj = expr_str(target);
         if (e->enum_index) {
             /* super.method(...) -- the parent's own version, chosen here */
             E("%s((void *)self", m->cname);
@@ -977,6 +987,16 @@ static void emit_class_struct(ClassDef *cd) {
 }
 
 static void method_signature(FnDecl *m) {
+    if (m->is_static) {
+        E("static %s %s(", ctype(m->ret), m->cname);
+        if (m->params.len == 0) E("void");
+        for (int i = 0; i < m->params.len; i++) {
+            VarSym *v = m->params.items[i];
+            E("%s%s %s", i ? ", " : "", ctype(v->type), v->cname);
+        }
+        E(")");
+        return;
+    }
     E("static %s %s(void *cub_self", ctype(m->ret), m->cname);
     for (int i = 0; i < m->params.len; i++) {
         VarSym *v = m->params.items[i];
@@ -1106,12 +1126,16 @@ char *codegen_program(Program *p, const char *unit_name) {
     dst = &bodies;
     for (int i = 0; i < ordered.len; i++) {
         ClassDef *cd = ordered.items[i];
-        for (int j = 0; j < cd->methods.len; j++) {
-            FnDecl *m = cd->methods.items[j];
+        for (int j = 0; j < cd->methods.len + cd->statics.len; j++) {
+            bool is_static = j >= cd->methods.len;
+            FnDecl *m = is_static ? cd->statics.items[j - cd->methods.len]
+                                  : cd->methods.items[j];
             method_signature(m);
             E(" {\n");
-            E("    CubC_%s *self = (CubC_%s *)cub_self;\n", cd->name, cd->name);
-            E("    (void)self;\n");
+            if (!is_static) {
+                E("    CubC_%s *self = (CubC_%s *)cub_self;\n", cd->name, cd->name);
+                E("    (void)self;\n");
+            }
             gen_stmts(&m->body, 1);
             if (m->ret->kind == TY_VOID) { indent(1); E("return;\n"); }
             else if (m->ret->kind == TY_STR) { indent(1); E("return cub_str_lit(\"\", 0);\n"); }
@@ -1179,6 +1203,10 @@ char *codegen_program(Program *p, const char *unit_name) {
             method_signature(cd->methods.items[j]);
             E(";\n");
         }
+        for (int j = 0; j < cd->statics.len; j++) {
+            method_signature(cd->statics.items[j]);
+            E(";\n");
+        }
         FnDecl *ini = method_of(cd, "init");
         E("static void *cubnew_%s(", cd->name);
         if (!ini || ini->params.len == 0) E("void");
@@ -1201,18 +1229,28 @@ char *codegen_program(Program *p, const char *unit_name) {
     buf_puts(&out, ginit.data);
     buf_puts(&out, bodies.data);
 
-    FnDecl *m = NULL;
-    for (int i = 0; i < p->fns.len; i++)
-        if (strcmp(((FnDecl *)p->fns.items[i])->name, "main") == 0) m = p->fns.items[i];
+    FnDecl *m = p->entry;
 
     E("int main(int argc, char **argv) {\n");
     E("    cub_rt_init(argc, argv);\n");
     E("    cub_init_globals();\n");
+
+    /* The starting point is a plain function, a static method, or an
+     * ordinary method -- in which case an object is made to run it on. */
+    char *call;
+    if (!m)                          call = cx_fmt("(void)0");
+    else if (!p->entry_class)        call = cx_fmt("%s()", m->cname);
+    else if (m->is_static)           call = cx_fmt("%s()", m->cname);
+    else {
+        E("    void *cub_app = cubnew_%s();\n", p->entry_class->name);
+        call = cx_fmt("%s(cub_app)", m->cname);
+    }
+
     if (m && m->ret->kind == TY_INT) {
-        E("    int rc = (int)%s();\n", m->cname);
+        E("    int rc = (int)%s;\n", call);
         E("    fflush(stdout);\n    cub_rt_shutdown();\n    return rc;\n}\n");
     } else {
-        E("    %s();\n", m ? m->cname : "");
+        E("    %s;\n", call);
         E("    fflush(stdout);\n    cub_rt_shutdown();\n    return 0;\n}\n");
     }
 

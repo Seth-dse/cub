@@ -46,7 +46,7 @@ let GREETING = "hello"
 
 type Point = struct { x: int, y: int }
 
-fn main() {
+void main() {
     print(GREETING)
 }
 ```
@@ -55,7 +55,7 @@ fn main() {
 the process exit code.
 
 ```cub
-fn main() -> int {
+int main(){
     return 0
 }
 ```
@@ -263,28 +263,29 @@ for i in 0..len(word) {
 ## 9. Functions
 
 ```cub
-fn area(width: float, height: float) -> float {
+float area(width: float, height: float){
     return width * height
 }
 
-fn shout(message: string) {        // no `->` means it returns nothing
+void shout(message: string) {        // `void` means it gives nothing back
     print(upper(message))
 }
 ```
 
-Every parameter is typed. The return type follows `->`, and is omitted when
-the function returns nothing.
+A declaration leads with what it gives back, the way C does: `int` for a
+whole number, `[string]` for an array of text, `void` for nothing at all.
+Every parameter is typed, written `name: type`.
 
 Declaration order does not matter — functions may call each other freely,
 including mutual recursion:
 
 ```cub
-fn is_even(n: int) -> bool {
+bool is_even(n: int){
     if n == 0 { return true }
     return is_odd(n - 1)
 }
 
-fn is_odd(n: int) -> bool {
+bool is_odd(n: int){
     if n == 0 { return false }
     return is_even(n - 1)
 }
@@ -493,11 +494,11 @@ the option to build on another class.
 class Animal {
     name: string
 
-    fn init(name: string) {
+    void init(name: string) {
         self.name = name
     }
 
-    fn speak() -> string {
+    string speak(){
         return "{self.name} makes a sound"
     }
 }
@@ -530,15 +531,15 @@ Runtime error: there is no Engine here yet
 class Dog: Animal {
     tricks: [string]
 
-    fn init(name: string) {
+    void init(name: string) {
         super.init(name)          // set up the Animal part first
     }
 
-    fn speak() -> string {        // replaces Animal's version
+    string speak(){        // replaces Animal's version
         return "{self.name} says woof"
     }
 
-    fn learn(trick: string) {
+    void learn(trick: string) {
         push(self.tricks, trick)
     }
 }
@@ -565,13 +566,65 @@ Rules the compiler enforces:
 - `super.speak()` calls the version you replaced.
 - A field cannot share a name with an inherited field, or with a method.
 
+### Methods that belong to the class
+
+A method marked `static` belongs to the class rather than to any object. It
+has no `self`, and you call it through the class name:
+
+```cub
+class MathKit {
+    static int double(n: int) {
+        return n * 2
+    }
+}
+
+print(MathKit.double(21))       // 42
+```
+
+Reaching for `self` inside one is an error, and so is calling a static
+method through an object — the compiler tells you which form to use.
+
+### Starting from a class
+
+A program starts at `main`. That `main` can be a plain function, or it can
+live inside a class:
+
+```cub
+class App {
+    greeting: string
+
+    void init() {
+        self.greeting = "hello"
+    }
+
+    void main() {
+        print(self.greeting)
+    }
+}
+```
+
+When `main` is an ordinary method, Cub makes one object and runs `main` on
+it, so `init` must take no arguments. Mark it `static` if you would rather
+no object were made:
+
+```cub
+class Program {
+    static void main() {
+        print("started")
+    }
+}
+```
+
+A program needs exactly one starting point. Two `main`s — whether in two
+classes or in a class and at the top level — is an error that names both.
+
 ### Printing an object
 
-If a class declares `fn to_string() -> string`, then `print` and `str` use
+If a class declares `string`, then `print` and `str` use
 it. Otherwise you get every field, inherited ones first:
 
 ```cub
-print(dog)      // Dog{name: "Rex", tricks: ["sit"]}
+print(dog)      // Dog to_string(){name: "Rex", tricks: ["sit"]}
 ```
 
 ### Classes and structs, side by side
@@ -581,6 +634,7 @@ print(dog)      // Dog{name: "Rex", tricks: ["sit"]}
 | holds | fields | fields and methods |
 | assigning it | copies | shares |
 | can build on another | no | yes |
+| methods on the type itself | no | `static` |
 | made with | `Point { x: 1 }` | `Dog("Rex")` |
 | `==` | not yet | same object? |
 
@@ -788,7 +842,7 @@ Genuinely missing, and planned:
 program     = { declaration } ;
 declaration = function | classdecl | typedecl | binding ;
 
-function    = "fn" IDENT "(" [ params [ "," ] ] ")" [ "->" type ] block ;
+function    = [ "static" ] type IDENT "(" [ params [ "," ] ] ")" block ;
 params      = param { "," param } ;
 param       = IDENT ":" type ;
 
@@ -802,7 +856,7 @@ enum        = "enum" "{" [ IDENT { "," IDENT } [ "," ] ] "}" ;
 
 binding     = ( "let" | "var" ) IDENT [ ":" type ] "=" expr ;
 
-type        = "int" | "float" | "bool" | "string"
+type        = "void" | "int" | "float" | "bool" | "string"
             | "[" type "]" | "[" type ":" type "]" | IDENT ;
 
 block       = "{" { statement } "}" ;

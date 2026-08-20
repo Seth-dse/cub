@@ -7,7 +7,7 @@ type Task = struct {
     hours: float,
 }
 
-fn mark(list: [Task], title: string, status: Status) {
+void mark(list: [Task], title: string, status: Status) {
     for i in 0..len(list) {
         if list[i].title == title {
             list[i].status = status
@@ -17,7 +17,7 @@ fn mark(list: [Task], title: string, status: Status) {
     print("no task called \"{title}\"")
 }
 
-fn symbol(s: Status) -> string {
+string symbol(s: Status) {
     if s == Status.Done {
         return "[x]"
     } else if s == Status.Doing {
@@ -26,7 +26,7 @@ fn symbol(s: Status) -> string {
     return "[ ]"
 }
 
-fn show(list: [Task]) {
+void show(list: [Task]) {
     var remaining = 0.0
     for t in list {
         print("{symbol(t.status)} {t.title} ({t.hours}h)")
@@ -37,7 +37,7 @@ fn show(list: [Task]) {
     print("{remaining} hours left")
 }
 
-fn main() {
+void main() {
     let list = [
         Task { title: "write the parser", status: Status.Done, hours: 6.0 },
         Task { title: "write the checker", status: Status.Doing, hours: 4.5 },

@@ -62,11 +62,11 @@
     "declarations": {
       "patterns": [
         {
-          "comment": "fn name(...)",
-          "match": "\\b(fn)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "comment": "a declaration leads with its return type",
+          "match": "\\b(void|int|float|bool|string|\\[[^\\]]*\\]|[A-Z][A-Za-z0-9_]*)\\s+([a-z_][A-Za-z0-9_]*)\\s*(?=\\()",
           "captures": {
             "1": {
-              "name": "keyword.declaration.function.cub"
+              "name": "storage.type.return.cub"
             },
             "2": {
               "name": "entity.name.function.cub"
@@ -241,7 +241,7 @@
         },
         {
           "name": "keyword.declaration.cub",
-          "match": "\\b(fn|let|var|type|struct|enum|class)\\b"
+          "match": "\\b(let|var|type|struct|enum|class|static)\\b"
         },
         {
           "name": "variable.language.cub",
@@ -270,7 +270,7 @@
       "patterns": [
         {
           "name": "support.type.primitive.cub",
-          "match": "\\b(int|float|bool|string)\\b"
+          "match": "\\b(int|float|bool|string|void)\\b"
         },
         {
           "comment": "Color.Red -- a value picked out of an enum",
