@@ -65,7 +65,7 @@ Format on save:
 {
   "[cub]": {
     "editor.formatOnSave": true,
-    "editor.defaultFormatter": "sethtech.cub"
+    "editor.defaultFormatter": "Sethttech.cub"
   }
 }
 ```
