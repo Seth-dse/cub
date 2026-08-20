@@ -52,7 +52,11 @@
         "extensions": [
           ".cub"
         ],
-        "configuration": "./language-configuration.json"
+        "configuration": "./language-configuration.json",
+        "icon": {
+          "light": "./icons/cub-file.svg",
+          "dark": "./icons/cub-file.svg"
+        }
       }
     ],
     "grammars": [

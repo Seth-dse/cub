@@ -71,6 +71,14 @@ Format on save:
 }
 ```
 
+### A file icon
+
+`.cub` files get a cub in the explorer. VS Code shows it when your active
+file icon theme has nothing of its own for the extension, which is the case
+for the built-in Seti theme. Some themes — Material Icon Theme among them —
+supply a fallback for every unknown extension, and those win; with one of
+those you will see the theme's generic icon instead.
+
 ### Snippets
 
 `main`, `fn`, `void`, `fnm`, `static`, `if`, `ife`, `ifx`, `for`, `fore`,

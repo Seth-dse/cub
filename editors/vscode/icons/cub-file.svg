@@ -1,0 +1,28 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 32 32" width="32" height="32">
+  <!-- Cub file icon.  No background, so it sits on any explorer colour. -->
+  <g fill="none">
+    <!-- ears -->
+    <circle cx="10.75" cy="11" r="4.25" fill="#e8a33d"/>
+    <circle cx="21.25" cy="11" r="4.25" fill="#e8a33d"/>
+    <circle cx="10.75" cy="11" r="2.1"  fill="#a86c20"/>
+    <circle cx="21.25" cy="11" r="2.1"  fill="#a86c20"/>
+
+    <!-- head -->
+    <circle cx="16" cy="17.5" r="8.25" fill="#e8a33d"/>
+
+    <!-- muzzle -->
+    <ellipse cx="16" cy="18.75" rx="5" ry="3.25" fill="#f7deb2"/>
+
+    <!-- eyes -->
+    <circle cx="13" cy="15.5" r="1.15" fill="#2b2d38"/>
+    <circle cx="19" cy="15.5" r="1.15" fill="#2b2d38"/>
+
+    <!-- nose -->
+    <path d="M16 19.6 L13.9 17.4 A1.1 1.1 0 0 1 14.6 17.05 L17.4 17.05
+             A1.1 1.1 0 0 1 18.1 17.4 Z" fill="#2b2d38"/>
+
+    <!-- smile -->
+    <path d="M16 19.6 v0.9 M16 20.5 q-1.3 1.2 -2.4 0.1 M16 20.5 q1.3 1.2 2.4 0.1"
+          stroke="#2b2d38" stroke-width="0.7" stroke-linecap="round" fill="none"/>
+  </g>
+</svg>
