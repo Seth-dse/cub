@@ -1,0 +1,5 @@
+# Only what the extension needs at runtime goes into the .vsix.
+.vscode/**
+.gitignore
+**/*.vsix
+**/.DS_Store

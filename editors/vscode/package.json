@@ -1,10 +1,15 @@
 {
   "name": "cub",
   "displayName": "Cub Language",
-  "description": "Syntax highlighting, formatting, and live error checking for the Cub language.",
+  "description": "Syntax highlighting, formatting, and errors as you type for the Cub programming language.",
   "version": "0.2.0",
   "publisher": "cub-lang",
   "license": "MIT",
+  "icon": "icon.png",
+  "galleryBanner": {
+    "color": "#2b2d38",
+    "theme": "dark"
+  },
   "engines": {
     "vscode": "^1.75.0"
   },
@@ -16,8 +21,22 @@
   ],
   "keywords": [
     "cub",
-    "cubc"
+    "cubc",
+    "language",
+    "compiler",
+    "formatter",
+    "syntax highlighting"
   ],
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/Seth-dse/cub.git",
+    "directory": "editors/vscode"
+  },
+  "homepage": "https://github.com/Seth-dse/cub#readme",
+  "bugs": {
+    "url": "https://github.com/Seth-dse/cub/issues"
+  },
+  "qna": "https://github.com/Seth-dse/cub/issues",
   "main": "./extension.js",
   "activationEvents": [
     "onLanguage:cub"

@@ -1,65 +1,65 @@
 # Cub for VS Code
 
-Syntax highlighting, formatting, and live error checking for the
-[Cub language](../../README.md).
+Language support for [Cub](https://github.com/Seth-dse/cub) — a small
+language in the C family that tells you what went wrong.
 
-## What you get
+Syntax highlighting, formatting, and **errors underlined as you type**, with
+the compiler's own suggestions carried into the hover.
 
-**Highlighting.** Keywords, types, built-ins, numbers, comments, and escapes.
-Interpolated expressions inside text are highlighted as code, so `{count + 1}`
-in `"you have {count + 1} left"` reads as an expression, not as string
-contents.
+---
 
-**Errors as you type.** The extension runs `cubc --check` in the background
-and turns its output into squiggles. The compiler's `help:` line comes along
-with the message, so hovering a mistake tells you how to fix it:
+## Requirements
 
-> `count` was declared with `let`, so it never changes
->
-> help: declare it with `var count = ...` if it needs to change
-
-**Formatting.** Format Document (`Shift+Alt+F`) runs `cubc fmt`. Because Cub
-ends statements at ends of lines, the formatter only ever changes horizontal
-whitespace — it cannot alter what your program does.
-
-**Snippets.** `main`, `fn`, `if`, `ife`, `for`, `fore`, `while`, `struct`,
-`enum`, `print`, `printv`.
-
-**Commands** (Command Palette, or right-click in a `.cub` file):
-
-| Command | What it does |
-|---|---|
-| Cub: Run File | saves, then runs it in a terminal |
-| Cub: Check File for Errors | checks now, rather than waiting |
-| Cub: Show Generated C | opens the C your program compiles to |
-
-## Installing
-
-From the project root:
+This extension drives the Cub compiler, so you need `cubc` on your PATH:
 
 ```bash
-make install-vscode
+git clone https://github.com/Seth-dse/cub.git
+cd cub
+make
+make install          # or: make install PREFIX=$HOME/.local
 ```
 
-That links this folder into `~/.vscode/extensions`. Restart VS Code, or run
-**Developer: Reload Window** from the Command Palette.
-
-It needs `cubc` on your PATH. If it is somewhere else, set the path in
-Settings:
+If `cubc` lives somewhere else, point the extension at it:
 
 ```json
 { "cub.compilerPath": "/full/path/to/cubc" }
 ```
 
-## Settings
+Without the compiler you still get highlighting and snippets; formatting and
+error checking need it.
 
-| Setting | Default | Meaning |
-|---|---|---|
-| `cub.compilerPath` | `cubc` | where to find the compiler |
-| `cub.checkOnType` | `true` | underline errors while typing, not only on save |
-| `cub.checkDelay` | `400` | milliseconds of quiet before checking |
+---
 
-To format every time you save:
+## What you get
+
+### Errors as you type
+
+`cubc --check` runs in the background and its output becomes squiggles. The
+compiler's `help:` line comes along with the message, so hovering a mistake
+tells you how to fix it:
+
+> `count` was declared with `let`, so it never changes
+>
+> **help:** declare it with `var count = ...` if it needs to change
+
+Misspell a name and it suggests the right one. Forget a struct field and it
+names the one you forgot. Skip a `return` on one branch and it finds the
+branch — before the program ever runs.
+
+### Highlighting
+
+Keywords, types, all 96 built-ins, classes, `self` and `super`, numbers,
+escapes, and nested block comments. Expressions inside interpolated text are
+highlighted as code, so `{count + 1}` in `"you have {count + 1} left"` reads
+as an expression rather than as string contents.
+
+### Formatting
+
+**Format Document** (`Shift+Alt+F`) runs `cubc fmt`. Because Cub ends
+statements at ends of lines, the formatter only ever changes horizontal
+whitespace — it cannot alter what your program does.
+
+Format on save:
 
 ```json
 {
@@ -70,9 +70,66 @@ To format every time you save:
 }
 ```
 
+### Snippets
+
+`main`, `fn`, `fnm`, `if`, `ife`, `ifx`, `for`, `fore`, `while`, `struct`,
+`enum`, `class`, `classx`, `map`, `print`, `printv`.
+
+### Commands
+
+Command Palette, or right-click in a `.cub` file:
+
+| Command | What it does |
+|---|---|
+| **Cub: Run File** | saves, then runs it in a terminal |
+| **Cub: Check File for Errors** | checks now, rather than waiting |
+| **Cub: Show Generated C** | opens the standalone C your program compiles to |
+
+---
+
+## Settings
+
+| Setting | Default | Meaning |
+|---|---|---|
+| `cub.compilerPath` | `cubc` | where to find the compiler |
+| `cub.checkOnType` | `true` | underline errors while typing, not only on save |
+| `cub.checkDelay` | `400` | milliseconds of quiet before checking |
+
+---
+
+## A taste of the language
+
+```cub
+class Animal {
+    name: string
+
+    fn init(name: string) {
+        self.name = name
+    }
+
+    fn speak() -> string {
+        return "{self.name} makes a sound"
+    }
+}
+
+class Dog: Animal {
+    fn init(name: string) { super.init(name) }
+    fn speak() -> string { return "{self.name} says woof" }
+}
+
+fn main() {
+    let pets: [Animal] = [Animal("Generic"), Dog("Rex")]
+    for pet in pets {
+        print(pet.speak())      // each one keeps its own voice
+    }
+}
+```
+
+---
+
 ## Build errors in the Problems panel
 
-A `cubc` problem matcher is included. In `.vscode/tasks.json`:
+A `cubc` problem matcher ships with the extension. In `.vscode/tasks.json`:
 
 ```json
 {
@@ -89,8 +146,15 @@ A `cubc` problem matcher is included. In `.vscode/tasks.json`:
 }
 ```
 
-## Uninstalling
+---
 
-```bash
-rm ~/.vscode/extensions/cub-lang.cub-0.1.0
-```
+## Links
+
+- [The language](https://github.com/Seth-dse/cub)
+- [Tutorial](https://github.com/Seth-dse/cub/blob/main/docs/TUTORIAL.md)
+- [Reference](https://github.com/Seth-dse/cub/blob/main/docs/LANGUAGE.md)
+- [Report a problem](https://github.com/Seth-dse/cub/issues)
+
+## License
+
+MIT
