@@ -1,0 +1,23 @@
+fn main() {
+    let a = "Hello"
+    let b = "World"
+    print(a + ", " + b + "!")
+    print("{a} has {len(a)} letters")
+    print(upper(a), " ", lower(b))
+    print(trim("   padded   ") + "|")
+    print(replace("a-b-c", "-", "+"))
+    print(find("haystack", "stack"))
+    print(find("haystack", "zz"))
+    print(slice("abcdef", 1, 4))
+    print(repeat("ab", 3))
+    print(contains("hello", "ell"), starts_with("hello", "he"), ends_with("hello", "lo"))
+    print(char_at("cub", 1), code_at("cub", 0), from_code(65))
+    print(join(split("a,b,c", ","), " | "))
+    print("escaped: \"quotes\" and \\ and \{braces\}")
+    print("math inside: {2 * 21}")
+    print("nested: {upper(a + b)}")
+    var s = "grow"
+    s += "ing"
+    print(s)
+    print("compare: {"abc" < "abd"} {"abc" == "abc"}")
+}

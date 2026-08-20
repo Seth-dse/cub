@@ -1,0 +1,44 @@
+fn main() {
+    print(round(PI * 100.0) / 100.0)
+    print(sign(-9), sign(0), sign(4.5))
+    print(clamp(15, 0, 10), clamp(-1.5, 0.0, 1.0))
+    print(is_nan(NAN), is_inf(INF), is_nan(1.0))
+    print(INT_MAX)
+    print(exp(0.0), log10(100.0), pow(2.0, 10.0))
+
+    print(pad_start("7", 3, "0"), " ", pad_end("ab", 5, "."))
+    print("[" + trim_start("  x  ") + "]", "[" + trim_end("  x  ") + "]")
+    print(capitalize("hELLO wORLD"))
+    print(lines("one\ntwo\nthree"))
+    print(chars("abc"))
+    print(count("banana", "an"), index_of("banana", "na"), last_index_of("banana", "na"))
+    print(is_digit("123"), is_alpha("abc"), is_alnum("a1"), is_space("  "))
+    print(is_upper("ABC"), is_lower("abc"), is_digit("12a"))
+
+    let nums = [5, 2, 9, 2, 7]
+    print(sum(nums), min_of(nums), max_of(nums))
+    print(index_of(nums, 9), count(nums, 2))
+    let dup = copy(nums)
+    push(dup, 100)
+    print(nums, dup)
+    print(concat([1, 2], [3, 4]))
+    var s = [1, 2, 3]
+    swap(s, 0, 2)
+    print(s)
+    clear(s)
+    print(len(s), s)
+    print(sum([1.5, 2.5]), max_of(["pear", "apple"]))
+
+    print(len(args()) >= 1, clock_ms() > 0, len(env("PATH")) > 0)
+
+    write_file("tests/tmp/std.txt", "alpha\nbeta\n")
+    append_file("tests/tmp/std.txt", "gamma\n")
+    print(read_lines("tests/tmp/std.txt"))
+    print(file_exists("tests/tmp/std.txt"))
+    delete_file("tests/tmp/std.txt")
+    print(file_exists("tests/tmp/std.txt"))
+
+    rand_seed(1)
+    let r = rand_float()
+    print(r >= 0.0 and r < 1.0)
+}

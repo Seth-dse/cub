@@ -1,0 +1,2 @@
+`Child.init` never sets up the `Base` it is built on
+call `super.init(...)` first

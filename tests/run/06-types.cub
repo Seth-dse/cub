@@ -1,0 +1,44 @@
+type Point = struct {
+    x: int,
+    y: int,
+}
+
+type Color = enum { Red, Green, Blue }
+
+type Shape = struct {
+    origin: Point,
+    color: Color,
+    tags: [string],
+}
+
+fn shifted(p: Point, dx: int, dy: int) -> Point {
+    return Point { x: p.x + dx, y: p.y + dy }
+}
+
+fn main() {
+    let p = Point { x: 1, y: 2 }
+    print(p)
+    print("x is {p.x}, y is {p.y}")
+    print(shifted(p, 10, 20))
+
+    var q = p
+    q.x = 100
+    print(p, " and ", q)
+
+    let c = Color.Green
+    print(c, " ", c == Color.Green, " ", c == Color.Red)
+
+    let s = Shape {
+        origin: Point { x: 0, y: 0 },
+        color: Color.Blue,
+        tags: ["round", "small"],
+    }
+    print(s)
+    print(s.origin.x, s.tags[1])
+
+    let points = [Point { x: 1, y: 1 }, Point { x: 2, y: 4 }]
+    for pt in points {
+        print("({pt.x}, {pt.y})")
+    }
+    print(points)
+}

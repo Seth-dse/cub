@@ -1,0 +1,10 @@
+[Outer{name: "a", inner: Inner{tag: "changed", values: [1, 99]}}, Outer{name: "b", inner: Inner{tag: "y", values: [3, 4]}}]
+3
+tip
+[[0, 1, 2], [3, 0, 5], [6, 7, 8]]
+[6, 7]
+truetruetruefalsetrue
+no-newline
+true
+2
+line two

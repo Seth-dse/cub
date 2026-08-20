@@ -1,0 +1,153 @@
+{
+  "main function": {
+    "prefix": "main",
+    "body": [
+      "fn main() {",
+      "\t$0",
+      "}"
+    ],
+    "description": "The entry point of a Cub program"
+  },
+  "function": {
+    "prefix": "fn",
+    "body": [
+      "fn ${1:name}(${2:arg}: ${3:int}) -> ${4:int} {",
+      "\t$0",
+      "}"
+    ],
+    "description": "A function that returns a value"
+  },
+  "procedure": {
+    "prefix": "fnv",
+    "body": [
+      "fn ${1:name}(${2:arg}: ${3:int}) {",
+      "\t$0",
+      "}"
+    ],
+    "description": "A function that returns nothing"
+  },
+  "if": {
+    "prefix": "if",
+    "body": [
+      "if ${1:condition} {",
+      "\t$0",
+      "}"
+    ],
+    "description": "A condition"
+  },
+  "if else": {
+    "prefix": "ife",
+    "body": [
+      "if ${1:condition} {",
+      "\t$2",
+      "} else {",
+      "\t$0",
+      "}"
+    ],
+    "description": "A condition with an alternative"
+  },
+  "for range": {
+    "prefix": "for",
+    "body": [
+      "for ${1:i} in ${2:0}..${3:10} {",
+      "\t$0",
+      "}"
+    ],
+    "description": "Count over a range"
+  },
+  "for each": {
+    "prefix": "fore",
+    "body": [
+      "for ${1:item} in ${2:items} {",
+      "\t$0",
+      "}"
+    ],
+    "description": "Walk an array"
+  },
+  "while": {
+    "prefix": "while",
+    "body": [
+      "while ${1:condition} {",
+      "\t$0",
+      "}"
+    ],
+    "description": "Repeat while true"
+  },
+  "struct": {
+    "prefix": "struct",
+    "body": [
+      "type ${1:Name} = struct {",
+      "\t${2:field}: ${3:int},",
+      "}"
+    ],
+    "description": "Declare a struct"
+  },
+  "enum": {
+    "prefix": "enum",
+    "body": [
+      "type ${1:Name} = enum { ${2:First}, ${3:Second} }"
+    ],
+    "description": "Declare an enum"
+  },
+  "print": {
+    "prefix": "print",
+    "body": [
+      "print(\"$0\")"
+    ],
+    "description": "Print a line"
+  },
+  "print value": {
+    "prefix": "printv",
+    "body": [
+      "print(\"${1:label}: {${2:value}}\")"
+    ],
+    "description": "Print a label and a value"
+  },
+  "class": {
+    "prefix": "class",
+    "body": [
+      "class ${1:Name} {",
+      "\t${2:field}: ${3:int}",
+      "",
+      "\tfn init(${4:value}: ${3:int}) {",
+      "\t\tself.${2:field} = ${4:value}",
+      "\t}",
+      "}"
+    ],
+    "description": "Declare a class with an init"
+  },
+  "subclass": {
+    "prefix": "classx",
+    "body": [
+      "class ${1:Name}: ${2:Parent} {",
+      "\tfn init(${3:args}) {",
+      "\t\tsuper.init(${3:args})",
+      "\t}",
+      "}"
+    ],
+    "description": "Declare a class built on another"
+  },
+  "method": {
+    "prefix": "fnm",
+    "body": [
+      "fn ${1:name}(${2:arg}: ${3:int}) -> ${4:int} {",
+      "\t$0",
+      "}"
+    ],
+    "description": "A method inside a class"
+  },
+  "map": {
+    "prefix": "map",
+    "body": [
+      "var ${1:name}: [${2:string}: ${3:int}] = [:]"
+    ],
+    "description": "An empty map"
+  },
+  "if expression": {
+    "prefix": "ifx",
+    "body": [
+      "if ${1:condition} { ${2:a} } else { ${3:b} }"
+    ],
+    "description": "An if that produces a value"
+  }
+}

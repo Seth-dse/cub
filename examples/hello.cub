@@ -1,0 +1,4 @@
+// The smallest Cub program.
+fn main() {
+    print("Hello, world!")
+}

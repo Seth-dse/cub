@@ -1,0 +1,383 @@
+{
+  "$schema": "https://raw.githubusercontent.com/martinring/tmlanguage/master/tmlanguage.json",
+  "name": "Cub",
+  "scopeName": "source.cub",
+  "patterns": [
+    {
+      "include": "#comments"
+    },
+    {
+      "include": "#declarations"
+    },
+    {
+      "include": "#strings"
+    },
+    {
+      "include": "#numbers"
+    },
+    {
+      "include": "#keywords"
+    },
+    {
+      "include": "#builtins"
+    },
+    {
+      "include": "#types"
+    },
+    {
+      "include": "#calls"
+    },
+    {
+      "include": "#fields"
+    },
+    {
+      "include": "#operators"
+    },
+    {
+      "include": "#punctuation"
+    }
+  ],
+  "repository": {
+    "comments": {
+      "patterns": [
+        {
+          "name": "comment.line.double-slash.cub",
+          "match": "//.*$"
+        },
+        {
+          "include": "#block-comment"
+        }
+      ]
+    },
+    "block-comment": {
+      "name": "comment.block.cub",
+      "begin": "/\\*",
+      "end": "\\*/",
+      "patterns": [
+        {
+          "include": "#block-comment"
+        }
+      ]
+    },
+    "declarations": {
+      "patterns": [
+        {
+          "comment": "fn name(...)",
+          "match": "\\b(fn)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": {
+              "name": "keyword.declaration.function.cub"
+            },
+            "2": {
+              "name": "entity.name.function.cub"
+            }
+          }
+        },
+        {
+          "comment": "class Name : Parent",
+          "match": "\\b(class)\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*(?:(:)\\s*([A-Za-z_][A-Za-z0-9_]*))?",
+          "captures": {
+            "1": {
+              "name": "keyword.declaration.class.cub"
+            },
+            "2": {
+              "name": "entity.name.type.class.cub"
+            },
+            "3": {
+              "name": "punctuation.separator.inheritance.cub"
+            },
+            "4": {
+              "name": "entity.other.inherited-class.cub"
+            }
+          }
+        },
+        {
+          "comment": "type Name = struct | enum",
+          "match": "\\b(type)\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*(=)\\s*\\b(struct|enum)\\b",
+          "captures": {
+            "1": {
+              "name": "keyword.declaration.type.cub"
+            },
+            "2": {
+              "name": "entity.name.type.cub"
+            },
+            "3": {
+              "name": "keyword.operator.assignment.cub"
+            },
+            "4": {
+              "name": "storage.type.cub"
+            }
+          }
+        },
+        {
+          "comment": "let / var bindings",
+          "match": "\\b(let|var)\\s+([A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": {
+              "name": "keyword.declaration.variable.cub"
+            },
+            "2": {
+              "name": "variable.other.definition.cub"
+            }
+          }
+        },
+        {
+          "comment": "loop variable",
+          "match": "\\b(for)\\s+([A-Za-z_][A-Za-z0-9_]*)\\s+(in)\\b",
+          "captures": {
+            "1": {
+              "name": "keyword.control.cub"
+            },
+            "2": {
+              "name": "variable.other.definition.cub"
+            },
+            "3": {
+              "name": "keyword.control.cub"
+            }
+          }
+        },
+        {
+          "comment": "a name followed by a colon: parameter, field, or struct literal key",
+          "match": "\\b([A-Za-z_][A-Za-z0-9_]*)\\s*(:)",
+          "captures": {
+            "1": {
+              "name": "variable.parameter.cub"
+            },
+            "2": {
+              "name": "punctuation.separator.cub"
+            }
+          }
+        }
+      ]
+    },
+    "strings": {
+      "name": "string.quoted.double.cub",
+      "begin": "\"",
+      "end": "\"",
+      "beginCaptures": {
+        "0": {
+          "name": "punctuation.definition.string.begin.cub"
+        }
+      },
+      "endCaptures": {
+        "0": {
+          "name": "punctuation.definition.string.end.cub"
+        }
+      },
+      "patterns": [
+        {
+          "name": "constant.character.escape.cub",
+          "match": "\\\\[ntr0\\\\\"{}]"
+        },
+        {
+          "name": "invalid.illegal.unknown-escape.cub",
+          "match": "\\\\."
+        },
+        {
+          "comment": "an inserted expression: \"total: {a + b}\"",
+          "name": "meta.embedded.expression.cub",
+          "begin": "\\{",
+          "end": "\\}",
+          "beginCaptures": {
+            "0": {
+              "name": "punctuation.section.embedded.begin.cub"
+            }
+          },
+          "endCaptures": {
+            "0": {
+              "name": "punctuation.section.embedded.end.cub"
+            }
+          },
+          "patterns": [
+            {
+              "include": "#numbers"
+            },
+            {
+              "include": "#keywords"
+            },
+            {
+              "include": "#builtins"
+            },
+            {
+              "include": "#types"
+            },
+            {
+              "include": "#calls"
+            },
+            {
+              "include": "#fields"
+            },
+            {
+              "include": "#operators"
+            },
+            {
+              "include": "#punctuation"
+            }
+          ]
+        }
+      ]
+    },
+    "numbers": {
+      "patterns": [
+        {
+          "name": "constant.numeric.hex.cub",
+          "match": "\\b0[xX][0-9a-fA-F_]+\\b"
+        },
+        {
+          "name": "constant.numeric.float.cub",
+          "match": "\\b[0-9][0-9_]*(\\.[0-9][0-9_]*([eE][+-]?[0-9]+)?|[eE][+-]?[0-9]+)"
+        },
+        {
+          "name": "constant.numeric.integer.cub",
+          "match": "\\b[0-9][0-9_]*\\b"
+        }
+      ]
+    },
+    "keywords": {
+      "patterns": [
+        {
+          "name": "keyword.control.cub",
+          "match": "\\b(if|else|while|for|in|return|break|continue)\\b"
+        },
+        {
+          "name": "keyword.declaration.cub",
+          "match": "\\b(fn|let|var|type|struct|enum|class)\\b"
+        },
+        {
+          "name": "variable.language.cub",
+          "match": "\\b(self|super)\\b"
+        },
+        {
+          "name": "keyword.operator.word.cub",
+          "match": "\\b(and|or|not)\\b"
+        },
+        {
+          "name": "constant.language.boolean.cub",
+          "match": "\\b(true|false)\\b"
+        },
+        {
+          "name": "constant.language.cub",
+          "match": "\\b(PI|TAU|E|INF|NAN|INT_MAX|INT_MIN)\\b"
+        }
+      ]
+    },
+    "builtins": {
+      "comment": "the standard library; always in scope, never importable",
+      "name": "support.function.builtin.cub",
+      "match": "\\b(last_index_of|starts_with|file_exists|append_file|delete_file|write_file|rand_float|trim_start|capitalize|read_lines|rand_seed|ends_with|from_code|read_file|pad_start|rand_int|contains|trim_end|index_of|is_digit|is_alpha|is_alnum|is_space|is_upper|is_lower|sleep_ms|clock_ms|replace|char_at|code_at|reverse|time_ms|pad_end|shuffle|remove|insert|repeat|assert|values|is_nan|is_inf|concat|min_of|max_of|eprint|print|write|float|floor|round|input|upper|lower|split|slice|panic|clear|atan2|log10|clamp|lines|chars|count|push|sqrt|ceil|trim|join|find|sort|keys|asin|acos|atan|sign|copy|swap|exit|args|len|pop|str|int|abs|min|max|pow|has|get|sin|cos|tan|log|exp|sum|env)\\b(?=\\s*\\()"
+    },
+    "types": {
+      "patterns": [
+        {
+          "name": "support.type.primitive.cub",
+          "match": "\\b(int|float|bool|string)\\b"
+        },
+        {
+          "comment": "Color.Red -- a value picked out of an enum",
+          "match": "\\b([A-Z][A-Za-z0-9_]*)(\\.)([A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": {
+              "name": "entity.name.type.cub"
+            },
+            "2": {
+              "name": "punctuation.accessor.cub"
+            },
+            "3": {
+              "name": "variable.other.enummember.cub"
+            }
+          }
+        },
+        {
+          "name": "entity.name.type.cub",
+          "match": "\\b[A-Z][A-Za-z0-9_]*\\b"
+        }
+      ]
+    },
+    "calls": {
+      "name": "entity.name.function.call.cub",
+      "match": "\\b[A-Za-z_][A-Za-z0-9_]*\\b(?=\\s*\\()"
+    },
+    "fields": {
+      "patterns": [
+        {
+          "match": "(\\.)([A-Za-z_][A-Za-z0-9_]*)\\s*(?=\\()",
+          "captures": {
+            "1": {
+              "name": "punctuation.accessor.cub"
+            },
+            "2": {
+              "name": "entity.name.function.method.cub"
+            }
+          }
+        },
+        {
+          "match": "(\\.)([A-Za-z_][A-Za-z0-9_]*)",
+          "captures": {
+            "1": {
+              "name": "punctuation.accessor.cub"
+            },
+            "2": {
+              "name": "variable.other.property.cub"
+            }
+          }
+        }
+      ]
+    },
+    "operators": {
+      "patterns": [
+        {
+          "name": "keyword.operator.arrow.cub",
+          "match": "->"
+        },
+        {
+          "name": "keyword.operator.range.cub",
+          "match": "\\.\\.=?"
+        },
+        {
+          "name": "keyword.operator.comparison.cub",
+          "match": "==|!=|<=|>=|<|>"
+        },
+        {
+          "name": "keyword.operator.logical.cub",
+          "match": "&&|\\|\\||!"
+        },
+        {
+          "name": "keyword.operator.assignment.cub",
+          "match": "\\+=|-=|\\*=|/=|%=|="
+        },
+        {
+          "name": "keyword.operator.arithmetic.cub",
+          "match": "\\+|-|\\*|/|%"
+        }
+      ]
+    },
+    "punctuation": {
+      "patterns": [
+        {
+          "name": "punctuation.separator.comma.cub",
+          "match": ","
+        },
+        {
+          "name": "punctuation.separator.colon.cub",
+          "match": ":"
+        },
+        {
+          "name": "punctuation.terminator.cub",
+          "match": ";"
+        },
+        {
+          "name": "punctuation.section.braces.cub",
+          "match": "[{}]"
+        },
+        {
+          "name": "punctuation.section.brackets.cub",
+          "match": "[\\[\\]]"
+        },
+        {
+          "name": "punctuation.section.parens.cub",
+          "match": "[()]"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,5 @@
+type Color = enum { Red, Green }
+fn main() {
+    let c = Color.Blu
+    print(c)
+}

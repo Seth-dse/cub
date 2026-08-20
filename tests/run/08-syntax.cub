@@ -1,0 +1,44 @@
+/* A block comment
+   /* that nests */
+   and keeps going. */
+fn total(
+    a: int,
+    b: int, // trailing comma below is fine
+    c: int,
+) -> int {
+    return a + b + c
+}
+
+fn main() {
+    // Semicolons are allowed but never required.
+    let a = 1;
+    let b = 2
+    print(a + b);
+
+    // An expression continues when the line ends on an operator.
+    let long = 1 +
+        2 +
+        3
+    print(long)
+
+    // ...or when it is inside brackets.
+    let items = [
+        10,
+        20,
+        30,
+    ]
+    print(items)
+    print(total(
+        1,
+        2,
+        3,
+    ))
+
+    // A condition needs no parentheses, but may have them.
+    if a < b and (b < 10) {
+        print("ordered")
+    }
+
+    let nested = total(total(1, 1, 1), 2, 3)
+    print(nested)
+}

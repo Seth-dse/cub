@@ -1,0 +1,2 @@
+Runtime error: cannot divide 10 by zero
+at tests/runtime/divzero.cub:4

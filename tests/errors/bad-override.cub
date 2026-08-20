@@ -1,0 +1,7 @@
+class Animal {
+    fn speak() -> string { return "..." }
+}
+class Dog: Animal {
+    fn speak(loud: bool) -> string { return "woof" }
+}
+fn main() { print(Dog().speak(true)) }

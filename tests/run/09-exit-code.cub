@@ -1,0 +1,4 @@
+fn main() -> int {
+    print("finishing with a code")
+    return 0
+}

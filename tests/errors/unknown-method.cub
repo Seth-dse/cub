@@ -1,0 +1,4 @@
+class Robot {
+    fn beep() -> string { return "beep" }
+}
+fn main() { print(Robot().beeep()) }

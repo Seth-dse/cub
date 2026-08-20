@@ -1,0 +1,6 @@
+fn biggest(a: int, b: int) -> int {
+    if a > b {
+        return a
+    }
+}
+fn main() { print(biggest(1, 2)) }

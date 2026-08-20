@@ -1,0 +1,68 @@
+type Inner = struct { tag: string, values: [int] }
+type Outer = struct { name: string, inner: Inner }
+type Tree = struct { label: string, children: [Tree] }
+
+fn leaf(label: string) -> Tree {
+    var kids: [Tree] = []
+    return Tree { label: label, children: kids }
+}
+
+fn depth(t: Tree) -> int {
+    var best = 0
+    for child in t.children {
+        best = max(best, depth(child))
+    }
+    return best + 1
+}
+
+fn main() {
+    // assignment through several levels
+    var items = [
+        Outer { name: "a", inner: Inner { tag: "x", values: [1, 2] } },
+        Outer { name: "b", inner: Inner { tag: "y", values: [3] } },
+    ]
+    items[0].inner.tag = "changed"
+    items[0].inner.values[1] = 99
+    push(items[1].inner.values, 4)
+    print(items)
+
+    // a struct that holds itself through an array
+    var root = leaf("root")
+    var branch = leaf("branch")
+    push(branch.children, leaf("tip"))
+    push(root.children, branch)
+    push(root.children, leaf("other"))
+    print(depth(root))
+    print(root.children[0].children[0].label)
+
+    // arrays of arrays, mutated in place
+    var grid: [[int]] = []
+    for r in 0..3 {
+        var row: [int] = []
+        for c in 0..3 {
+            push(row, r * 3 + c)
+        }
+        push(grid, row)
+    }
+    grid[1][1] = 0
+    print(grid)
+    print(slice(grid[2], 0, 2))
+
+    // text comparison, every form
+    print("abc" < "abd", "abc" <= "abc", "b" > "a", "a" >= "b", "x" != "y")
+
+    // write leaves no newline
+    write("no")
+    write("-")
+    write("newline")
+    print("")
+
+    // enums inside arrays
+    print(len([1, 2, 3]) == 3)
+
+    // files
+    write_file("tests/tmp/scratch.txt", "line one\nline two\n")
+    let back = read_file("tests/tmp/scratch.txt")
+    print(len(split(trim(back), "\n")))
+    print(trim(split(back, "\n")[1]))
+}

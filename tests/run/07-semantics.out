@@ -1,0 +1,9 @@
+version 1.0
+123
+[1, 99]
+[1, 99, 2] [1, 99, 2]
+Box{value: 1}Box{value: 2}
+Box{value: 1}Box{value: 42}
+inner 11
+outer 1
+[9, 2, 3, 4]

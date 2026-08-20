@@ -1,0 +1,5 @@
+fn main() {
+    var n = 10
+    var d = 0
+    print(n / d)
+}

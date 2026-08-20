@@ -1,0 +1,2 @@
+type Node = struct { value: int, next: Node }
+fn main() { print("x") }

@@ -1,0 +1,16 @@
+# The compiler binary and its objects
+cubc
+*.o
+
+# Generated from runtime/cub_rt.h at build time
+src/runtime_embed.c
+
+# Test scratch space
+tests/tmp/
+
+# C emitted by cubc next to a program
+examples/*.c
+tests/**/*.c
+
+# macOS
+.DS_Store

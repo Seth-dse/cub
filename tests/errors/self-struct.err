@@ -1,0 +1,2 @@
+contains itself through field `next`
+hold it in an array instead

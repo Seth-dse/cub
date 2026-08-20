@@ -1,0 +1,2 @@
+cannot add int and string
+turn the other side into text with `str(x)`

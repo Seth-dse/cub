@@ -1,0 +1,4 @@
+fn main() {
+    var items: [int] = []
+    print(pop(items))
+}

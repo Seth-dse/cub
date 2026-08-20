@@ -1,0 +1,10 @@
+class Engine { power: int }
+class Car {
+    engine: Engine
+    fn describe() -> string { return "engine {self.engine.power}" }
+}
+fn main() {
+    let c = Car()
+    print("made the car")
+    print(c.describe())
+}

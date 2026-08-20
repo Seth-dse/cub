@@ -1,0 +1,5 @@
+type Point = struct { x: int }
+fn main() {
+    let p = Point { x: 1 }
+    print(p.shift())
+}

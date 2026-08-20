@@ -1,0 +1,41 @@
+fn fib(n: int) -> int {
+    if n < 2 {
+        return n
+    }
+    return fib(n - 1) + fib(n - 2)
+}
+
+fn is_even(n: int) -> bool {
+    if n == 0 {
+        return true
+    }
+    return is_odd(n - 1)
+}
+
+fn is_odd(n: int) -> bool {
+    if n == 0 {
+        return false
+    }
+    return is_even(n - 1)
+}
+
+fn greet(who: string, times: int) {
+    for i in 0..times {
+        print("hi {who}")
+    }
+}
+
+fn doubled(items: [int]) -> [int] {
+    var out: [int] = []
+    for n in items {
+        push(out, n * 2)
+    }
+    return out
+}
+
+fn main() {
+    print(fib(20))
+    print(is_even(10), is_odd(10))
+    greet("cub", 2)
+    print(doubled([1, 2, 3]))
+}

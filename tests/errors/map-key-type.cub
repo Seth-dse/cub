@@ -1,0 +1,4 @@
+fn main() {
+    var m: [string: int] = [:]
+    m[3] = 1
+}

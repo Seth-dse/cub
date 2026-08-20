@@ -1,0 +1,28 @@
+// A guessing game.  Run it with `cubc run examples/guess.cub`.
+fn main() {
+    rand_seed(7)
+    let secret = rand_int(1, 100)
+    var tries = 0
+
+    print("I am thinking of a number between 1 and 100.")
+    while true {
+        write("Your guess: ")
+        let line = trim(input())
+        if len(line) == 0 {
+            print("\nNothing entered, so I will stop here. It was {secret}.")
+            return
+        }
+
+        let guess = int(line)
+        tries += 1
+
+        if guess < secret {
+            print("Too low.")
+        } else if guess > secret {
+            print("Too high.")
+        } else {
+            print("That is it, in {tries} tries.")
+            return
+        }
+    }
+}

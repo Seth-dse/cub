@@ -1,0 +1,122 @@
+{
+  "name": "cub",
+  "displayName": "Cub Language",
+  "description": "Syntax highlighting, formatting, and live error checking for the Cub language.",
+  "version": "0.2.0",
+  "publisher": "cub-lang",
+  "license": "MIT",
+  "engines": {
+    "vscode": "^1.75.0"
+  },
+  "categories": [
+    "Programming Languages",
+    "Formatters",
+    "Snippets",
+    "Linters"
+  ],
+  "keywords": [
+    "cub",
+    "cubc"
+  ],
+  "main": "./extension.js",
+  "activationEvents": [
+    "onLanguage:cub"
+  ],
+  "contributes": {
+    "languages": [
+      {
+        "id": "cub",
+        "aliases": [
+          "Cub",
+          "cub"
+        ],
+        "extensions": [
+          ".cub"
+        ],
+        "configuration": "./language-configuration.json"
+      }
+    ],
+    "grammars": [
+      {
+        "language": "cub",
+        "scopeName": "source.cub",
+        "path": "./syntaxes/cub.tmLanguage.json"
+      }
+    ],
+    "snippets": [
+      {
+        "language": "cub",
+        "path": "./snippets/cub.json"
+      }
+    ],
+    "commands": [
+      {
+        "command": "cub.run",
+        "title": "Cub: Run File",
+        "category": "Cub"
+      },
+      {
+        "command": "cub.check",
+        "title": "Cub: Check File for Errors",
+        "category": "Cub"
+      },
+      {
+        "command": "cub.emitC",
+        "title": "Cub: Show Generated C",
+        "category": "Cub"
+      }
+    ],
+    "configuration": {
+      "title": "Cub",
+      "properties": {
+        "cub.compilerPath": {
+          "type": "string",
+          "default": "cubc",
+          "description": "Path to the cubc executable. Leave as `cubc` if it is on your PATH."
+        },
+        "cub.checkOnType": {
+          "type": "boolean",
+          "default": true,
+          "description": "Underline errors as you type, rather than only when you save."
+        },
+        "cub.checkDelay": {
+          "type": "number",
+          "default": 400,
+          "description": "Milliseconds to wait after typing before checking for errors."
+        }
+      }
+    },
+    "problemMatchers": [
+      {
+        "name": "cubc",
+        "owner": "cub",
+        "fileLocation": [
+          "relative",
+          "${workspaceFolder}"
+        ],
+        "pattern": {
+          "regexp": "^(.*):(\\d+):(\\d+):\\s+(error|warning|note):\\s+(.*)$",
+          "file": 1,
+          "line": 2,
+          "column": 3,
+          "severity": 4,
+          "message": 5
+        }
+      }
+    ],
+    "menus": {
+      "editor/context": [
+        {
+          "command": "cub.run",
+          "when": "resourceLangId == cub",
+          "group": "cub@1"
+        },
+        {
+          "command": "cub.emitC",
+          "when": "resourceLangId == cub",
+          "group": "cub@2"
+        }
+      ]
+    }
+  }
+}

@@ -1,0 +1,23 @@
+fn grade(score: int) -> string {
+    return if score >= 90 { "A" } else if score >= 80 { "B" } else { "C" }
+}
+
+fn main() {
+    let n = 7
+    let label = if n % 2 == 0 { "even" } else { "odd" }
+    print("{n} is {label}")
+    print(grade(95), grade(85), grade(10))
+
+    let bigger = if 3 > 5 { 3 } else { 5 }
+    print(bigger)
+
+    // still works as a statement, unchanged
+    if n > 5 {
+        print("big")
+    } else if n > 2 {
+        print("medium")
+    } else {
+        print("small")
+    }
+    print("nested: {if n > 0 { "positive" } else { "not" }}")
+}

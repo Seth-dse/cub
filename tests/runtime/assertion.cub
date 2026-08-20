@@ -1,0 +1,4 @@
+fn main() {
+    let age = 12
+    assert(age >= 18, "you must be 18 or older")
+}

@@ -1,0 +1,2 @@
+text cannot be indexed with `[ ]`
+use `char_at(s, i)`

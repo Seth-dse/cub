@@ -1,0 +1,2 @@
+`count` was declared with `let`, so it never changes
+help: declare it with `var count = ...`
