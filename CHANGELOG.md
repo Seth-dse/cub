@@ -21,7 +21,7 @@ global; anything that reaches outside the program now lives in a module:
 Calling one of these globally is an error that names the module and the new
 spelling, so an older program is told what to change.
 
-**`import` also brings in your own files.** `import "shapes.cub"` reads a
+**`import` also brings in your own files.** `import "shapes.cb"` reads a
 path relative to the importing file, and a file is read once however many
 times it is asked for. Errors name the file the code was written in, not the
 one on the command line. Only the file handed to `cubc` may declare `main`.

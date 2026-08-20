@@ -22,7 +22,7 @@ test: cubc
 	@./tests/run_tests.sh
 
 examples: cubc
-	@for f in examples/*.cub; do echo "== $$f"; ./cubc run $$f < /dev/null || exit 1; done
+	@for f in examples/*.cb; do echo "== $$f"; ./cubc run $$f < /dev/null || exit 1; done
 
 install: cubc
 	install -d $(PREFIX)/bin
@@ -56,13 +56,13 @@ uninstall-vscode:
 	done; true
 
 fmt: cubc
-	@for f in examples/*.cub examples/*/*.cub tests/run/*.cub tests/run/*/*.cub tests/errors/*.cub tests/runtime/*.cub; do \
+	@for f in examples/*.cb examples/*/*.cb tests/run/*.cb tests/run/*/*.cb tests/errors/*.cb tests/runtime/*.cb; do \
 	    ./cubc fmt -w $$f; \
 	done; echo "formatted"
 
 fmt-check: cubc
 	@bad=0; \
-	for f in examples/*.cub examples/*/*.cub tests/run/*.cub tests/run/*/*.cub tests/errors/*.cub tests/runtime/*.cub; do \
+	for f in examples/*.cb examples/*/*.cb tests/run/*.cb tests/run/*/*.cb tests/errors/*.cb tests/runtime/*.cb; do \
 	    ./cubc fmt --check $$f || bad=1; \
 	done; \
 	if [ $$bad -eq 0 ]; then echo "all files are formatted"; else exit 1; fi

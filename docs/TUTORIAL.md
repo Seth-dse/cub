@@ -3,14 +3,14 @@
 This walks you from nothing to a working program. It assumes you have
 written a little code before, in any language, but nothing about C.
 
-Everything here is runnable. Save the code, run `cubc run whatever.cub`, and
+Everything here is runnable. Save the code, run `cubc run whatever.cb`, and
 watch what happens.
 
 ---
 
 ## 1. Hello
 
-Put this in `hello.cub`:
+Put this in `hello.cb`:
 
 ```cub
 void main() {
@@ -21,7 +21,7 @@ void main() {
 Run it:
 
 ```
-cubc run hello.cub
+cubc run hello.cb
 ```
 
 Every Cub program starts at `main`. Code lives inside functions; the file
@@ -259,7 +259,7 @@ whatever happened to be in memory:
 
 ```
 Runtime error: position 5 is outside the array, whose positions are 0 to 3
-  at scores.cub:8
+  at scores.cb:8
 ```
 
 Second, arrays are *shared*. Two names can refer to one array:
@@ -608,7 +608,7 @@ A program does not have to be one file. Put the shared parts somewhere and
 import them by name:
 
 ```cub
-// shapes.cub
+// shapes.cb
 class Circle {
     radius: float
     void init(radius: float) { self.radius = radius }
@@ -617,8 +617,8 @@ class Circle {
 ```
 
 ```cub
-// main.cub
-import "shapes.cub"
+// main.cb
+import "shapes.cb"
 
 void main() {
     print(Circle(2.0).area())
@@ -647,7 +647,7 @@ Ordinary `//` comments are for whoever is reading the code; `///` comments
 are for whoever is *using* it. `cubc doc` collects them into a reference:
 
 ```bash
-cubc doc shapes.cub -o shapes.md
+cubc doc shapes.cb -o shapes.md
 ```
 
 You can document classes, methods, fields, structs, and enums the same way.
@@ -724,7 +724,7 @@ as zero:
 
 ```
 Runtime error: cannot read a whole number from "three"
-  at stats.cub:33
+  at stats.cb:33
 ```
 
 That is the trade Cub makes everywhere: say what you mean, and be told
@@ -738,4 +738,4 @@ clearly when something does not add up.
 - `examples/` — larger programs: a sieve, a word counter, a task list,
   shapes built with classes, a shop inventory built with classes and maps,
   and `geometry/`, a program split across three files
-- `cubc program.cub --emit-c` — read the C your program turns into
+- `cubc program.cb --emit-c` — read the C your program turns into

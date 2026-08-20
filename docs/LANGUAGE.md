@@ -390,7 +390,7 @@ program with a message rather than corrupting memory:
 
 ```
 Runtime error: position 5 is outside the array, whose positions are 0 to 2
-  at scores.cub:4
+  at scores.cb:4
 ```
 
 ---
@@ -506,8 +506,8 @@ error: `sqrt` lives in the `math` module
 ### Your own files
 
 ```cub
-import "shapes.cub"
-import "lib/util.cub"
+import "shapes.cb"
+import "lib/util.cb"
 ```
 
 The path is taken relative to the file doing the importing. Everything the
@@ -549,7 +549,7 @@ index does. Use `has` to check, or `get` to supply a fallback:
 
 ```
 Runtime error: this map has no key "zzz"
-  at counts.cub:7
+  at counts.cb:7
 ```
 
 To walk a map, walk its keys. The order is not meaningful, so sort them when
@@ -604,7 +604,7 @@ object is never full of rubbish. A field that holds another object starts
 
 ```
 Runtime error: there is no Engine here yet
-  at car.cub:4
+  at car.cb:4
 ```
 
 ### Building on another class
@@ -731,7 +731,7 @@ for a `class` when the thing has behaviour, or when sharing it is the point.
 words, and suggest a fix:
 
 ```
-sum.cub:2:15: error: cannot add int and string
+sum.cb:2:15: error: cannot add int and string
      2 |     let n = 1 + "two"
        |               ^
   help: turn the other side into text with `str(x)`, or write "...{value}..."
@@ -982,21 +982,21 @@ ifexpr      = "if" expr "{" expr "}" "else" ( ifexpr | "{" expr "}" ) ;
 ## 22. The compiler
 
 ```
-cubc program.cub              compile to ./program
-cubc program.cub -o name      choose the output name
-cubc run program.cub          compile and run, leaving nothing behind
-cubc --check program.cub      check for errors, produce nothing
-cubc program.cub --emit-c     write standalone C99 instead
-cubc program.cub --keep-c     compile, and keep the generated C
-cubc -v program.cub           show each step
+cubc program.cb              compile to ./program
+cubc program.cb -o name      choose the output name
+cubc run program.cb          compile and run, leaving nothing behind
+cubc --check program.cb      check for errors, produce nothing
+cubc program.cb --emit-c     write standalone C99 instead
+cubc program.cb --keep-c     compile, and keep the generated C
+cubc -v program.cb           show each step
 
-cubc fmt program.cub          print it, tidily formatted
-cubc fmt -w program.cub       format it in place
-cubc fmt --check program.cub  exit non-zero if it needs formatting
-cubc fmt -w a.cub b.cub       several files at once
+cubc fmt program.cb          print it, tidily formatted
+cubc fmt -w program.cb       format it in place
+cubc fmt --check program.cb  exit non-zero if it needs formatting
+cubc fmt -w a.cb b.cb       several files at once
 
-cubc doc program.cub          write a reference from its /// comments
-cubc doc program.cub -o api.md
+cubc doc program.cb          write a reference from its /// comments
+cubc doc program.cb -o api.md
 ```
 
 ### Formatting
@@ -1026,6 +1026,6 @@ whatever `$CC` names). The generated file carries its own runtime, so it
 depends on nothing but libc and libm:
 
 ```
-cubc program.cub --emit-c
+cubc program.cb --emit-c
 cc -std=c99 -O2 program.c -o program -lm
 ```

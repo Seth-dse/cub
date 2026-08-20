@@ -35,7 +35,7 @@ void main() {
 ```
 
 ```
-cubc run tasks.cub
+cubc run tasks.cb
 ```
 
 ---
@@ -55,7 +55,7 @@ make install-vscode   # optional: editor support
 Then:
 
 ```bash
-./cubc run examples/fizzbuzz.cub
+./cubc run examples/fizzbuzz.cb
 ```
 
 ---
@@ -72,14 +72,14 @@ print("Hello, {name}. Next year you turn {age + 1}.")
 **Errors written for a person.**
 
 ```
-sum.cub:2:15: error: cannot add int and string
+sum.cb:2:15: error: cannot add int and string
      2 |     let n = 1 + "two"
        |               ^
   help: turn the other side into text with `str(x)`, or write "...{value}..."
 ```
 
 ```
-count.cub:3:5: error: `count` was declared with `let`, so it never changes
+count.cb:3:5: error: `count` was declared with `let`, so it never changes
   help: declare it with `var count = ...` if it needs to change
 ```
 
@@ -91,7 +91,7 @@ branch before the program ever runs.
 
 ```
 Runtime error: position 5 is outside the array, whose positions are 0 to 2
-  at scores.cub:4
+  at scores.cb:4
 ```
 
 Array bounds, integer division by zero, and failed conversions are all
@@ -171,7 +171,7 @@ print(math.sqrt(16.0))
 print(fs.exists("notes.txt"))
 
 // A program can span several files.
-import "shapes.cub"
+import "shapes.cb"
 
 // Maps, keyed by text or number.
 var ages = ["ada": 36]
@@ -216,7 +216,7 @@ Read [the tutorial](docs/TUTORIAL.md) to learn it, or
 ## How it works
 
 ```
-your.cub ──▶ lexer ──▶ parser ──▶ checker ──▶ C generator ──▶ cc ──▶ program
+your.cb ──▶ lexer ──▶ parser ──▶ checker ──▶ C generator ──▶ cc ──▶ program
 ```
 
 The compiler is about 7,200 lines of C99 with no dependencies. It emits one
@@ -238,7 +238,7 @@ compiler.
 Look at what your program becomes:
 
 ```bash
-cubc program.cub --emit-c
+cubc program.cb --emit-c
 ```
 
 The result compiles with plain `cc -std=c99 program.c -lm` and has no idea
@@ -286,9 +286,9 @@ command. It works in VS Code and its forks (Cursor, Windsurf, Antigravity).
 ## Formatting
 
 ```bash
-cubc fmt program.cub          print it, tidily formatted
-cubc fmt -w program.cub       rewrite it in place
-cubc fmt --check program.cub  exit non-zero if it needs formatting (for CI)
+cubc fmt program.cb          print it, tidily formatted
+cubc fmt -w program.cb       rewrite it in place
+cubc fmt --check program.cb  exit non-zero if it needs formatting (for CI)
 ```
 
 Because Cub ends statements at ends of lines, the formatter **only changes
@@ -320,16 +320,16 @@ rearranging it.
 ## Commands
 
 ```
-cubc program.cub              compile to ./program
-cubc program.cub -o name      choose the output name
-cubc run program.cub          compile and run, leaving nothing behind
-cubc --check program.cub      check for errors only
-cubc program.cub --emit-c     write standalone C99
-cubc program.cub --keep-c     compile, and keep the C
-cubc -v program.cub           show each step
-cubc fmt program.cub          format it
-cubc fmt -w program.cub       format it in place
-cubc doc program.cub          write a reference from its /// comments
+cubc program.cb              compile to ./program
+cubc program.cb -o name      choose the output name
+cubc run program.cb          compile and run, leaving nothing behind
+cubc --check program.cb      check for errors only
+cubc program.cb --emit-c     write standalone C99
+cubc program.cb --keep-c     compile, and keep the C
+cubc -v program.cb           show each step
+cubc fmt program.cb          format it
+cubc fmt -w program.cb       format it in place
+cubc doc program.cb          write a reference from its /// comments
 ```
 
 ---

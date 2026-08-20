@@ -50,7 +50,7 @@
           "cub"
         ],
         "extensions": [
-          ".cub"
+          ".cb"
         ],
         "configuration": "./language-configuration.json",
         "icon": {

@@ -1,9 +1,9 @@
 /* main.c -- the cubc driver.
  *
- *   cubc hello.cub              compile to ./hello
- *   cubc hello.cub -o greet     choose the name
- *   cubc run hello.cub          compile and run in one step
- *   cubc build hello.cub --emit-c   write the generated C instead
+ *   cubc hello.cb              compile to ./hello
+ *   cubc hello.cb -o greet     choose the name
+ *   cubc run hello.cb          compile and run in one step
+ *   cubc build hello.cb --emit-c   write the generated C instead
  */
 #include "cub.h"
 #include <unistd.h>
@@ -13,13 +13,13 @@ static const char *USAGE =
 "cubc " CUB_VERSION " -- the Cub compiler\n"
 "\n"
 "usage:\n"
-"  cubc <file.cub> [-o <name>]     compile a program\n"
-"  cubc run <file.cub>             compile and run it\n"
-"  cubc build <file.cub>           same as the plain form\n"
-"  cubc fmt <file.cub>             print the file, tidily formatted\n"
-"  cubc fmt -w <file.cub>          format the file in place\n"
+"  cubc <file.cb> [-o <name>]     compile a program\n"
+"  cubc run <file.cb>             compile and run it\n"
+"  cubc build <file.cb>           same as the plain form\n"
+"  cubc fmt <file.cb>             print the file, tidily formatted\n"
+"  cubc fmt -w <file.cb>          format the file in place\n"
 "  cubc fmt -                      format standard input (for editors)\n"
-"  cubc doc <file.cub>             write a reference from its /// comments\n"
+"  cubc doc <file.cb>             write a reference from its /// comments\n"
 "\n"
 "options:\n"
 "  -o <name>     name of the program to write (default: the source name)\n"
@@ -52,7 +52,7 @@ static void write_whole_file(const char *path, const char *text) {
     fclose(f);
 }
 
-/* strip directories and the .cub suffix */
+/* strip directories and the .cb suffix */
 static char *stem_of(const char *path) {
     const char *slash = strrchr(path, '/');
     const char *base = slash ? slash + 1 : path;
@@ -158,8 +158,8 @@ int main(int argc, char **argv) {
     }
 
     size_t flen = strlen(file);
-    if (flen < 4 || strcmp(file + flen - 4, ".cub") != 0)
-        fprintf(stderr, "cubc: note: Cub source files usually end in .cub\n");
+    if (flen < 3 || strcmp(file + flen - 3, ".cb") != 0)
+        fprintf(stderr, "cubc: note: Cub source files usually end in .cb\n");
 
     /* ---- front end ---- */
     Source src = { file, read_whole_file(file) };

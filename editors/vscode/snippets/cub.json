@@ -189,7 +189,7 @@
   "import file": {
     "prefix": "importf",
     "body": [
-      "import \"${1:helpers.cub}\""
+      "import \"${1:helpers.cb}\""
     ],
     "description": "Bring in one of your own files"
   },

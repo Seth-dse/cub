@@ -1,2 +1,2 @@
-import "nowhere.cub"
+import "nowhere.cb"
 void main() { print("x") }

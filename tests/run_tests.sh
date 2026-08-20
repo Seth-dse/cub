@@ -1,9 +1,9 @@
 #!/bin/sh
 # Cub test runner.
 #
-#   tests/run/*.cub      compile, run, and compare stdout with the .out file
-#   tests/errors/*.cub   must fail to compile; .err lines must all appear
-#   tests/runtime/*.cub  must compile, then fail at runtime; .err lines must appear
+#   tests/run/*.cb      compile, run, and compare stdout with the .out file
+#   tests/errors/*.cb   must fail to compile; .err lines must all appear
+#   tests/runtime/*.cb  must compile, then fail at runtime; .err lines must appear
 set -u
 cd "$(dirname "$0")/.."
 CUBC=./cubc
@@ -20,9 +20,9 @@ report_fail() {
     fail=$((fail + 1))
 }
 
-for src in tests/run/*.cub; do
+for src in tests/run/*.cb; do
     [ -e "$src" ] || break
-    name=$(basename "$src" .cub)
+    name=$(basename "$src" .cb)
     exp="tests/run/$name.out"
     if ! $CUBC "$src" -o "$TMP/$name" > "$TMP/$name.build" 2>&1; then
         report_fail "$name (did not compile)" "$(head -5 "$TMP/$name.build")"
@@ -49,9 +49,9 @@ check_messages() {
     return 0
 }
 
-for src in tests/errors/*.cub; do
+for src in tests/errors/*.cb; do
     [ -e "$src" ] || break
-    name=$(basename "$src" .cub)
+    name=$(basename "$src" .cb)
     if $CUBC --check "$src" > "$TMP/$name.got" 2>&1; then
         report_fail "$name (compiled, but should not have)"
         continue
@@ -64,9 +64,9 @@ for src in tests/errors/*.cub; do
     fi
 done
 
-for src in tests/runtime/*.cub; do
+for src in tests/runtime/*.cb; do
     [ -e "$src" ] || break
-    name=$(basename "$src" .cub)
+    name=$(basename "$src" .cb)
     if ! $CUBC "$src" -o "$TMP/$name" > "$TMP/$name.build" 2>&1; then
         report_fail "$name (did not compile)" "$(head -5 "$TMP/$name.build")"
         continue

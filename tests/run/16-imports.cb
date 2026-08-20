@@ -1,5 +1,5 @@
-import "lib/helpers.cub"
-import "lib/helpers.cub"
+import "lib/helpers.cb"
+import "lib/helpers.cb"
 import os
 import fs
 import math

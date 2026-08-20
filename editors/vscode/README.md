@@ -66,14 +66,14 @@ Format on save:
 {
   "[cub]": {
     "editor.formatOnSave": true,
-    "editor.defaultFormatter": "Sethttech.cub"
+    "editor.defaultFormatter": "Sethttech.cb"
   }
 }
 ```
 
 ### A file icon
 
-`.cub` files get a cub in the explorer. VS Code shows it when your active
+`.cb` files get a cub in the explorer. VS Code shows it when your active
 file icon theme has nothing of its own for the extension, which is the case
 for the built-in Seti theme. Some themes — Material Icon Theme among them —
 supply a fallback for every unknown extension, and those win; with one of
@@ -87,7 +87,7 @@ those you will see the theme's generic icon instead.
 
 ### Commands
 
-Command Palette, or right-click in a `.cub` file:
+Command Palette, or right-click in a `.cb` file:
 
 | Command | What it does |
 |---|---|
