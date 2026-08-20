@@ -322,9 +322,11 @@ Token *lex_all(Source *src, int first_line, int *out_count) {
             } else t->kind = TK_DOT;
             break;
         case '+': if (d == '=') { advance(&L); t->kind = TK_PLUSEQ; }  else t->kind = TK_PLUS;  break;
-        case '-': if (d == '=') { advance(&L); t->kind = TK_MINUSEQ; }
-                  else if (d == '>') { advance(&L); t->kind = TK_ARROW; }
-                  else t->kind = TK_MINUS; break;
+        case '-':
+            if (d == '=')      { advance(&L); t->kind = TK_MINUSEQ; }
+            else if (d == '>') { advance(&L); t->kind = TK_ARROW; }
+            else               { t->kind = TK_MINUS; }
+            break;
         case '*': if (d == '=') { advance(&L); t->kind = TK_STAREQ; }   else t->kind = TK_STAR;  break;
         case '/': if (d == '=') { advance(&L); t->kind = TK_SLASHEQ; }  else t->kind = TK_SLASH; break;
         case '%': if (d == '=') { advance(&L); t->kind = TK_PERCENTEQ; } else t->kind = TK_PERCENT; break;

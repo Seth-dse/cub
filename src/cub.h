@@ -17,7 +17,7 @@
 #include <stdbool.h>
 #include <stdarg.h>
 
-#define CUB_VERSION "0.4.0"
+#define CUB_VERSION "0.4.2"
 
 /* ------------------------------------------------------------------ */
 /* small utilities                                                     */

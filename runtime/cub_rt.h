@@ -15,6 +15,20 @@
 #ifndef CUB_RT_H
 #define CUB_RT_H
 
+/* `nanosleep`, `clock_gettime`, and `struct timespec` are POSIX rather
+ * than ISO C.  Compiling with -std=c99 makes glibc hide everything that
+ * is not standard C, so we have to ask for POSIX before any header is
+ * read -- which is why this sits above the includes.  macOS is laxer and
+ * exposes them either way, which is how this went unnoticed. */
+#if !defined(_WIN32)
+#  ifndef _POSIX_C_SOURCE
+#    define _POSIX_C_SOURCE 200809L
+#  endif
+#  ifndef _DEFAULT_SOURCE
+#    define _DEFAULT_SOURCE 1
+#  endif
+#endif
+
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
@@ -24,7 +38,10 @@
 #include <math.h>
 #include <time.h>
 #include <ctype.h>
-#include <unistd.h>
+
+#if defined(_WIN32)
+#  include <windows.h>
+#endif
 
 typedef struct { const char *data; int64_t len; } CubStr;
 
@@ -771,16 +788,26 @@ static void cub_eprint(CubStr s) {
 
 static void cub_sleep_ms(int64_t ms) {
     if (ms <= 0) return;
+#if defined(_WIN32)
+    Sleep((DWORD)ms);
+#else
     struct timespec ts;
     ts.tv_sec = (time_t)(ms / 1000);
     ts.tv_nsec = (long)((ms % 1000) * 1000000L);
     nanosleep(&ts, NULL);
+#endif
 }
 
 static int64_t cub_clock_ms(void) {
+#if defined(_WIN32)
+    return (int64_t)GetTickCount64();
+#elif defined(CLOCK_REALTIME)
     struct timespec ts;
     clock_gettime(CLOCK_REALTIME, &ts);
     return (int64_t)ts.tv_sec * 1000 + ts.tv_nsec / 1000000;
+#else
+    return (int64_t)time(NULL) * 1000;      /* whole seconds, but portable */
+#endif
 }
 
 /* ---- numbers ---- */

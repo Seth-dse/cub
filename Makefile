@@ -71,9 +71,21 @@ fmt-check: cubc
 	done; \
 	if [ $$bad -eq 0 ]; then echo "all files are formatted"; else exit 1; fi
 
+# Build and test under glibc, where -std=c99 hides everything POSIX.
+# macOS headers are laxer, so a portability slip here is invisible locally.
+check-linux:
+	@command -v docker >/dev/null 2>&1 || { echo "docker not installed"; exit 1; }
+	@docker run --rm -v "$(CURDIR)":/src -w /src gcc:13 sh -c '\
+	    make clean >/dev/null 2>&1 && \
+	    make 2>&1 | grep -E "error|warning" && exit 1; \
+	    ./tests/run_tests.sh | tail -2 && \
+	    printf "import os\\nvoid main() {\\n  os.sleep_ms(1)\\n  print(os.clock_ms() > 0)\\n}\\n" > /tmp/p.cb && \
+	    ./cubc run /tmp/p.cb'
+	@$(MAKE) clean >/dev/null 2>&1 && $(MAKE) >/dev/null 2>&1
+
 clean:
 	rm -f cubc $(OBJ) src/runtime_embed.c
 	rm -f examples/*.c tests/*.c
 	rm -rf tests/tmp
 
-.PHONY: all test examples install install-vscode uninstall-vscode fmt fmt-check clean
+.PHONY: all test examples install install-vscode uninstall-vscode fmt fmt-check check-linux clean

@@ -5,6 +5,13 @@
  *   cubc run hello.cb          compile and run in one step
  *   cubc build hello.cb --emit-c   write the generated C instead
  */
+/* getpid and the wait macros are POSIX; see the note in util.c. */
+#if !defined(_WIN32)
+#  ifndef _POSIX_C_SOURCE
+#    define _POSIX_C_SOURCE 200809L
+#  endif
+#endif
+
 #include "cub.h"
 #include <unistd.h>
 #include <sys/wait.h>

@@ -1,4 +1,11 @@
 /* util.c -- allocation, buffers, vectors, and diagnostics. */
+/* isatty is POSIX, and -std=c99 hides it on glibc unless asked for. */
+#if !defined(_WIN32)
+#  ifndef _POSIX_C_SOURCE
+#    define _POSIX_C_SOURCE 200809L
+#  endif
+#endif
+
 #include "cub.h"
 #include <unistd.h>
 

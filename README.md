@@ -46,7 +46,8 @@ Nothing to install beyond a C compiler and `make`.
 
 ```bash
 make
-make test          # 52 tests: programs, compile errors, runtime failures
+make test          # 53 tests: programs, compile errors, runtime failures
+make check-linux   # optional: build and test under glibc in a container
 make examples      # run everything in examples/
 sudo make install  # optional: puts cubc in /usr/local/bin
 make install-vscode   # optional: editor support
@@ -262,7 +263,7 @@ server meant to run for weeks. Reference counting is the next step.
 
 ## Status
 
-Version 0.4.0. The language described here works, and the test suite covers
+Version 0.4.2. The language described here works, and the test suite covers
 it. Not yet built: optional values, generics, closures, interfaces, and private
 declarations.
 [The reference](docs/LANGUAGE.md#19-what-cub-leaves-out-for-now) lists them

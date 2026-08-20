@@ -1,5 +1,24 @@
 # Changelog
 
+## 0.4.2
+
+Fixes a build failure on Linux.
+
+`nanosleep`, `clock_gettime`, and `struct timespec` are POSIX rather than
+ISO C. Because cubc compiles the C it emits with `-std=c99`, glibc hid
+them, and any program using `os.sleep_ms` or `os.clock_ms` failed to
+build with "storage size of 'ts' isn't known". macOS headers expose them
+regardless, which is why this was not caught sooner.
+
+The generated runtime now asks for POSIX before it includes anything, and
+falls back to the Windows equivalents where those calls do not exist. The
+compiler's own sources do the same for `isatty` and `getpid`.
+
+Also fixes a misleading-indentation warning that gcc reports and clang
+does not, and adds `make check-linux`, which builds and tests the whole
+project under glibc in a container so this class of slip is caught
+without needing a Linux machine.
+
 ## 0.4.0
 
 Imports and documentation comments.
