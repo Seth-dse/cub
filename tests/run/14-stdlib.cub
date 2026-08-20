@@ -1,10 +1,15 @@
+import fs
+import math
+import os
+import rand
+
 void main() {
-    print(round(PI * 100.0) / 100.0)
+    print(math.round(math.PI * 100.0) / 100.0)
     print(sign(-9), sign(0), sign(4.5))
     print(clamp(15, 0, 10), clamp(-1.5, 0.0, 1.0))
-    print(is_nan(NAN), is_inf(INF), is_nan(1.0))
+    print(math.is_nan(math.NAN), math.is_inf(math.INF), math.is_nan(1.0))
     print(INT_MAX)
-    print(exp(0.0), log10(100.0), pow(2.0, 10.0))
+    print(math.exp(0.0), math.log10(100.0), math.pow(2.0, 10.0))
 
     print(pad_start("7", 3, "0"), " ", pad_end("ab", 5, "."))
     print("[" + trim_start("  x  ") + "]", "[" + trim_end("  x  ") + "]")
@@ -29,16 +34,16 @@ void main() {
     print(len(s), s)
     print(sum([1.5, 2.5]), max_of(["pear", "apple"]))
 
-    print(len(args()) >= 1, clock_ms() > 0, len(env("PATH")) > 0)
+    print(len(os.args()) >= 1, os.clock_ms() > 0, len(os.env("PATH")) > 0)
 
-    write_file("tests/tmp/std.txt", "alpha\nbeta\n")
-    append_file("tests/tmp/std.txt", "gamma\n")
-    print(read_lines("tests/tmp/std.txt"))
-    print(file_exists("tests/tmp/std.txt"))
-    delete_file("tests/tmp/std.txt")
-    print(file_exists("tests/tmp/std.txt"))
+    fs.write("tests/tmp/std.txt", "alpha\nbeta\n")
+    fs.append("tests/tmp/std.txt", "gamma\n")
+    print(fs.read_lines("tests/tmp/std.txt"))
+    print(fs.exists("tests/tmp/std.txt"))
+    fs.delete("tests/tmp/std.txt")
+    print(fs.exists("tests/tmp/std.txt"))
 
-    rand_seed(1)
-    let r = rand_float()
+    rand.seed(1)
+    let r = rand.float()
     print(r >= 0.0 and r < 1.0)
 }

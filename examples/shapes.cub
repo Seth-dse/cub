@@ -1,3 +1,5 @@
+import math
+
 // Classes, inheritance, and methods that a subclass replaces.
 class Shape {
     name: string
@@ -56,16 +58,16 @@ class Circle: Shape {
     }
 
     float area() {
-        return PI * self.radius * self.radius
+        return math.PI * self.radius * self.radius
     }
 
     float perimeter() {
-        return TAU * self.radius
+        return math.TAU * self.radius
     }
 }
 
 float round2(v: float) {
-    return round(v * 100.0) / 100.0
+    return math.round(v * 100.0) / 100.0
 }
 
 void main() {

@@ -60,6 +60,10 @@ static char *lit(const char *s) { return c_string(s, strlen(s)); }
 /* Location arguments passed to runtime checks. */
 static char *loc(int line) { return cx_fmt("%s, %d", lit(unit), line); }
 
+/* Follow the declaration being emitted, so a runtime message names the
+ * file the code was actually written in. */
+static void in_unit(Source *src) { if (src) unit = src->path; }
+
 /* ------------------------------------------------------------------ */
 /* C type names                                                        */
 /* ------------------------------------------------------------------ */
@@ -593,6 +597,7 @@ static void gen_builtin(Expr *e) {
     case BI_EPRINT:   E("cub_eprint(%s)", concat_args(a, false)); return;
     case BI_EXIT:     E("cub_exit(%s)", expr_str(a0)); return;
     case BI_ARGS:     E("cub_args()");     return;
+    case BI_PLATFORM: E("cub_platform()"); return;
     case BI_CLOCK_MS: E("cub_clock_ms()"); return;
     case BI_ENV:      E("cub_env(%s)", expr_str(a0)); return;
     case BI_SLEEP_MS: E("cub_sleep_ms(%s)", expr_str(a0)); return;
@@ -1126,6 +1131,7 @@ char *codegen_program(Program *p, const char *unit_name) {
     dst = &bodies;
     for (int i = 0; i < ordered.len; i++) {
         ClassDef *cd = ordered.items[i];
+        in_unit(cd->src);
         for (int j = 0; j < cd->methods.len + cd->statics.len; j++) {
             bool is_static = j >= cd->methods.len;
             FnDecl *m = is_static ? cd->statics.items[j - cd->methods.len]
@@ -1151,6 +1157,7 @@ char *codegen_program(Program *p, const char *unit_name) {
     /* ---- function bodies (collects the helpers they need) ---- */
     for (int i = 0; i < p->fns.len; i++) {
         FnDecl *f = p->fns.items[i];
+        in_unit(f->src);
         fn_signature(f);
         E(" {\n");
         gen_stmts(&f->body, 1);

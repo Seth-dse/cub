@@ -14,10 +14,11 @@
 #include "cub.h"
 
 typedef struct {
-    Token *t;
-    int    n, i;
-    int    depth;          /* > 0 while inside ( ) or [ ]        */
-    bool   no_struct_lit;  /* while parsing if/while/for headers */
+    Token  *t;
+    int     n, i;
+    int     depth;          /* > 0 while inside ( ) or [ ]        */
+    bool    no_struct_lit;  /* while parsing if/while/for headers */
+    Source *src;            /* the file these tokens came from    */
 } P;
 
 /* ---------------- token helpers ---------------- */
@@ -401,7 +402,7 @@ Expr *parse_expr_source(const char *src, int line, int col) {
     int n = 0;
     Token *toks = lex_all(&s, 1, &n);
 
-    P sub = { toks, n, 0, 1, false };
+    P sub = { toks, n, 0, 1, false, g_source };
     if (sub.t[0].kind == TK_EOF) {
         err_at(line, col, "there is no expression inside these braces");
         err_help("write `{name}` to insert a value, or `\\{` for a real brace");
@@ -421,6 +422,7 @@ Expr *parse_expr_source(const char *src, int line, int col) {
 
 static Stmt *parse_let(P *p, bool is_mut) {
     Stmt *s = mkstmt(p, ST_LET);
+    s->src = p->src;
     p->i++;                                     /* let / var */
     Token *nm = cur(p);
     expect(p, TK_IDENT, "a name for the variable");
@@ -573,6 +575,8 @@ static void parse_block(P *p, Vec *out) {
  * `void` means it gives nothing back, exactly as in C. */
 static FnDecl *parse_fn(P *p, bool is_static) {
     FnDecl *f = cx_alloc(sizeof(FnDecl));
+    f->src = p->src;
+    f->doc = cur(p)->doc;
     f->line = cur(p)->line;
     f->col = cur(p)->col;
     f->is_static = is_static;
@@ -630,6 +634,8 @@ static FnDecl *parse_fn(P *p, bool is_static) {
  */
 static void parse_class(P *p, Program *prog) {
     ClassDef *cd = cx_alloc(sizeof(ClassDef));
+    cd->src = p->src;
+    cd->doc = cur(p)->doc;
     cd->line = cur(p)->line;
     cd->col = cur(p)->col;
     p->i++;                                     /* class */
@@ -653,12 +659,14 @@ static void parse_class(P *p, Program *prog) {
             Token *f = cur(p);
             p->i += 2;
             vec_push(&cd->fnames, f->lex);
+            vec_push(&cd->fdocs, f->doc);
             vec_push(&cd->ftypes, parse_type(p));
             eat(p, TK_COMMA);
             skip_semis(p);
             continue;
         }
 
+        char *member_doc = cur(p)->doc;
         bool is_static = eat(p, TK_STATIC);
         if (!starts_type(p) && !at(p, TK_FN)) {
             Token *c = cur(p);
@@ -669,6 +677,7 @@ static void parse_class(P *p, Program *prog) {
             stop_if_errors();
         }
         FnDecl *m = parse_fn(p, is_static);
+        if (!m->doc) m->doc = member_doc;
         m->is_init = strcmp(m->name, "init") == 0;
         if (m->is_init) {
             if (is_static) {
@@ -689,6 +698,7 @@ static void parse_class(P *p, Program *prog) {
 
 static void parse_type_decl(P *p, Program *prog) {
     int line = cur(p)->line, col = cur(p)->col;
+    char *doc = cur(p)->doc;
     p->i++;                                     /* type */
     Token *nm = cur(p);
     expect(p, TK_IDENT, "a name for the type");
@@ -696,6 +706,8 @@ static void parse_type_decl(P *p, Program *prog) {
 
     if (eat(p, TK_STRUCT)) {
         StructDef *sd = cx_alloc(sizeof(StructDef));
+        sd->src = p->src;
+        sd->doc = doc;
         sd->name = nm->lex;
         sd->line = line; sd->col = col;
         expect(p, TK_LBRACE, "`{` to start the field list");
@@ -709,6 +721,7 @@ static void parse_type_decl(P *p, Program *prog) {
                 stop_if_errors();
             }
             vec_push(&sd->fnames, fn->lex);
+            vec_push(&sd->fdocs, fn->doc);
             vec_push(&sd->ftypes, parse_type(p));
             if (!eat(p, TK_COMMA)) break;
         }
@@ -719,6 +732,8 @@ static void parse_type_decl(P *p, Program *prog) {
 
     if (eat(p, TK_ENUM)) {
         EnumDef *ed = cx_alloc(sizeof(EnumDef));
+        ed->src = p->src;
+        ed->doc = doc;
         ed->name = nm->lex;
         ed->line = line; ed->col = col;
         expect(p, TK_LBRACE, "`{` to start the value list");
@@ -740,12 +755,92 @@ static void parse_type_decl(P *p, Program *prog) {
     stop_if_errors();
 }
 
-Program *parse_program(Token *toks, int ntoks) {
-    P p = { toks, ntoks, 0, 0, false };
-    Program *prog = cx_alloc(sizeof(Program));
+static void parse_into(Program *prog, Token *toks, int ntoks, Source *src);
+
+/* Everything after the last slash is the file; what precedes it is where
+ * a relative import is resolved from. */
+static char *dir_of(const char *path) {
+    const char *slash = strrchr(path, '/');
+    return slash ? cx_strndup(path, (size_t)(slash - path + 1)) : cx_strdup("");
+}
+
+static char *read_file_or_null(const char *path) {
+    FILE *f = fopen(path, "rb");
+    if (!f) return NULL;
+    fseek(f, 0, SEEK_END);
+    long n = ftell(f);
+    fseek(f, 0, SEEK_SET);
+    if (n < 0) { fclose(f); return NULL; }
+    char *buf = cx_alloc((size_t)n + 1);
+    size_t got = fread(buf, 1, (size_t)n, f);
+    fclose(f);
+    buf[got] = 0;
+    return buf;
+}
+
+/* `import os` names a module; `import "utils.cub"` pulls in a file. */
+static void parse_import(P *p, Program *prog) {
+    int line = cur(p)->line, col = cur(p)->col;
+    p->i++;                                     /* import */
+
+    if (at(p, TK_IDENT)) {
+        Token *m = cur(p);
+        p->i++;
+        for (int i = 0; i < prog->modules.len; i++)
+            if (strcmp((char *)prog->modules.items[i], m->lex) == 0) return;
+        vec_push(&prog->modules, m->lex);
+        return;
+    }
+
+    if (!at(p, TK_STRLIT)) {
+        Token *c = cur(p);
+        err_at(c->line, c->col, "expected a module name or a file after `import`");
+        err_help("write `import os` for a built-in module, "
+                 "or `import \"helpers.cub\"` for one of your files");
+        stop_if_errors();
+    }
+
+    Token *t = cur(p);
+    p->i++;
+    if (t->parts.len != 1 || !((StrPart *)t->parts.items[0])->text) {
+        err_at(t->line, t->col, "a file name cannot have `{ }` in it");
+        stop_if_errors();
+    }
+    char *rel = ((StrPart *)t->parts.items[0])->text;
+
+    char *path = rel[0] == '/' ? cx_strdup(rel)
+                               : cx_fmt("%s%s", dir_of(p->src->path), rel);
+
+    for (int i = 0; i < prog->files.len; i++)
+        if (strcmp(((Source *)prog->files.items[i])->path, path) == 0)
+            return;                              /* already pulled in */
+
+    char *text = read_file_or_null(path);
+    if (!text) {
+        err_at(line, col, "cannot find the file `%s`", rel);
+        err_help("the path is taken relative to `%s`", p->src->path);
+        stop_if_errors();
+    }
+
+    Source *sub = cx_alloc(sizeof(Source));
+    sub->path = path;
+    sub->text = text;
+    vec_push(&prog->files, sub);
+
+    Source *saved = g_source;
+    g_source = sub;
+    int n = 0;
+    Token *sub_toks = lex_all(sub, 1, &n);
+    parse_into(prog, sub_toks, n, sub);
+    g_source = saved;
+}
+
+static void parse_into(Program *prog, Token *toks, int ntoks, Source *src) {
+    P p = { toks, ntoks, 0, 0, false, src };
 
     skip_semis(&p);
     while (!at(&p, TK_EOF)) {
+        if (at(&p, TK_IMPORT)) { parse_import(&p, prog); skip_semis(&p); continue; }
         if (at(&p, TK_CLASS))      parse_class(&p, prog);
         else if (at(&p, TK_TYPE))  parse_type_decl(&p, prog);
         else if (at(&p, TK_LET))   vec_push(&prog->globals, parse_let(&p, false));
@@ -762,6 +857,12 @@ Program *parse_program(Token *toks, int ntoks) {
         }
         skip_semis(&p);
     }
+}
+
+Program *parse_program(Token *toks, int ntoks) {
+    Program *prog = cx_alloc(sizeof(Program));
+    vec_push(&prog->files, g_source);
+    parse_into(prog, toks, ntoks, g_source);
     stop_if_errors();
     return prog;
 }

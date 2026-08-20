@@ -1,0 +1,2 @@
+`sqrt` lives in the `math` module
+add `import math`, then write `math.sqrt(...)`

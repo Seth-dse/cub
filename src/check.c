@@ -137,8 +137,81 @@ const char *builtin_names[] = {
     "is_upper", "is_lower", "sum", "copy", "concat", "shuffle", "swap",
     "min_of", "max_of", "eprint", "exit", "args", "env", "sleep_ms",
     "clock_ms", "file_exists", "append_file", "delete_file", "read_lines",
+    "platform",
     NULL
 };
+
+/* Built-ins that live behind an import.  Everyday things -- print, len,
+ * push, str -- stay global; anything that reaches outside the program, or
+ * belongs to a recognisable corner of the library, is reached through its
+ * module. */
+typedef struct { const char *module, *member; int bi; } ModMember;
+
+static const ModMember module_members[] = {
+    {"os", "args", BI_ARGS}, {"os", "env", BI_ENV}, {"os", "exit", BI_EXIT},
+    {"os", "platform", BI_PLATFORM}, {"os", "sleep_ms", BI_SLEEP_MS},
+    {"os", "clock_ms", BI_CLOCK_MS}, {"os", "time_ms", BI_TIME_MS},
+
+    {"fs", "read", BI_READ_FILE}, {"fs", "write", BI_WRITE_FILE},
+    {"fs", "append", BI_APPEND_FILE}, {"fs", "exists", BI_FILE_EXISTS},
+    {"fs", "delete", BI_DELETE_FILE}, {"fs", "read_lines", BI_READ_LINES},
+
+    {"math", "sqrt", BI_SQRT}, {"math", "pow", BI_POW}, {"math", "floor", BI_FLOOR},
+    {"math", "ceil", BI_CEIL}, {"math", "round", BI_ROUND}, {"math", "sin", BI_SIN},
+    {"math", "cos", BI_COS}, {"math", "tan", BI_TAN}, {"math", "asin", BI_ASIN},
+    {"math", "acos", BI_ACOS}, {"math", "atan", BI_ATAN}, {"math", "atan2", BI_ATAN2},
+    {"math", "log", BI_LOG}, {"math", "log10", BI_LOG10}, {"math", "exp", BI_EXP},
+    {"math", "is_nan", BI_IS_NAN}, {"math", "is_inf", BI_IS_INF},
+
+    {"rand", "int", BI_RAND_INT}, {"rand", "float", BI_RAND_FLOAT},
+    {"rand", "seed", BI_RAND_SEED},
+    {NULL, NULL, 0}
+};
+
+typedef struct { const char *module, *name; double val; bool is_inf, is_nan; } ModConst;
+
+static const ModConst module_consts[] = {
+    {"math", "PI",  3.14159265358979323846, false, false},
+    {"math", "TAU", 6.28318530717958647692, false, false},
+    {"math", "E",   2.71828182845904523536, false, false},
+    {"math", "INF", 0, true, false},
+    {"math", "NAN", 0, false, true},
+    {NULL, NULL, 0, false, false}
+};
+
+static const char *module_names[] = {"os", "fs", "math", "rand", NULL};
+
+static bool is_module_name(const char *name) {
+    for (int i = 0; module_names[i]; i++)
+        if (strcmp(module_names[i], name) == 0) return true;
+    return false;
+}
+
+const char *builtin_module(int bi) {
+    for (int i = 0; module_members[i].module; i++)
+        if (module_members[i].bi == bi) return module_members[i].module;
+    return NULL;
+}
+
+static const char *module_member_name(int bi) {
+    for (int i = 0; module_members[i].module; i++)
+        if (module_members[i].bi == bi) return module_members[i].member;
+    return NULL;
+}
+
+static int module_lookup(const char *module, const char *member) {
+    for (int i = 0; module_members[i].module; i++)
+        if (strcmp(module_members[i].module, module) == 0 &&
+            strcmp(module_members[i].member, member) == 0)
+            return module_members[i].bi;
+    return BI_NONE;
+}
+
+static bool module_imported(const char *module) {
+    for (int i = 0; i < prog->modules.len; i++)
+        if (strcmp((char *)prog->modules.items[i], module) == 0) return true;
+    return false;
+}
 
 int builtin_lookup(const char *name) {
     for (int i = 0; builtin_names[i]; i++)
@@ -773,6 +846,7 @@ static Type *check_builtin(Expr *e, int bi) {
         want(arg(e, 0), arg_type(e, 0), ty_int(), "`exit`");
         return ty_void();
     case BI_ARGS:     arity(e, 0, 0, name); return ty_array(ty_str());
+    case BI_PLATFORM: arity(e, 0, 0, name); return ty_str();
     case BI_CLOCK_MS: arity(e, 0, 0, name); return ty_int();
     case BI_ENV:
         if (!arity(e, 1, 1, name)) return ty_str();
@@ -823,6 +897,32 @@ static Type *check_method_call(Expr *e) {
     Expr *target = e->a;                 /* the EX_FIELD node */
     const char *name = target->name;
     bool via_super = target->a->kind == EX_SUPER;
+
+    /* `os.env("USER")` -- a built-in reached through its module */
+    if (target->a->kind == EX_IDENT && !lookup(target->a->name) &&
+        is_module_name(target->a->name)) {
+        const char *mod = target->a->name;
+        if (!module_imported(mod)) {
+            for (int i = 0; i < e->args.len; i++) check_expr(arg(e, i), NULL);
+            err_at(target->a->line, target->a->col,
+                   "`%s` is not available here", mod);
+            err_help("add `import %s` at the top of the file", mod);
+            return ty_err();
+        }
+        int bi = module_lookup(mod, name);
+        if (bi == BI_NONE) {
+            for (int i = 0; i < e->args.len; i++) check_expr(arg(e, i), NULL);
+            err_at(target->line, target->col, "`%s` has nothing called `%s`", mod, name);
+            Vec cands = {0};
+            for (int i = 0; module_members[i].module; i++)
+                if (strcmp(module_members[i].module, mod) == 0)
+                    vec_push(&cands, (void *)module_members[i].member);
+            const char *m = best_match(name, &cands);
+            if (m) err_help("did you mean `%s.%s`?", mod, m);
+            return ty_err();
+        }
+        return check_builtin(e, bi);      /* stays an EX_CALL, now a built-in */
+    }
 
     /* `Math.double(21)` -- a method reached through the class name */
     if (target->a->kind == EX_IDENT && !lookup(target->a->name)) {
@@ -960,7 +1060,17 @@ static Type *check_call(Expr *e) {
     }
 
     int bi = builtin_lookup(name);
-    if (bi != BI_NONE) return check_builtin(e, bi);
+    if (bi != BI_NONE) {
+        const char *mod = builtin_module(bi);
+        if (mod) {
+            for (int i = 0; i < e->args.len; i++) check_expr(arg(e, i), NULL);
+            err_at(e->line, e->col, "`%s` lives in the `%s` module", name, mod);
+            err_help("add `import %s`, then write `%s.%s(...)`",
+                     mod, mod, module_member_name(bi));
+            return ty_err();
+        }
+        return check_builtin(e, bi);
+    }
 
     for (int i = 0; i < e->args.len; i++) check_expr(arg(e, i), NULL);
     VarSym *v = lookup(name);
@@ -1051,6 +1161,32 @@ static Type *check_binary(Expr *e) {
 }
 
 static Type *check_field(Expr *e) {
+    /* `math.PI` -- a value that a module provides */
+    if (e->a->kind == EX_IDENT && !lookup(e->a->name) && is_module_name(e->a->name)) {
+        const char *mod = e->a->name;
+        if (!module_imported(mod)) {
+            err_at(e->a->line, e->a->col, "`%s` is not available here", mod);
+            err_help("add `import %s` at the top of the file", mod);
+            return ty_err();
+        }
+        for (int i = 0; module_consts[i].module; i++) {
+            if (strcmp(module_consts[i].module, mod) != 0) continue;
+            if (strcmp(module_consts[i].name, e->name) != 0) continue;
+            e->kind = EX_FLOAT;
+            e->fval = module_consts[i].is_inf ? HUGE_VAL
+                    : module_consts[i].is_nan ? (0.0 / 0.0)
+                    : module_consts[i].val;
+            return ty_float();
+        }
+        if (module_lookup(mod, e->name) != BI_NONE) {
+            err_at(e->line, e->col, "`%s.%s` is something you call", mod, e->name);
+            err_help("write `%s.%s(...)`", mod, e->name);
+            return ty_err();
+        }
+        err_at(e->line, e->col, "`%s` has nothing called `%s`", mod, e->name);
+        return ty_err();
+    }
+
     /* `Color.Red` -- an enum value rather than a field access */
     if (e->a->kind == EX_IDENT && !lookup(e->a->name)) {
         Type *t = find_named(e->a->name);
@@ -1199,11 +1335,6 @@ static Type *check_expr(Expr *e, Type *hint) {
 
         /* constants everyone expects to be there */
         static const struct { const char *name; double f; bool is_int; int64_t i; } consts[] = {
-            {"PI",      3.14159265358979323846, false, 0},
-            {"TAU",     6.28318530717958647692, false, 0},
-            {"E",       2.71828182845904523536, false, 0},
-            {"INF",     HUGE_VAL,               false, 0},
-            {"NAN",     0.0,                    false, 0},
             {"INT_MAX", 0, true,  9223372036854775807LL},
             {"INT_MIN", 0, true, -9223372036854775807LL - 1},
             {NULL, 0, false, 0}
@@ -1221,6 +1352,23 @@ static Type *check_expr(Expr *e, Type *hint) {
             break;
         }
         if (matched) break;
+
+        for (int ci = 0; module_consts[ci].module; ci++) {
+            if (strcmp(module_consts[ci].name, e->name) != 0) continue;
+            err_at(e->line, e->col, "`%s` lives in the `%s` module",
+                   e->name, module_consts[ci].module);
+            err_help("add `import %s`, then write `%s.%s`",
+                     module_consts[ci].module, module_consts[ci].module, e->name);
+            matched = true;
+            break;
+        }
+        if (matched) break;
+
+        if (is_module_name(e->name)) {
+            err_at(e->line, e->col, "`%s` is a module, not a value", e->name);
+            err_help("reach into it, as in `%s.something(...)`", e->name);
+            break;
+        }
         Type *nt = find_named(e->name);
         if (nt && nt->kind == TY_ENUM) {
             err_at(e->line, e->col, "`%s` is a type; pick one of its values", e->name);
@@ -1687,13 +1835,21 @@ static bool contains_struct(Type *t, StructDef *target, Vec *seen) {
 /* program                                                             */
 /* ------------------------------------------------------------------ */
 
-void check_program(Program *p) {
+/* With imports, a declaration may live in a different file from the one
+ * being compiled, so diagnostics follow the declaration rather than the
+ * command line. */
+static Source *root_source;
+static void in_file(Source *src) { g_source = src ? src : root_source; }
+
+void check_program(Program *p, bool require_main) {
     prog = p;
+    root_source = g_source;
     push_scope();
 
     /* 1. register named types */
     for (int i = 0; i < p->structs.len; i++) {
         StructDef *sd = p->structs.items[i];
+        in_file(sd->src);
         if (find_named(sd->name)) {
             err_at(sd->line, sd->col, "a type named `%s` already exists", sd->name);
             continue;
@@ -1704,6 +1860,7 @@ void check_program(Program *p) {
     }
     for (int i = 0; i < p->enums.len; i++) {
         EnumDef *ed = p->enums.items[i];
+        in_file(ed->src);
         if (find_named(ed->name)) {
             err_at(ed->line, ed->col, "a type named `%s` already exists", ed->name);
             continue;
@@ -1726,6 +1883,7 @@ void check_program(Program *p) {
     /* 2. resolve field types, then reject impossible layouts */
     for (int i = 0; i < p->structs.len; i++) {
         StructDef *sd = p->structs.items[i];
+        in_file(sd->src);
         for (int j = 0; j < sd->ftypes.len; j++) {
             for (int k = 0; k < j; k++)
                 if (strcmp((char *)sd->fnames.items[k], (char *)sd->fnames.items[j]) == 0)
@@ -1755,6 +1913,7 @@ void check_program(Program *p) {
     /* 2b. classes: parents, fields, and methods */
     for (int i = 0; i < p->classes.len; i++) {
         ClassDef *cd = p->classes.items[i];
+        in_file(cd->src);
         if (!cd->base_name) continue;
         Type *bt = find_named(cd->base_name);
         if (!bt || bt->kind != TY_CLASS) {
@@ -1785,6 +1944,7 @@ void check_program(Program *p) {
     }
     for (int i = 0; i < p->classes.len; i++) {
         ClassDef *cd = p->classes.items[i];
+        in_file(cd->src);
         for (int j = 0; j < cd->ftypes.len; j++) {
             for (int k = 0; k < j; k++)
                 if (strcmp((char *)cd->fnames.items[k], (char *)cd->fnames.items[j]) == 0)
@@ -1802,6 +1962,7 @@ void check_program(Program *p) {
     /* methods that belong to the class itself */
     for (int i = 0; i < p->classes.len; i++) {
         ClassDef *cd = p->classes.items[i];
+        in_file(cd->src);
         for (int j = 0; j < cd->statics.len; j++) {
             FnDecl *m = cd->statics.items[j];
             m->owner = cd;
@@ -1826,6 +1987,7 @@ void check_program(Program *p) {
     /* method signatures, overrides, and dispatch slots */
     for (int i = 0; i < p->classes.len; i++) {
         ClassDef *cd = p->classes.items[i];
+        in_file(cd->src);
         for (int j = 0; j < cd->methods.len; j++) {
             FnDecl *m = cd->methods.items[j];
             m->owner = cd;
@@ -1887,6 +2049,7 @@ void check_program(Program *p) {
     /* 3. function signatures */
     for (int i = 0; i < p->fns.len; i++) {
         FnDecl *f = p->fns.items[i];
+        in_file(f->src);
         for (int j = 0; j < i; j++)
             if (strcmp(((FnDecl *)p->fns.items[j])->name, f->name) == 0) {
                 err_at(f->line, f->col, "a function named `%s` already exists", f->name);
@@ -1910,6 +2073,7 @@ void check_program(Program *p) {
     /* 4. globals live in the outermost scope */
     for (int i = 0; i < p->globals.len; i++) {
         Stmt *s = p->globals.items[i];
+        in_file(s->src);
         Type *want_ = s->decl_type ? resolve_type(s->decl_type, s->line, s->col) : NULL;
         Type *got = check_expr(s->rhs, want_);
         if (want_) want(s->rhs, got, want_, cx_fmt("`%s`", s->name));
@@ -1920,6 +2084,7 @@ void check_program(Program *p) {
     /* 5. function bodies */
     for (int i = 0; i < p->fns.len; i++) {
         FnDecl *f = p->fns.items[i];
+        in_file(f->src);
         cur_fn = f;
         push_scope();
         for (int j = 0; j < f->params.len; j++) {
@@ -1941,6 +2106,7 @@ void check_program(Program *p) {
     /* 5b. method bodies */
     for (int i = 0; i < p->classes.len; i++) {
         ClassDef *cd = p->classes.items[i];
+        in_file(cd->src);
         Type *self_type = find_named(cd->name);
 
         for (int j = 0; j < cd->methods.len + cd->statics.len; j++) {
@@ -2040,9 +2206,11 @@ void check_program(Program *p) {
 
     FnDecl *entry = m ? m : class_main;
     if (!entry) {
-        err_at(1, 1, "this program has no `main`");
-        err_help("start it with `void main() { ... }`, "
-                 "or give a class a `main` of its own");
+        if (require_main) {
+            err_at(1, 1, "this program has no `main`");
+            err_help("start it with `void main() { ... }`, "
+                     "or give a class a `main` of its own");
+        }
     } else {
         if (entry->params.len != 0) {
             err_at(entry->line, entry->col, "`main` does not take any arguments");
@@ -2066,6 +2234,7 @@ void check_program(Program *p) {
     p->entry = entry;
     p->entry_class = m ? NULL : entry_class;
 
+    in_file(NULL);
     pop_scope();
     stop_if_errors();
 }

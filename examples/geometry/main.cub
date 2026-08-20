@@ -1,0 +1,15 @@
+// A program split across files.  Each import is read once, however many
+// files ask for it.
+import "shapes.cub"
+import "util.cub"
+
+void main() {
+    let shapes: [Shape] = [Circle(1.0), Rect(3.0, 4.0), Circle(2.0)]
+
+    var total = 0.0
+    for s in shapes {
+        print("{pad_end(s.name, 10, ".")} {round2(s.area())}")
+        total += s.area()
+    }
+    print("total {round2(total)}")
+}

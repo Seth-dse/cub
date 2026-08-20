@@ -178,5 +178,26 @@
       "}"
     ],
     "description": "A class that starts the program"
+  },
+  "import module": {
+    "prefix": "import",
+    "body": [
+      "import ${1|os,fs,math,rand|}"
+    ],
+    "description": "Bring in a standard library module"
+  },
+  "import file": {
+    "prefix": "importf",
+    "body": [
+      "import \"${1:helpers.cub}\""
+    ],
+    "description": "Bring in one of your own files"
+  },
+  "doc comment": {
+    "prefix": "///",
+    "body": [
+      "/// $0"
+    ],
+    "description": "Document what comes next"
   }
 }

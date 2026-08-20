@@ -739,6 +739,19 @@ static CubArr cub_args(void) {
     return out;
 }
 
+/* Which machine this is running on, as plain text. */
+static CubStr cub_platform(void) {
+#if defined(__APPLE__)
+    return cub_str_lit("macos", 5);
+#elif defined(_WIN32)
+    return cub_str_lit("windows", 7);
+#elif defined(__linux__)
+    return cub_str_lit("linux", 5);
+#else
+    return cub_str_lit("unknown", 7);
+#endif
+}
+
 static CubStr cub_env(CubStr name) {
     const char *v = getenv(name.data);
     return v ? cub_str_new(v, (int64_t)strlen(v)) : cub_str_lit("", 0);

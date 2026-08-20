@@ -574,7 +574,87 @@ Without one you still get something useful: `Point{x: 3, y: 4}`.
 
 ---
 
-## 12. Putting it together
+## 12. Imports
+
+Some of the library is always there — `print`, `len`, `push`, `str`, and the
+text and array functions. Anything that reaches outside your program lives in
+a module you import:
+
+```cub
+import math
+import fs
+
+void main() {
+    print(math.sqrt(16.0))        // 4.0
+    print(math.round(math.PI))    // 3.0
+
+    if fs.exists("notes.txt") {
+        print(fs.read("notes.txt"))
+    }
+}
+```
+
+The modules are `os`, `fs`, `math`, and `rand`. Forget the import and the
+compiler tells you exactly what to add:
+
+```
+error: `sqrt` lives in the `math` module
+  help: add `import math`, then write `math.sqrt(...)`
+```
+
+### Splitting a program across files
+
+A program does not have to be one file. Put the shared parts somewhere and
+import them by name:
+
+```cub
+// shapes.cub
+class Circle {
+    radius: float
+    void init(radius: float) { self.radius = radius }
+    float area() { return 3.14159 * self.radius * self.radius }
+}
+```
+
+```cub
+// main.cub
+import "shapes.cub"
+
+void main() {
+    print(Circle(2.0).area())
+}
+```
+
+The path is relative to the file doing the importing. Only the file you hand
+to `cubc` may have a `main`.
+
+---
+
+## 13. Writing things down
+
+Three slashes document what comes next:
+
+```cub
+/// Works out how much space a circle covers.
+///
+/// The radius is measured from the middle to the edge.
+float circle_area(radius: float) {
+    return 3.14159 * radius * radius
+}
+```
+
+Ordinary `//` comments are for whoever is reading the code; `///` comments
+are for whoever is *using* it. `cubc doc` collects them into a reference:
+
+```bash
+cubc doc shapes.cub -o shapes.md
+```
+
+You can document classes, methods, fields, structs, and enums the same way.
+
+---
+
+## 14. Putting it together
 
 A program that reads numbers, and reports on them. It uses almost everything
 above.
@@ -654,7 +734,8 @@ clearly when something does not add up.
 
 ## Where to go next
 
-- [LANGUAGE.md](LANGUAGE.md) — the full reference, including all 96 built-ins
+- [LANGUAGE.md](LANGUAGE.md) — the full reference, including every built-in
 - `examples/` — larger programs: a sieve, a word counter, a task list,
-  shapes built with classes, a shop inventory built with classes and maps
+  shapes built with classes, a shop inventory built with classes and maps,
+  and `geometry/`, a program split across three files
 - `cubc program.cub --emit-c` — read the C your program turns into

@@ -1,3 +1,5 @@
+import math
+
 // Classes and maps working together: a tiny shop inventory.
 class Item {
     name: string
@@ -65,7 +67,7 @@ class Shop {
             let line = str(self.items[name])
             print("  {line}  x{self.stock[name]}")
         }
-        print("  total value: {round(self.value() * 100.0) / 100.0}")
+        print("  total value: {math.round(self.value() * 100.0) / 100.0}")
     }
 }
 

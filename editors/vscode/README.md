@@ -48,8 +48,9 @@ branch — before the program ever runs.
 
 ### Highlighting
 
-Keywords, types, all 96 built-ins, classes, `self` and `super`, numbers,
-escapes, and nested block comments. Expressions inside interpolated text are
+Keywords, types, every built-in, classes, `self` and `super`, `import` and
+the module names, `///` doc comments, numbers, escapes, and nested block
+comments. Expressions inside interpolated text are
 highlighted as code, so `{count + 1}` in `"you have {count + 1} left"` reads
 as an expression rather than as string contents.
 
@@ -73,8 +74,8 @@ Format on save:
 ### Snippets
 
 `main`, `fn`, `void`, `fnm`, `static`, `if`, `ife`, `ifx`, `for`, `fore`,
-`while`, `struct`, `enum`, `class`, `classx`, `classmain`, `map`, `print`,
-`printv`.
+`while`, `struct`, `enum`, `class`, `classx`, `classmain`, `map`, `import`,
+`importf`, `///`, `print`, `printv`.
 
 ### Commands
 

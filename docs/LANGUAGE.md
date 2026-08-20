@@ -61,7 +61,7 @@ int main(){
 ```
 
 There is no `#include` and no header. A program is one file. (Modules are
-planned; see [section 19](#19-what-cub-leaves-out-for-now).)
+planned; see [section 20](#20-what-cub-leaves-out-for-now).)
 
 ---
 
@@ -74,6 +74,27 @@ planned; see [section 19](#19-what-cub-leaves-out-for-now).)
    /* which may nest, */
    so commenting out a region always works. */
 ```
+
+Three slashes document whatever follows. `cubc doc` turns these into a
+reference, and everything else ignores them:
+
+```cub
+/// Adds two whole numbers together.
+///
+/// Returns their sum.
+int add(a: int, b: int) {
+    return a + b
+}
+
+/// A creature that can make a sound.
+class Animal {
+    /// What the creature is called.
+    name: string
+}
+```
+
+Doc comments attach to functions, classes, methods, fields, structs, and
+enums. Anywhere else they are just comments.
 
 ---
 
@@ -438,7 +459,68 @@ where a name comes from. Printing an enum gives its name.
 
 ---
 
-## 14. Maps
+## 14. Imports
+
+`import` does two jobs: it brings in part of the standard library, and it
+brings in another one of your files.
+
+### Modules
+
+Everyday built-ins — `print`, `len`, `push`, `str`, the text and array
+functions — are always there. Anything that reaches outside the program, or
+belongs to a recognisable corner of the library, lives in a module:
+
+```cub
+import os
+import fs
+import math
+import rand
+
+void main() {
+    print(os.platform())              // "macos", "linux", "windows"
+    print(math.round(math.PI))
+    if fs.exists("notes.txt") {
+        for line in fs.read_lines("notes.txt") {
+            print(line)
+        }
+    }
+    print(rand.int(1, 6))
+}
+```
+
+| Module | Holds |
+|---|---|
+| `os` | `args` `env` `exit` `platform` `sleep_ms` `clock_ms` `time_ms` |
+| `fs` | `read` `write` `append` `exists` `delete` `read_lines` |
+| `math` | `sqrt` `pow` `floor` `ceil` `round` `sin` `cos` `tan` `asin` `acos` `atan` `atan2` `log` `log10` `exp` `is_nan` `is_inf`, and `PI` `TAU` `E` `INF` `NAN` |
+| `rand` | `int` `float` `seed` |
+
+Reaching for one you have not imported, or calling a module function as if
+it were global, is an error that names the fix:
+
+```
+error: `sqrt` lives in the `math` module
+  help: add `import math`, then write `math.sqrt(...)`
+```
+
+### Your own files
+
+```cub
+import "shapes.cub"
+import "lib/util.cub"
+```
+
+The path is taken relative to the file doing the importing. Everything the
+imported file declares — functions, classes, types, globals — becomes
+available, and a file is read once however many times it is asked for, so
+two files importing the same third one is fine.
+
+Only the file you hand to `cubc` may declare `main`. There is no privacy
+yet: an imported file shares everything it declares.
+
+---
+
+## 15. Maps
 
 A map holds values under keys. Keys are `string` or `int`; values are any
 type.
@@ -485,7 +567,7 @@ Like arrays, maps are shared rather than copied.
 
 ---
 
-## 15. Classes
+## 16. Classes
 
 A `struct` is data. A **class** is data with behaviour: fields, methods, and
 the option to build on another class.
@@ -643,7 +725,7 @@ for a `class` when the thing has behaviour, or when sharing it is the point.
 
 ---
 
-## 16. Errors
+## 17. Errors
 
 **Compile-time errors** point at the exact spot, explain the problem in
 words, and suggest a fix:
@@ -678,9 +760,11 @@ panic("this should be unreachable")
 
 ---
 
-## 17. The standard library
+## 18. The standard library
 
-Ninety-six built-ins, always in scope, none of them importable.
+Ninety-seven built-ins. The everyday ones are always in scope; the rest live
+in a module you `import` (see [section 14](#14-imports)) and are marked here
+with the module they belong to.
 
 ### Output and input
 
@@ -746,15 +830,16 @@ Ninety-six built-ins, always in scope, none of them importable.
 | `abs(n)` / `sign(n)` | same type / `int` |
 | `min(a, b)` / `max(a, b)` | same type; both sides must match |
 | `clamp(v, lo, hi)` | same type |
-| `sqrt` `floor` `ceil` `round` `exp` `log` `log10` | `float` |
-| `sin` `cos` `tan` `asin` `acos` `atan` | `float` |
-| `pow(base, exp)` / `atan2(y, x)` | `float` |
-| `is_nan(f)` / `is_inf(f)` | `bool` |
-| `rand_int(lo, hi)` | `int`, inclusive at both ends |
-| `rand_float()` | `float` from 0 up to but not including 1 |
-| `rand_seed(n)` | nothing; makes the random numbers repeatable |
+| `math.sqrt` `floor` `ceil` `round` `exp` `log` `log10` | `float` |
+| `math.sin` `cos` `tan` `asin` `acos` `atan` | `float` |
+| `math.pow(base, exp)` / `math.atan2(y, x)` | `float` |
+| `math.is_nan(f)` / `math.is_inf(f)` | `bool` |
+| `rand.int(lo, hi)` | `int`, inclusive at both ends |
+| `rand.float()` | `float` from 0 up to but not including 1 |
+| `rand.seed(n)` | nothing; makes the random numbers repeatable |
 
-Named constants: `PI`, `TAU`, `E`, `INF`, `NAN`, `INT_MAX`, `INT_MIN`.
+Constants: `INT_MAX` and `INT_MIN` are always there. `math.PI`, `math.TAU`,
+`math.E`, `math.INF`, and `math.NAN` come with `import math`.
 
 ### Conversion
 
@@ -766,24 +851,29 @@ Named constants: `PI`, `TAU`, `E`, `INF`, `NAN`, `INT_MAX`, `INT_MIN`.
 
 ### Files
 
+All of these need `import fs`.
+
 | Call | Result |
 |---|---|
-| `read_file(path)` | `string` |
-| `read_lines(path)` | `[string]` |
-| `write_file(path, text)` / `append_file(path, text)` | nothing |
-| `file_exists(path)` | `bool` |
-| `delete_file(path)` | nothing |
+| `fs.read(path)` | `string` |
+| `fs.read_lines(path)` | `[string]` |
+| `fs.write(path, text)` / `fs.append(path, text)` | nothing |
+| `fs.exists(path)` | `bool` |
+| `fs.delete(path)` | nothing |
 
 ### The world outside
 
+All of these need `import os`.
+
 | Call | Result |
 |---|---|
-| `args()` | `[string]`, the command line, program name first |
-| `env(name)` | `string`, empty when it is not set |
-| `exit(code)` | never returns |
-| `clock_ms()` | `int`, wall-clock milliseconds |
-| `time_ms()` | `int`, processor milliseconds used |
-| `sleep_ms(n)` | nothing |
+| `os.args()` | `[string]`, the command line, program name first |
+| `os.env(name)` | `string`, empty when it is not set |
+| `os.platform()` | `string`: `macos`, `linux`, `windows`, or `unknown` |
+| `os.exit(code)` | never returns |
+| `os.clock_ms()` | `int`, wall-clock milliseconds |
+| `os.time_ms()` | `int`, processor milliseconds used |
+| `os.sleep_ms(n)` | nothing |
 
 ### Stopping on purpose
 
@@ -797,7 +887,7 @@ rather than silently shadowing it.
 
 ---
 
-## 18. How memory works
+## 19. How memory works
 
 Cub has no manual memory management and no pointers. Text and arrays live on
 the heap; the runtime records every allocation and releases all of it when
@@ -812,7 +902,7 @@ allocation registry is already the hook for it.
 
 ---
 
-## 19. What Cub leaves out, for now
+## 20. What Cub leaves out, for now
 
 Left out deliberately, and not missed: pointers, pointer arithmetic, manual
 `malloc`/`free`, header files, the preprocessor, `goto`, implicit
@@ -820,7 +910,8 @@ conversions, truthiness, uninitialized variables, and undefined behavior.
 
 Genuinely missing, and planned:
 
-- **Modules** — one file per program today; `import` is next.
+- **Private declarations** — an imported file shares everything it declares.
+- **Renaming on import** — no `import os as system` yet.
 - **Optional values** — no way yet to express "a `Point`, or nothing". Class
   fields fill the gap awkwardly, by starting empty and being checked on use.
 - **Generics** — arrays and maps are the only generic types.
@@ -831,15 +922,16 @@ Genuinely missing, and planned:
 - **Asking an object what it is** — no `is` test and no downcast, so once a
   `Dog` is held as an `Animal` you can call it but not narrow it back.
 - **Private fields** — every field is readable and writable from anywhere.
-- **Reference counting** — see section 18.
+- **Reference counting** — see section 19.
 - **`==` on structs, arrays, and maps** — compare the parts for now.
 
 ---
 
-## 20. Grammar
+## 21. Grammar
 
 ```ebnf
-program     = { declaration } ;
+program     = { import | declaration } ;
+import      = "import" ( IDENT | STRING ) ;
 declaration = function | classdecl | typedecl | binding ;
 
 function    = [ "static" ] type IDENT "(" [ params [ "," ] ] ")" block ;
@@ -887,7 +979,7 @@ ifexpr      = "if" expr "{" expr "}" "else" ( ifexpr | "{" expr "}" ) ;
 
 ---
 
-## 21. The compiler
+## 22. The compiler
 
 ```
 cubc program.cub              compile to ./program
@@ -901,6 +993,10 @@ cubc -v program.cub           show each step
 cubc fmt program.cub          print it, tidily formatted
 cubc fmt -w program.cub       format it in place
 cubc fmt --check program.cub  exit non-zero if it needs formatting
+cubc fmt -w a.cub b.cub       several files at once
+
+cubc doc program.cub          write a reference from its /// comments
+cubc doc program.cub -o api.md
 ```
 
 ### Formatting

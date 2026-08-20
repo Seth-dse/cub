@@ -17,7 +17,7 @@
 #include <stdbool.h>
 #include <stdarg.h>
 
-#define CUB_VERSION "0.3.0"
+#define CUB_VERSION "0.4.0"
 
 /* ------------------------------------------------------------------ */
 /* small utilities                                                     */
@@ -72,7 +72,7 @@ typedef enum {
     TK_FN, TK_LET, TK_VAR, TK_IF, TK_ELSE, TK_WHILE, TK_FOR, TK_IN,
     TK_RETURN, TK_BREAK, TK_CONTINUE, TK_TYPE, TK_STRUCT, TK_ENUM,
     TK_TRUE, TK_FALSE, TK_AND, TK_OR, TK_NOT,
-    TK_CLASS, TK_SELF, TK_SUPER, TK_VOID, TK_STATIC,
+    TK_CLASS, TK_SELF, TK_SUPER, TK_VOID, TK_STATIC, TK_IMPORT,
     /* punctuation */
     TK_LPAREN, TK_RPAREN, TK_LBRACE, TK_RBRACE, TK_LBRACK, TK_RBRACK,
     TK_COMMA, TK_DOT, TK_RANGE, TK_RANGEEQ, TK_COLON, TK_SEMI, TK_ARROW,
@@ -104,6 +104,7 @@ typedef struct {
     Vec      parts;       /* StrPart* for TK_STRLIT               */
     const char *raw;      /* exact source text of this token      */
     int      raw_len;
+    char    *doc;         /* /// lines gathered just above it     */
 } Token;
 
 Token *lex_all(Source *src, int first_line, int *out_count);
@@ -220,6 +221,7 @@ struct Stmt {
     Type    *decl_type;   /* annotation, else inferred   */
     VarSym  *var;
 
+    Source  *src;
     Expr    *lhs, *rhs, *cond, *from, *to;
     bool     inclusive;   /* `..=` range                 */
     TokKind  op;          /* compound assignment         */
@@ -229,6 +231,8 @@ struct Stmt {
 };
 
 struct FnDecl {
+    char     *doc;
+    Source   *src;
     char     *name;
     Vec       params;     /* VarSym* */
     Type     *ret;
@@ -248,6 +252,8 @@ struct FnDecl {
 /* A class: named fields plus methods, held by reference, with single
  * inheritance and methods that can be replaced by a subclass. */
 struct ClassDef {
+    char     *doc;
+    Source   *src;
     char     *name;
     char     *base_name;   /* NULL when there is no parent */
     ClassDef *base;
@@ -255,6 +261,7 @@ struct ClassDef {
 
     Vec       fnames;      /* char*   -- fields declared here */
     Vec       ftypes;      /* Type*   */
+    Vec       fdocs;       /* char*   -- one per field, may be NULL */
     Vec       methods;     /* FnDecl* -- declared here, init included */
     Vec       own_slots;   /* FnDecl* -- new table slots added here   */
 
@@ -265,13 +272,18 @@ struct ClassDef {
 };
 
 struct StructDef {
+    char *doc;
+    Source *src;
     char *name;
     Vec   fnames;         /* char* */
     Vec   ftypes;         /* Type* */
+    Vec   fdocs;          /* char* -- one per field, may be NULL */
     int   line, col;
 };
 
 struct EnumDef {
+    char *doc;
+    Source *src;
     char *name;
     Vec   vals;           /* char* */
     int   line, col;
@@ -283,6 +295,9 @@ typedef struct {
     Vec enums;            /* EnumDef*   */
     Vec classes;          /* ClassDef*  */
     Vec globals;          /* Stmt* (ST_LET) */
+
+    Vec modules;          /* char*   -- `import os` and friends   */
+    Vec files;            /* Source* -- every file that was read  */
 
     /* where the program starts, worked out by the checker */
     FnDecl   *entry;
@@ -312,17 +327,21 @@ typedef enum {
     BI_IS_SPACE, BI_IS_UPPER, BI_IS_LOWER, BI_SUM, BI_COPY, BI_CONCAT,
     BI_SHUFFLE, BI_SWAP, BI_MIN_OF, BI_MAX_OF, BI_EPRINT, BI_EXIT, BI_ARGS,
     BI_ENV, BI_SLEEP_MS, BI_CLOCK_MS, BI_FILE_EXISTS, BI_APPEND_FILE,
-    BI_DELETE_FILE, BI_READ_LINES
+    BI_DELETE_FILE, BI_READ_LINES, BI_PLATFORM
 } Builtin;
 
 int  builtin_lookup(const char *name);   /* -1 when not a builtin */
+
+/* Some built-ins live in a module and are reached through it. */
+const char *builtin_module(int bi);      /* NULL when it is global */
 
 /* ------------------------------------------------------------------ */
 /* phases                                                              */
 /* ------------------------------------------------------------------ */
 
-void  check_program(Program *p);
+void  check_program(Program *p, bool require_main);
 char *codegen_program(Program *p, const char *unit_name);
+char *docgen_program(Program *p, const char *unit_name);
 
 extern const char *CUB_RUNTIME_SRC;      /* generated from runtime/cub_rt.h */
 

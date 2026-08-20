@@ -4,7 +4,7 @@ CFLAGS  ?= -std=c99 -O2 -Wall -Wextra -Wno-unused-parameter
 PREFIX  ?= /usr/local
 
 SRC     := src/util.c src/types.c src/lexer.c src/parser.c src/check.c \
-           src/codegen.c src/format.c src/main.c src/runtime_embed.c
+           src/codegen.c src/format.c src/docgen.c src/main.c src/runtime_embed.c
 OBJ     := $(SRC:.c=.o)
 
 all: cubc
@@ -29,7 +29,7 @@ install: cubc
 	install -m 755 cubc $(PREFIX)/bin/cubc
 
 # Link the editor extension into every VS Code-family editor that is present.
-EXT_NAME := Sethttech.cub-0.3.0
+EXT_NAME := Sethttech.cub-0.4.0
 install-vscode:
 	@found=0; \
 	for dir in $$HOME/.vscode/extensions $$HOME/.vscode-insiders/extensions \
@@ -56,13 +56,13 @@ uninstall-vscode:
 	done; true
 
 fmt: cubc
-	@for f in examples/*.cub tests/run/*.cub tests/errors/*.cub tests/runtime/*.cub; do \
+	@for f in examples/*.cub examples/*/*.cub tests/run/*.cub tests/run/*/*.cub tests/errors/*.cub tests/runtime/*.cub; do \
 	    ./cubc fmt -w $$f; \
 	done; echo "formatted"
 
 fmt-check: cubc
 	@bad=0; \
-	for f in examples/*.cub tests/run/*.cub tests/errors/*.cub tests/runtime/*.cub; do \
+	for f in examples/*.cub examples/*/*.cub tests/run/*.cub tests/run/*/*.cub tests/errors/*.cub tests/runtime/*.cub; do \
 	    ./cubc fmt --check $$f || bad=1; \
 	done; \
 	if [ $$bad -eq 0 ]; then echo "all files are formatted"; else exit 1; fi

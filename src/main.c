@@ -19,6 +19,7 @@ static const char *USAGE =
 "  cubc fmt <file.cub>             print the file, tidily formatted\n"
 "  cubc fmt -w <file.cub>          format the file in place\n"
 "  cubc fmt -                      format standard input (for editors)\n"
+"  cubc doc <file.cub>             write a reference from its /// comments\n"
 "\n"
 "options:\n"
 "  -o <name>     name of the program to write (default: the source name)\n"
@@ -62,7 +63,8 @@ static char *stem_of(const char *path) {
 int main(int argc, char **argv) {
     const char *file = NULL, *outname = NULL;
     bool emit_c = false, keep_c = false, check_only = false, run_it = false, verbose = false;
-    bool fmt_mode = false, in_place = false;
+    bool fmt_mode = false, in_place = false, doc_mode = false;
+    Vec extra_files = {0};
 
     for (int i = 1; i < argc; i++) {
         const char *a = argv[i];
@@ -70,6 +72,7 @@ int main(int argc, char **argv) {
         if (strcmp(a, "--version") == 0) { printf("cubc %s\n", CUB_VERSION); return 0; }
         if (strcmp(a, "run") == 0 && !file)   { run_it = true;  continue; }
         if (strcmp(a, "fmt") == 0 && !file)   { fmt_mode = true; continue; }
+        if (strcmp(a, "doc") == 0 && !file)   { doc_mode = true; continue; }
         if (strcmp(a, "-w") == 0)             { in_place = true; continue; }
         if (strcmp(a, "-") == 0 && fmt_mode)  { file = "-"; continue; }
         if (strcmp(a, "build") == 0 && !file) { continue; }
@@ -83,13 +86,44 @@ int main(int argc, char **argv) {
             continue;
         }
         if (a[0] == '-') fatal("unknown option `%s`\n\nrun `cubc --help` to see the options", a);
-        if (file) fatal("cubc compiles one file at a time (got `%s` and `%s`)", file, a);
+        if (file) {
+            if (!fmt_mode)
+                fatal("cubc compiles one file at a time (got `%s` and `%s`)", file, a);
+            vec_push(&extra_files, (void *)a);
+            continue;
+        }
         file = a;
     }
 
     if (!file) { fputs(USAGE, stderr); return 1; }
 
     /* ---- formatting works on text alone, so it runs before anything else ---- */
+    if (fmt_mode && extra_files.len > 0) {
+        /* several files at once, which is what `make fmt` and editors want */
+        int bad = 0;
+        for (int i = -1; i < extra_files.len; i++) {
+            const char *path = i < 0 ? file : (const char *)extra_files.items[i];
+            char *text = read_whole_file(path);
+            Source fs_ = { path, text };
+            g_source = &fs_;
+            char *formatted = format_source(&fs_);
+            if (check_only) {
+                if (strcmp(text, formatted) != 0) {
+                    fprintf(stderr, "%s is not formatted\n", path);
+                    bad = 1;
+                }
+            } else if (in_place) {
+                if (strcmp(text, formatted) != 0) {
+                    write_whole_file(path, formatted);
+                    printf("formatted %s\n", path);
+                }
+            } else {
+                fputs(formatted, stdout);
+            }
+        }
+        return bad;
+    }
+
     if (fmt_mode) {
         bool from_stdin = strcmp(file, "-") == 0;
         char *text;
@@ -140,9 +174,20 @@ int main(int argc, char **argv) {
     if (verbose) fprintf(stderr, "cubc: %d function(s), %d type(s)\n",
                          prog->fns.len, prog->structs.len + prog->enums.len);
 
-    check_program(prog);
+    check_program(prog, !doc_mode);
     if (verbose) fprintf(stderr, "cubc: types check out\n");
     if (check_only) { printf("%s: no problems found\n", file); return 0; }
+
+    if (doc_mode) {
+        char *md = docgen_program(prog, file);
+        if (outname) {
+            write_whole_file(outname, md);
+            printf("wrote %s\n", outname);
+        } else {
+            fputs(md, stdout);
+        }
+        return 0;
+    }
 
     /* ---- back end ---- */
     char *csrc = codegen_program(prog, file);

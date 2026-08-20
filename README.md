@@ -46,7 +46,7 @@ Nothing to install beyond a C compiler and `make`.
 
 ```bash
 make
-make test          # 48 tests: programs, compile errors, runtime failures
+make test          # 52 tests: programs, compile errors, runtime failures
 make examples      # run everything in examples/
 sudo make install  # optional: puts cubc in /usr/local/bin
 make install-vscode   # optional: editor support
@@ -163,6 +163,16 @@ let p = Point { x: 1, y: 2 }
 print(p)                         // Point{x: 1, y: 2}
 print(Color.Green)               // Green
 
+// Part of the library is always there; the rest is imported.
+import math
+import fs
+
+print(math.sqrt(16.0))
+print(fs.exists("notes.txt"))
+
+// A program can span several files.
+import "shapes.cub"
+
 // Maps, keyed by text or number.
 var ages = ["ada": 36]
 ages["grace"] = 45
@@ -220,6 +230,7 @@ compiler.
 | `src/check.c` | types, names, mutability, return paths, and the messages |
 | `src/codegen.c` | standalone C99 |
 | `src/format.c` | `cubc fmt`, the canonical formatter |
+| `src/docgen.c` | `cubc doc`, a reference built from `///` comments |
 | `editors/vscode/` | highlighting, formatting, and live errors in VS Code |
 | `runtime/cub_rt.h` | text, arrays, bounds checks, and the allocation registry |
 | `tests/` | programs, compile errors, and runtime failures |
@@ -250,9 +261,9 @@ server meant to run for weeks. Reference counting is the next step.
 
 ## Status
 
-Version 0.3.0. The language described here works, and the test suite covers
-it. Not yet built: modules, optional values, generics, closures, interfaces,
-and private fields.
+Version 0.4.0. The language described here works, and the test suite covers
+it. Not yet built: optional values, generics, closures, interfaces, and private
+declarations.
 [The reference](docs/LANGUAGE.md#19-what-cub-leaves-out-for-now) lists them
 with what is planned.
 
@@ -318,6 +329,7 @@ cubc program.cub --keep-c     compile, and keep the C
 cubc -v program.cub           show each step
 cubc fmt program.cub          format it
 cubc fmt -w program.cub       format it in place
+cubc doc program.cub          write a reference from its /// comments
 ```
 
 ---

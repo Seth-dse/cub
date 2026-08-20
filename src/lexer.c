@@ -17,6 +17,8 @@ typedef struct {
     const char *p;
     int         line, col;
     bool        nl;
+    Buf         doc;        /* /// lines waiting for a declaration */
+    bool        has_doc;
 } Lexer;
 
 static const char *tok_names[TK__COUNT] = {
@@ -24,7 +26,7 @@ static const char *tok_names[TK__COUNT] = {
     "fn", "let", "var", "if", "else", "while", "for", "in",
     "return", "break", "continue", "type", "struct", "enum",
     "true", "false", "and", "or", "not",
-    "class", "self", "super", "void", "static",
+    "class", "self", "super", "void", "static", "import",
     "(", ")", "{", "}", "[", "]",
     ",", ".", "..", "..=", ":", ";", "->",
     "+", "-", "*", "/", "%",
@@ -45,7 +47,7 @@ static const struct { const char *word; TokKind kind; } keywords[] = {
     {"true", TK_TRUE}, {"false", TK_FALSE},
     {"and", TK_AND}, {"or", TK_OR}, {"not", TK_NOT},
     {"class", TK_CLASS}, {"self", TK_SELF}, {"super", TK_SUPER},
-    {"void", TK_VOID}, {"static", TK_STATIC},
+    {"void", TK_VOID}, {"static", TK_STATIC}, {"import", TK_IMPORT},
     {NULL, TK_EOF}
 };
 
@@ -69,6 +71,16 @@ static void skip_trivia(Lexer *L) {
         if (c == ' ' || c == '\t' || c == '\r' || c == '\n') { advance(L); continue; }
         if (c == '/' && peek2(L) == '/') {
             if (keep_comments) return;
+            /* `///` documents whatever comes next; `//` is an aside */
+            bool is_doc = L->p[2] == '/' && L->p[3] != '/';
+            if (is_doc) {
+                advance(L); advance(L); advance(L);
+                if (peek(L) == ' ') advance(L);
+                if (!L->has_doc) { buf_init(&L->doc); L->has_doc = true; }
+                else buf_putc(&L->doc, '\n');
+                while (peek(L) && peek(L) != '\n') buf_putc(&L->doc, advance(L));
+                continue;
+            }
             while (peek(L) && peek(L) != '\n') advance(L);
             continue;
         }
@@ -226,7 +238,7 @@ static bool ident_start(char c) { return isalpha((unsigned char)c) || c == '_'; 
 static bool ident_part(char c)  { return isalnum((unsigned char)c) || c == '_'; }
 
 Token *lex_all(Source *src, int first_line, int *out_count) {
-    Lexer L = { src->text, first_line, 1, false };
+    Lexer L = { src->text, first_line, 1, false, {0}, false };
     Vec toks = {0};
 
     for (;;) {
@@ -237,6 +249,11 @@ Token *lex_all(Source *src, int first_line, int *out_count) {
         t->col = L.col;
         t->nl_before = L.nl || toks.len == 0;
         L.nl = false;
+
+        if (L.has_doc) {
+            t->doc = cx_strndup(L.doc.data, L.doc.len);
+            L.has_doc = false;
+        }
 
         const char *tok_begin = L.p;
         /* Record the exact source text, then hand the token over.  The

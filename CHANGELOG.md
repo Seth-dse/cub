@@ -1,5 +1,40 @@
 # Changelog
 
+## 0.4.0
+
+Imports and documentation comments.
+
+**`import` brings in the standard library.** The everyday built-ins stay
+global; anything that reaches outside the program now lives in a module:
+
+    import os
+    import fs
+    import math
+    import rand
+
+    void main() {
+        print(os.platform())
+        print(math.round(math.PI))
+        if fs.exists("notes.txt") { print(fs.read("notes.txt")) }
+    }
+
+Calling one of these globally is an error that names the module and the new
+spelling, so an older program is told what to change.
+
+**`import` also brings in your own files.** `import "shapes.cub"` reads a
+path relative to the importing file, and a file is read once however many
+times it is asked for. Errors name the file the code was written in, not the
+one on the command line. Only the file handed to `cubc` may declare `main`.
+
+**Doc comments.** `///` documents whatever follows -- functions, classes,
+methods, fields, structs, enums. `cubc doc` turns them into a markdown
+reference, and everything else ignores them.
+
+Also: `os.platform()`, `cubc fmt` on several files at once, and `void` now
+prints as `void` rather than `nothing`.
+
+Tests grew from 48 to 52.
+
 ## 0.3.0
 
 C-style declarations, and classes that can start a program.

@@ -1,0 +1,22 @@
+import math
+
+/// Doubles a whole number.
+int double(n: int) { return n * 2 }
+
+/// Rounds to two decimal places.
+float round2(v: float) { return math.round(v * 100.0) / 100.0 }
+
+/// A named quantity.
+class Measure {
+    /// What is being measured.
+    label: string
+    /// How much of it there is.
+    amount: float
+
+    void init(label: string, amount: float) {
+        self.label = label
+        self.amount = amount
+    }
+
+    string to_string() { return "{self.label}={round2(self.amount)}" }
+}

@@ -1,0 +1,2 @@
+import "nowhere.cub"
+void main() { print("x") }

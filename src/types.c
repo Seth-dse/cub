@@ -83,7 +83,7 @@ const char *ty_show(Type *t) {
     if (!t) return "?";
     switch (t->kind) {
     case TY_ERR:    return "?";
-    case TY_VOID:   return "nothing";
+    case TY_VOID:   return "void";
     case TY_INT:    return "int";
     case TY_FLOAT:  return "float";
     case TY_BOOL:   return "bool";
