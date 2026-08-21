@@ -1,5 +1,5 @@
 {
-  "main function": {
+  "main": {
     "prefix": "main",
     "body": [
       "fn main() {",
@@ -11,16 +11,16 @@
   "function": {
     "prefix": "fn",
     "body": [
-      "${1:int} ${2:name}(${3:arg}: ${4:int}) {",
+      "fn ${1:name}(${2:arg}: ${3:int}): ${4:int} {",
       "\t$0",
       "}"
     ],
     "description": "A function that returns a value"
   },
   "procedure": {
-    "prefix": "void",
+    "prefix": "fnv",
     "body": [
-      "void ${1:name}(${2:arg}: ${3:int}) {",
+      "fn ${1:name}(${2:arg}: ${3:int}) {",
       "\t$0",
       "}"
     ],
@@ -76,8 +76,8 @@
   "struct": {
     "prefix": "struct",
     "body": [
-      "type ${1:Name} = struct {",
-      "\t${2:field}: ${3:int},",
+      "struct ${1:Name} {",
+      "\t${2:field}: ${3:int};",
       "}"
     ],
     "description": "Declare a struct"
@@ -85,21 +85,21 @@
   "enum": {
     "prefix": "enum",
     "body": [
-      "type ${1:Name} = enum { ${2:First}, ${3:Second} }"
+      "enum ${1:Name} { ${2:First}, ${3:Second} }"
     ],
     "description": "Declare an enum"
   },
   "print": {
     "prefix": "print",
     "body": [
-      "print(\"$0\")"
+      "print(\"$0\");"
     ],
     "description": "Print a line"
   },
   "print value": {
     "prefix": "printv",
     "body": [
-      "print(\"${1:label}: {${2:value}}\")"
+      "print(\"${1:label}: {${2:value}}\");"
     ],
     "description": "Print a label and a value"
   },
@@ -107,10 +107,10 @@
     "prefix": "class",
     "body": [
       "class ${1:Name} {",
-      "\t${2:field}: ${3:int}",
+      "\t${2:field}: ${3:int};",
       "",
-      "\tvoid init(${4:value}: ${3:int}) {",
-      "\t\tself.${2:field} = ${4:value}",
+      "\tfn init(${4:value}: ${3:int}) {",
+      "\t\tself.${2:field} = ${4:value};",
       "\t}",
       "}"
     ],
@@ -119,9 +119,9 @@
   "subclass": {
     "prefix": "classx",
     "body": [
-      "class ${1:Name}: ${2:Parent} {",
-      "\tvoid init(${3:args}) {",
-      "\t\tsuper.init(${3:args})",
+      "class ${1:Name} extends ${2:Parent} {",
+      "\tfn init(${3:args}) {",
+      "\t\tsuper.init(${3:args});",
       "\t}",
       "}"
     ],
@@ -130,16 +130,36 @@
   "method": {
     "prefix": "fnm",
     "body": [
-      "${1:int} ${2:name}(${3:arg}: ${4:int}) {",
+      "fn ${1:name}(${2:arg}: ${3:int}): ${4:int} {",
       "\t$0",
       "}"
     ],
     "description": "A method inside a class"
   },
+  "static method": {
+    "prefix": "static",
+    "body": [
+      "static fn ${1:name}(${2:arg}: ${3:int}): ${4:int} {",
+      "\t$0",
+      "}"
+    ],
+    "description": "A method belonging to the class itself"
+  },
+  "class with main": {
+    "prefix": "classmain",
+    "body": [
+      "class ${1:App} {",
+      "\tfn main() {",
+      "\t\t$0",
+      "\t}",
+      "}"
+    ],
+    "description": "A class that starts the program"
+  },
   "map": {
     "prefix": "map",
     "body": [
-      "var ${1:name}: [${2:string}: ${3:int}] = [:]"
+      "var ${1:name}: [${2:string}: ${3:int}] = [:];"
     ],
     "description": "An empty map"
   },
@@ -150,46 +170,17 @@
     ],
     "description": "An if that produces a value"
   },
-  "main": {
-    "prefix": "main",
-    "body": [
-      "void main() {",
-      "\t$0",
-      "}"
-    ],
-    "description": "The entry point of a Cub program"
-  },
-  "static method": {
-    "prefix": "static",
-    "body": [
-      "static ${1:int} ${2:name}(${3:arg}: ${4:int}) {",
-      "\t$0",
-      "}"
-    ],
-    "description": "A method belonging to the class itself"
-  },
-  "class with main": {
-    "prefix": "classmain",
-    "body": [
-      "class ${1:App} {",
-      "\tvoid main() {",
-      "\t\t$0",
-      "\t}",
-      "}"
-    ],
-    "description": "A class that starts the program"
-  },
   "import module": {
     "prefix": "import",
     "body": [
-      "import ${1|os,fs,math,rand|}"
+      "import ${1|os,fs,math,rand|};"
     ],
     "description": "Bring in a standard library module"
   },
   "import file": {
     "prefix": "importf",
     "body": [
-      "import \"${1:helpers.cb}\""
+      "import \"${1:helpers.cb}\";"
     ],
     "description": "Bring in one of your own files"
   },

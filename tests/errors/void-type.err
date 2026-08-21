@@ -1,0 +1,2 @@
+Cub has no `void` type
+a function that gives nothing back leaves the return type off

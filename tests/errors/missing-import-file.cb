@@ -1,2 +1,2 @@
-import "nowhere.cb"
-void main() { print("x") }
+import "nowhere.cb";
+fn main() { print("x"); }

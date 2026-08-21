@@ -78,11 +78,11 @@
           }
         },
         {
-          "comment": "a declaration leads with its return type",
-          "match": "\\b(void|int|float|bool|string|\\[[^\\]]*\\]|[A-Z][A-Za-z0-9_]*)\\s+([a-z_][A-Za-z0-9_]*)\\s*(?=\\()",
+          "comment": "fn name(...)",
+          "match": "\\b(fn)\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*(?=\\()",
           "captures": {
             "1": {
-              "name": "storage.type.return.cub"
+              "name": "keyword.declaration.function.cub"
             },
             "2": {
               "name": "entity.name.function.cub"
@@ -90,8 +90,8 @@
           }
         },
         {
-          "comment": "class Name : Parent",
-          "match": "\\b(class)\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*(?:(:)\\s*([A-Za-z_][A-Za-z0-9_]*))?",
+          "comment": "class Name extends Parent",
+          "match": "\\b(class)\\s+([A-Za-z_][A-Za-z0-9_]*)(?:\\s+(extends)\\s+([A-Za-z_][A-Za-z0-9_]*))?",
           "captures": {
             "1": {
               "name": "keyword.declaration.class.cub"
@@ -100,7 +100,7 @@
               "name": "entity.name.type.class.cub"
             },
             "3": {
-              "name": "punctuation.separator.inheritance.cub"
+              "name": "keyword.declaration.inheritance.cub"
             },
             "4": {
               "name": "entity.other.inherited-class.cub"
@@ -108,20 +108,14 @@
           }
         },
         {
-          "comment": "type Name = struct | enum",
-          "match": "\\b(type)\\s+([A-Za-z_][A-Za-z0-9_]*)\\s*(=)\\s*\\b(struct|enum)\\b",
+          "comment": "struct Name / enum Name",
+          "match": "\\b(struct|enum)\\s+([A-Za-z_][A-Za-z0-9_]*)",
           "captures": {
             "1": {
               "name": "keyword.declaration.type.cub"
             },
             "2": {
               "name": "entity.name.type.cub"
-            },
-            "3": {
-              "name": "keyword.operator.assignment.cub"
-            },
-            "4": {
-              "name": "storage.type.cub"
             }
           }
         },
@@ -257,7 +251,7 @@
         },
         {
           "name": "keyword.declaration.cub",
-          "match": "\\b(let|var|type|struct|enum|class|static|import)\\b"
+          "match": "\\b(fn|let|var|struct|enum|class|extends|static|import)\\b"
         },
         {
           "name": "variable.language.cub",
@@ -301,7 +295,7 @@
         },
         {
           "name": "support.type.primitive.cub",
-          "match": "\\b(int|float|bool|string|void)\\b"
+          "match": "\\b(int|float|bool|string)\\b"
         },
         {
           "comment": "Color.Red -- a value picked out of an enum",
@@ -356,10 +350,6 @@
     },
     "operators": {
       "patterns": [
-        {
-          "name": "keyword.operator.arrow.cub",
-          "match": "->"
-        },
         {
           "name": "keyword.operator.range.cub",
           "match": "\\.\\.=?"

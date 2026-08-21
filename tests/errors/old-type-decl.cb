@@ -1,0 +1,2 @@
+type Point = struct { x: int, y: int }
+fn main() { print(Point { x: 1, y: 2 }); }

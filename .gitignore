@@ -20,3 +20,5 @@ editors/vscode/*.vsix
 
 # Exercise output
 exercises/.out/
+
+__pycache__/

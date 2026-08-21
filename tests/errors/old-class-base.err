@@ -1,0 +1,2 @@
+a class names the one it builds on with `extends`
+write `class Dog extends Animal { ... }`

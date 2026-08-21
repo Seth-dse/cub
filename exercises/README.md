@@ -67,8 +67,8 @@ and write something of your own before starting 9.
 Getting something wrong on purpose is a fast way to learn:
 
 ```cub
-let count = 0
-count = 1          // error names the fix: use `var`
+let count = 0;
+count = 1;          // error names the fix: use `var`
 ```
 
 **Whitespace matters, wording does not.** `check.sh` compares output

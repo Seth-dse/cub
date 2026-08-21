@@ -1,10 +1,10 @@
 /* format.c -- `cubc fmt`, the canonical formatter.
  *
- * Cub ends statements at the end of a line, so a formatter that moved code
- * between lines could change what a program means.  This one never does.
  * It rewrites the horizontal whitespace -- indentation, spacing around
  * operators, spacing inside brackets -- and leaves every line break where
- * the author put it.
+ * the author put it.  Semicolons mean it could safely rewrap code, but a
+ * formatter that only tidies is one you can run on anything without
+ * arguing with it, so this one tidies what you wrote.
  *
  * It works on the token stream rather than the syntax tree, which keeps
  * comments and the exact spelling of literals (0xff, 1_000, "a {b} c")
@@ -52,9 +52,19 @@ static bool prefix_position(const Token *prev) {
     }
 }
 
-/* A line that continues the previous one gets one extra level of indent. */
+/* A line that continues the previous one gets one extra level of indent.
+ * That is true whether the operator was left at the end of the line above
+ * or carried down to the start of this one:
+ *
+ *     let total = first
+ *         + second;
+ */
 static bool continues_line(const Token *prev) {
-    return prev && (is_binop(prev->kind) || is_assign(prev->kind) || prev->kind == TK_ARROW);
+    return prev && (is_binop(prev->kind) || is_assign(prev->kind));
+}
+
+static bool continued_line(const Token *cur) {
+    return is_binop(cur->kind) || is_assign(cur->kind) || cur->kind == TK_DOT;
 }
 
 static bool needs_space(const Token *prev, const Token *cur, bool prev_was_prefix) {
@@ -110,6 +120,7 @@ static char *render(Token *toks, int n) {
     int at_line = toks[0].line;
     Token *prev = NULL;
     bool prev_prefix = false;
+    bool carried_on = false;       /* this line continues the one above */
 
     for (int i = 0; i < n && toks[i].kind != TK_EOF; i++) {
         Token *t = &toks[i];
@@ -123,7 +134,9 @@ static char *render(Token *toks, int n) {
             if (sp > 0 && is_closer(t->kind))      cur_level = open_level[sp - 1];
             else if (sp > 0)                       cur_level = open_level[sp - 1] + 1;
             else                                   cur_level = 0;
-            if (!is_closer(t->kind) && continues_line(prev)) cur_level++;
+            carried_on = !is_closer(t->kind) &&
+                         (continues_line(prev) || continued_line(t));
+            if (carried_on) cur_level++;
 
             for (int k = 0; k < cur_level; k++) buf_puts(&out, INDENT);
         } else if (t->kind == TK_COMMENT || needs_space(prev, t, prev_prefix)) {
@@ -133,7 +146,18 @@ static char *render(Token *toks, int n) {
         /* the token's own text, exactly as written */
         for (int k = 0; k < t->raw_len; k++) buf_putc(&out, t->raw[k]);
 
-        if (is_opener(t->kind) && sp < MAX_NEST) open_level[sp++] = cur_level;
+        /* A block opened at the end of a header that ran over several lines
+         * belongs to the statement, not to the continuation, so its body
+         * lines up with the statement:
+         *
+         *     if a < b
+         *         and c < d {
+         *         print("both");
+         *     }
+         */
+        if (is_opener(t->kind) && sp < MAX_NEST)
+            open_level[sp++] = (t->kind == TK_LBRACE && carried_on && cur_level > 0)
+                             ? cur_level - 1 : cur_level;
         else if (is_closer(t->kind) && sp > 0)   sp--;
 
         prev_prefix = (t->kind == TK_MINUS || t->kind == TK_BANG) && prefix_position(prev);

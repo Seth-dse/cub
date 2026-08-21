@@ -1,0 +1,2 @@
+Cub declares a type with `struct`, not `type`
+write `struct Point { x: int; y: int; }`

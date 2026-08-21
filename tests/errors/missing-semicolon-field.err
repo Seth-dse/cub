@@ -1,0 +1,2 @@
+expected `;` to end this field
+every field in a struct or a class ends with a semicolon

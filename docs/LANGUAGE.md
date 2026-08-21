@@ -1,6 +1,6 @@
 # The Cub Language Reference
 
-Version 0.1.0
+Version 0.5.0
 
 Cub is a small statically typed language in the C family. It compiles to
 standalone C99, so a Cub program runs anywhere a C compiler runs and starts
@@ -42,12 +42,12 @@ Execution starts at `main`.
 
 ```cub
 // Globals are declared outside any function.
-let GREETING = "hello"
+let GREETING = "hello";
 
-type Point = struct { x: int, y: int }
+struct Point { x: int; y: int; }
 
-void main() {
-    print(GREETING)
+fn main() {
+    print(GREETING);
 }
 ```
 
@@ -55,13 +55,13 @@ void main() {
 the process exit code.
 
 ```cub
-int main(){
-    return 0
+fn main(): int {
+    return 0;
 }
 ```
 
-There is no `#include` and no header. A program is one file. (Modules are
-planned; see [section 20](#20-what-cub-leaves-out-for-now).)
+There is no `#include` and no header. A program may span several files, and
+`import` is how they meet — see [section 14](#14-imports).
 
 ---
 
@@ -82,14 +82,14 @@ reference, and everything else ignores them:
 /// Adds two whole numbers together.
 ///
 /// Returns their sum.
-int add(a: int, b: int) {
-    return a + b
+fn add(a: int, b: int): int {
+    return a + b;
 }
 
 /// A creature that can make a sound.
 class Animal {
     /// What the creature is called.
-    name: string
+    name: string;
 }
 ```
 
@@ -98,32 +98,63 @@ enums. Anywhere else they are just comments.
 
 ---
 
-## 4. Lines and semicolons
+## 4. Statements and semicolons
 
-A statement ends at the end of the line. Semicolons are permitted and
-ignored, so C habits cost you nothing.
+Every statement ends with a semicolon.
 
 ```cub
-let a = 1
-let b = 2;      // the semicolon is allowed, and does nothing
+let a = 1;
+let b = 2;
+print(a + b);
 ```
 
-An expression continues onto the next line in two cases: when the line ends
-on an operator, and when you are inside brackets.
+Because the semicolon says where a statement stops, line breaks mean nothing
+to the compiler. Write an expression across as many lines as it reads best
+on:
 
 ```cub
-let total = 1 +         // ends on `+`, so it continues
+let total = 1 +
             2 +
-            3
+            3;
 
-let items = [           // inside brackets, newlines do not matter
+let items = [
     10,
     20,
-]
+];
+
+if temperature > 30
+    and humidity > 60
+    and not raining {
+    print("close the blinds");
+}
 ```
 
-A trailing comma is allowed in every list: arrays, arguments, parameters,
-struct fields, and enum values.
+Declarations that end in a block — `fn`, `class`, `struct`, `enum`, and the
+body of an `if`, `while`, or `for` — end at their closing brace and take no
+semicolon:
+
+```cub
+fn twice(n: int): int {
+    return n * 2;
+}                       // no semicolon here
+
+for i in 0..3 {
+    print(i);
+}                       // nor here
+```
+
+The fields of a struct or a class are declarations too, so each one ends with
+a semicolon:
+
+```cub
+struct Point {
+    x: int;
+    y: int;
+}
+```
+
+A trailing comma is allowed in every list: arrays, arguments, parameters, and
+enum values.
 
 ---
 
@@ -149,9 +180,9 @@ There is no implicit conversion between any two types, including `int` and
 `float`. Convert explicitly:
 
 ```cub
-let n = 7
-let half = float(n) / 2.0      // 3.5
-let back = int(half)           // 3, rounded toward zero
+let n = 7;
+let half = float(n) / 2.0;      // 3.5
+let back = int(half);           // 3, rounded toward zero
 ```
 
 ---
@@ -161,17 +192,17 @@ let back = int(half)           // 3, rounded toward zero
 `let` binds a name once. `var` binds a name that can be reassigned.
 
 ```cub
-let limit = 100        // never changes
-var count = 0          // may change
-count += 1
+let limit = 100;        // never changes
+var count = 0;          // may change
+count += 1;
 ```
 
 The type is inferred from the value. Write it explicitly when you want to,
 and when the value alone is not enough to decide:
 
 ```cub
-let ratio: float = 1.5
-var names: [string] = []      // an empty array needs a type
+let ratio: float = 1.5;
+var names: [string] = [];      // an empty array needs a type
 ```
 
 **Scope.** A variable is visible from its declaration to the end of the
@@ -179,12 +210,12 @@ enclosing block. An inner block may shadow an outer name; the inner one is a
 separate variable.
 
 ```cub
-let x = 1
+let x = 1;
 {
-    let x = x + 10     // a new variable, built from the outer one
-    print(x)           // 11
+    let x = x + 10;     // a new variable, built from the outer one
+    print(x);           // 11
 }
-print(x)               // 1
+print(x);               // 1
 ```
 
 Redeclaring a name *in the same block* is an error, because that is almost
@@ -232,11 +263,11 @@ Comparison rules:
 
 ```cub
 if temperature > 30 {
-    print("hot")
+    print("hot");
 } else if temperature > 15 {
-    print("mild")
+    print("mild");
 } else {
-    print("cold")
+    print("cold");
 }
 ```
 
@@ -244,7 +275,7 @@ Braces are always required; the condition needs no parentheses.
 
 ```cub
 while queue_size > 0 {
-    queue_size -= 1
+    queue_size -= 1;
 }
 ```
 
@@ -252,7 +283,7 @@ An `if` can also *produce* a value, in which case the `else` is required and
 both branches hold one expression:
 
 ```cub
-let label = if score >= 90 { "A" } else if score >= 80 { "B" } else { "C" }
+let label = if score >= 90 { "A" } else if score >= 80 { "B" } else { "C" };
 ```
 
 The two forms are the same keyword doing two jobs: as a statement it chooses
@@ -275,7 +306,7 @@ Iterating text goes through positions, because a byte is not a character:
 
 ```cub
 for i in 0..len(word) {
-    print(char_at(word, i))
+    print(char_at(word, i));
 }
 ```
 
@@ -284,31 +315,32 @@ for i in 0..len(word) {
 ## 9. Functions
 
 ```cub
-float area(width: float, height: float){
-    return width * height
+fn area(width: float, height: float): float {
+    return width * height;
 }
 
-void shout(message: string) {        // `void` means it gives nothing back
-    print(upper(message))
+fn shout(message: string) {        // no `: type`, so it gives nothing back
+    print(upper(message));
 }
 ```
 
-A declaration leads with what it gives back, the way C does: `int` for a
-whole number, `[string]` for an array of text, `void` for nothing at all.
-Every parameter is typed, written `name: type`.
+A function reads in the order you would say it out loud: the name, what goes
+in, then what comes back. Every parameter is typed, written `name: type`, and
+the return type is written the same way after the parameters. Leave it off
+and the function gives nothing back — there is no `void` to write.
 
 Declaration order does not matter — functions may call each other freely,
 including mutual recursion:
 
 ```cub
-bool is_even(n: int){
-    if n == 0 { return true }
-    return is_odd(n - 1)
+fn is_even(n: int): bool {
+    if n == 0 { return true; }
+    return is_odd(n - 1);
 }
 
-bool is_odd(n: int){
-    if n == 0 { return false }
-    return is_even(n - 1)
+fn is_odd(n: int): bool {
+    if n == 0 { return false; }
+    return is_even(n - 1);
 }
 ```
 
@@ -330,11 +362,11 @@ closures, or generics yet.
 Text is immutable. `+` joins, and `{ }` inserts a value:
 
 ```cub
-let name = "Ada"
-let age = 36
-print("Hello, {name}. You are {age}.")
-print("Next year: {age + 1}")          // any expression fits
-print("Loud: {upper(name)}")
+let name = "Ada";
+let age = 36;
+print("Hello, {name}. You are {age}.");
+print("Next year: {age + 1}");          // any expression fits
+print("Loud: {upper(name)}");
 ```
 
 Interpolation calls `str` on whatever you insert, so it works for every type,
@@ -343,7 +375,7 @@ including arrays and structs.
 Escapes: `\n` `\t` `\r` `\0` `\\` `\"` `\{` `\}`.
 
 ```cub
-print("a real brace: \{ }")
+print("a real brace: \{ }");
 ```
 
 `len` returns the length in bytes. For ASCII that is the number of
@@ -356,11 +388,11 @@ characters; for other UTF-8 text it is not.
 An array holds any number of values of one type, and grows on demand.
 
 ```cub
-var scores = [10, 20, 30]
-push(scores, 40)
-print(scores[0])          // 10
-print(len(scores))        // 4
-scores[1] = 25
+var scores = [10, 20, 30];
+push(scores, 40);
+print(scores[0]);          // 10
+print(len(scores));        // 4
+scores[1] = 25;
 ```
 
 **Arrays are shared, not copied.** Assigning an array, or passing one to a
@@ -368,10 +400,10 @@ function, gives you another name for the same array — the same model as
 Python lists or Java arrays.
 
 ```cub
-var a = [1, 2]
-let b = a
-push(b, 3)
-print(a)              // [1, 2, 3] -- a and b are the same array
+var a = [1, 2];
+let b = a;
+push(b, 3);
+print(a);              // [1, 2, 3] -- a and b are the same array
 ```
 
 This is why `let` on an array still allows the contents to change. `let`
@@ -379,10 +411,10 @@ promises the *name* keeps pointing at the same array, not that the array
 stops changing:
 
 ```cub
-let fixed = [1, 2, 3]
-fixed[0] = 9          // fine: the contents may change
-push(fixed, 4)        // fine
-fixed = [5, 6]        // error: `fixed` was declared with `let`
+let fixed = [1, 2, 3];
+fixed[0] = 9;          // fine: the contents may change
+push(fixed, 4);        // fine
+fixed = [5, 6];        // error: `fixed` was declared with `let`
 ```
 
 **Every index is checked.** Reading or writing outside an array stops the
@@ -400,13 +432,19 @@ Runtime error: position 5 is outside the array, whose positions are 0 to 2
 A struct groups named fields into one value.
 
 ```cub
-type Point = struct {
-    x: int,
-    y: int,
+struct Point {
+    x: int;
+    y: int;
 }
 
-let origin = Point { x: 0, y: 0 }
-print(origin.x)
+let origin = Point { x: 0, y: 0 };
+print(origin.x);
+```
+
+A struct that fits on one line may stay on one line:
+
+```cub
+struct Point { x: int; y: int; }
 ```
 
 Every field must be given a value when you build one — there is no partially
@@ -415,26 +453,26 @@ initialized struct. The compiler names any field you forget.
 **Structs are values, not references.** Assigning one copies it:
 
 ```cub
-var a = Point { x: 1, y: 2 }
-var b = a
-b.x = 99
-print(a.x)          // 1 -- b is a separate copy
+var a = Point { x: 1, y: 2 };
+var b = a;
+b.x = 99;
+print(a.x);          // 1 -- b is a separate copy
 ```
 
 To change a struct's fields, the variable must be a `var`. Structs may
 contain other structs and arrays, and printing one shows its contents:
 
 ```cub
-print(origin)       // Point{x: 0, y: 0}
+print(origin);       // Point{x: 0, y: 0}
 ```
 
 A struct cannot contain itself directly, because that value would have no
 size. Hold it in an array instead — the compiler tells you so:
 
 ```cub
-type Node = struct {
-    value: int,
-    children: [Node],     // fine: an array is a reference
+struct Node {
+    value: int;
+    children: [Node];     // fine: an array is a reference
 }
 ```
 
@@ -445,13 +483,13 @@ type Node = struct {
 An enum is a fixed set of named values.
 
 ```cub
-type Status = enum { Todo, Doing, Done }
+enum Status { Todo, Doing, Done }
 
-let state = Status.Doing
+let state = Status.Doing;
 if state == Status.Done {
-    print("finished")
+    print("finished");
 }
-print(state)                 // Doing
+print(state);                 // Doing
 ```
 
 Enum values are always written with the type name in front, so it is obvious
@@ -471,20 +509,20 @@ functions — are always there. Anything that reaches outside the program, or
 belongs to a recognisable corner of the library, lives in a module:
 
 ```cub
-import os
-import fs
-import math
-import rand
+import os;
+import fs;
+import math;
+import rand;
 
-void main() {
-    print(os.platform())              // "macos", "linux", "windows"
-    print(math.round(math.PI))
+fn main() {
+    print(os.platform());              // "macos", "linux", "windows"
+    print(math.round(math.PI));
     if fs.exists("notes.txt") {
         for line in fs.read_lines("notes.txt") {
-            print(line)
+            print(line);
         }
     }
-    print(rand.int(1, 6))
+    print(rand.int(1, 6));
 }
 ```
 
@@ -500,14 +538,14 @@ it were global, is an error that names the fix:
 
 ```
 error: `sqrt` lives in the `math` module
-  help: add `import math`, then write `math.sqrt(...)`
+  help: add `import math;`, then write `math.sqrt(...)`
 ```
 
 ### Your own files
 
 ```cub
-import "shapes.cb"
-import "lib/util.cb"
+import "shapes.cb";
+import "lib/util.cb";
 ```
 
 The path is taken relative to the file doing the importing. Everything the
@@ -526,22 +564,22 @@ A map holds values under keys. Keys are `string` or `int`; values are any
 type.
 
 ```cub
-var ages = ["ada": 36, "alan": 41]
-ages["grace"] = 45          // adds it
-ages["ada"] += 1            // changes it
+var ages = ["ada": 36, "alan": 41];
+ages["grace"] = 45;          // adds it
+ages["ada"] += 1;            // changes it
 
-print(ages["ada"])          // 37
-print(len(ages))            // 3
-print(has(ages, "alan"))    // true
-print(get(ages, "nobody", 0))   // 0 -- the fallback
-remove(ages, "alan")
+print(ages["ada"]);          // 37
+print(len(ages));            // 3
+print(has(ages, "alan"));    // true
+print(get(ages, "nobody", 0));   // 0 -- the fallback
+remove(ages, "alan");
 ```
 
 An empty map is written `[:]`, and needs a type:
 
 ```cub
-var counts: [string: int] = [:]
-var byId: [int: [string]] = [:]
+var counts: [string: int] = [:];
+var byId: [int: [string]] = [:];
 ```
 
 Reading a key that is not there stops the program, the same way an array
@@ -556,10 +594,10 @@ To walk a map, walk its keys. The order is not meaningful, so sort them when
 you want a stable listing:
 
 ```cub
-var names = keys(ages)
-sort(names)
+var names = keys(ages);
+sort(names);
 for name in names {
-    print("{name} is {ages[name]}")
+    print("{name} is {ages[name]}");
 }
 ```
 
@@ -574,19 +612,19 @@ the option to build on another class.
 
 ```cub
 class Animal {
-    name: string
+    name: string;
 
-    void init(name: string) {
-        self.name = name
+    fn init(name: string) {
+        self.name = name;
     }
 
-    string speak(){
-        return "{self.name} makes a sound"
+    fn speak(): string {
+        return "{self.name} makes a sound";
     }
 }
 
-let a = Animal("Generic")
-print(a.speak())
+let a = Animal("Generic");
+print(a.speak());
 ```
 
 The class name is also how you make one: `Animal("Generic")` runs `init`.
@@ -610,19 +648,19 @@ Runtime error: there is no Engine here yet
 ### Building on another class
 
 ```cub
-class Dog: Animal {
-    tricks: [string]
+class Dog extends Animal {
+    tricks: [string];
 
-    void init(name: string) {
-        super.init(name)          // set up the Animal part first
+    fn init(name: string) {
+        super.init(name);          // set up the Animal part first
     }
 
-    string speak(){        // replaces Animal's version
-        return "{self.name} says woof"
+    fn speak(): string {       // replaces Animal's version
+        return "{self.name} says woof";
     }
 
-    void learn(trick: string) {
-        push(self.tricks, trick)
+    fn learn(trick: string) {
+        push(self.tricks, trick);
     }
 }
 ```
@@ -631,9 +669,9 @@ A `Dog` may be used wherever an `Animal` is expected, and it keeps its own
 behaviour when it gets there:
 
 ```cub
-let pets: [Animal] = [Animal("Generic"), Dog("Rex")]
+let pets: [Animal] = [Animal("Generic"), Dog("Rex")];
 for p in pets {
-    print(p.speak())        // "Generic makes a sound", then "Rex says woof"
+    print(p.speak());        // "Generic makes a sound", then "Rex says woof"
 }
 ```
 
@@ -655,12 +693,12 @@ has no `self`, and you call it through the class name:
 
 ```cub
 class MathKit {
-    static int double(n: int) {
-        return n * 2
+    static fn double(n: int): int {
+        return n * 2;
     }
 }
 
-print(MathKit.double(21))       // 42
+print(MathKit.double(21));       // 42
 ```
 
 Reaching for `self` inside one is an error, and so is calling a static
@@ -673,14 +711,14 @@ live inside a class:
 
 ```cub
 class App {
-    greeting: string
+    greeting: string;
 
-    void init() {
-        self.greeting = "hello"
+    fn init() {
+        self.greeting = "hello";
     }
 
-    void main() {
-        print(self.greeting)
+    fn main() {
+        print(self.greeting);
     }
 }
 ```
@@ -691,8 +729,8 @@ no object were made:
 
 ```cub
 class Program {
-    static void main() {
-        print("started")
+    static fn main() {
+        print("started");
     }
 }
 ```
@@ -702,11 +740,11 @@ classes or in a class and at the top level — is an error that names both.
 
 ### Printing an object
 
-If a class declares `string`, then `print` and `str` use
-it. Otherwise you get every field, inherited ones first:
+If a class declares `fn to_string(): string`, then `print` and `str` use it.
+Otherwise you get every field, inherited ones first:
 
 ```cub
-print(dog)      // Dog to_string(){name: "Rex", tricks: ["sit"]}
+print(dog);      // Dog{name: "Rex", tricks: ["sit"]}
 ```
 
 ### Classes and structs, side by side
@@ -754,8 +792,8 @@ status 70. These are the failures no compiler can predict:
 - `panic(message)` and a failed `assert`
 
 ```cub
-assert(age >= 18, "you must be 18 or older")
-panic("this should be unreachable")
+assert(age >= 18, "you must be 18 or older");
+panic("this should be unreachable");
 ```
 
 ---
@@ -931,29 +969,31 @@ Genuinely missing, and planned:
 
 ```ebnf
 program     = { import | declaration } ;
-import      = "import" ( IDENT | STRING ) ;
-declaration = function | classdecl | typedecl | binding ;
+import      = "import" ( IDENT | STRING ) ";" ;
+declaration = function | classdecl | structdecl | enumdecl | binding ";" ;
 
-function    = [ "static" ] type IDENT "(" [ params [ "," ] ] ")" block ;
+function    = [ "static" ] "fn" IDENT "(" [ params [ "," ] ] ")"
+              [ ":" type ] block ;
 params      = param { "," param } ;
 param       = IDENT ":" type ;
 
-classdecl   = "class" IDENT [ ":" IDENT ] "{" { member } "}" ;
-member      = function | field [ "," ] ;
+classdecl   = "class" IDENT [ "extends" IDENT ] "{" { member } "}" ;
+member      = function | field ;
+field       = IDENT ":" type ";" ;
 
-typedecl    = "type" IDENT "=" ( struct | enum ) ;
-struct      = "struct" "{" [ field { "," field } [ "," ] ] "}" ;
-field       = IDENT ":" type ;
-enum        = "enum" "{" [ IDENT { "," IDENT } [ "," ] ] "}" ;
+structdecl  = "struct" IDENT "{" { field } "}" ;
+enumdecl    = "enum" IDENT "{" [ IDENT { "," IDENT } [ "," ] ] "}" ;
 
 binding     = ( "let" | "var" ) IDENT [ ":" type ] "=" expr ;
 
-type        = "void" | "int" | "float" | "bool" | "string"
+type        = "int" | "float" | "bool" | "string"
             | "[" type "]" | "[" type ":" type "]" | IDENT ;
 
 block       = "{" { statement } "}" ;
-statement   = binding | assignment | ifstmt | whilestmt | forstmt
-            | "return" [ expr ] | "break" | "continue" | block | expr ;
+statement   = binding ";" | assignment ";" | expr ";"
+            | ifstmt | whilestmt | forstmt
+            | "return" [ expr ] ";" | "break" ";" | "continue" ";"
+            | block ;
 
 assignment  = expr ( "=" | "+=" | "-=" | "*=" | "/=" | "%=" ) expr ;
 ifstmt      = "if" expr block [ "else" ( ifstmt | block ) ] ;
@@ -976,6 +1016,10 @@ primary     = INT | FLOAT | STRING | "true" | "false" | IDENT
 maplit      = "[" ( ":" | expr ":" expr { "," expr ":" expr } [ "," ] ) "]" ;
 ifexpr      = "if" expr "{" expr "}" "else" ( ifexpr | "{" expr "}" ) ;
 ```
+
+Whitespace, including line breaks, separates tokens and means nothing else.
+A `;` on its own is an empty statement and is allowed anywhere a statement
+is.
 
 ---
 
@@ -1005,11 +1049,10 @@ cubc doc program.cb -o api.md
 spaces around binary operators, none inside brackets, one blank line kept
 where you left blank lines, and comments untouched.
 
-Because a statement in Cub ends at the end of its line, the formatter never
-moves code between lines — it rewrites horizontal whitespace only. That makes
-it impossible for formatting to change what a program does. As a second
-check, it re-lexes its own output and refuses to write anything if the token
-stream is not identical.
+The formatter never moves code between lines — it rewrites horizontal
+whitespace only, so formatting cannot rearrange a program into a shape you
+did not write. As a second check, it re-lexes its own output and refuses to
+write anything if the token stream is not identical.
 
 This means `cubc fmt` will not break a long line, join two short ones, or
 move a trailing `}` onto a line of its own. Where the lines go is yours to

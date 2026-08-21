@@ -1,6 +1,6 @@
-int biggest(a: int, b: int) {
+fn biggest(a: int, b: int): int {
     if a > b {
-        return a
+        return a;
     }
 }
-void main() { print(biggest(1, 2)) }
+fn main() { print(biggest(1, 2)); }

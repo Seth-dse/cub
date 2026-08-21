@@ -10,26 +10,26 @@
 //
 // Every one needs its stopping case first, or it runs forever.
 
-int factorial(n: int) {
-    return 1 // TODO
+fn factorial(n: int): int {
+    return 1; // TODO
 }
 
-int fib(n: int) {
-    return 0 // TODO
+fn fib(n: int): int {
+    return 0; // TODO
 }
 
-int digit_sum(n: int) {
-    return 0 // TODO
+fn digit_sum(n: int): int {
+    return 0; // TODO
 }
 
-void main() {
-    print(factorial(5))
-    print(factorial(10))
+fn main() {
+    print(factorial(5));
+    print(factorial(10));
 
     for i in 0..10 {
-        write("{fib(i)} ")
+        write("{fib(i)} ");
     }
-    print("")
+    print("");
 
-    print(digit_sum(9481))
+    print(digit_sum(9481));
 }

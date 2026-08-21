@@ -1,36 +1,36 @@
 // Sieve of Eratosthenes.
-[int] primes_below(limit: int) {
-    var sieve: [bool] = []
+fn primes_below(limit: int): [int] {
+    var sieve: [bool] = [];
     for i in 0..limit {
-        push(sieve, true)
+        push(sieve, true);
     }
 
-    var n = 2
+    var n = 2;
     while n * n < limit {
         if sieve[n] {
-            var multiple = n * n
+            var multiple = n * n;
             while multiple < limit {
-                sieve[multiple] = false
-                multiple += n
+                sieve[multiple] = false;
+                multiple += n;
             }
         }
-        n += 1
+        n += 1;
     }
 
-    var found: [int] = []
+    var found: [int] = [];
     for i in 2..limit {
         if sieve[i] {
-            push(found, i)
+            push(found, i);
         }
     }
-    return found
+    return found;
 }
 
-void main() {
-    let found = primes_below(100)
-    print("{len(found)} primes below 100:")
-    print(found)
+fn main() {
+    let found = primes_below(100);
+    print("{len(found)} primes below 100:");
+    print(found);
 
-    let big = primes_below(100000)
-    print("and {len(big)} below 100000, the largest being {big[len(big) - 1]}")
+    let big = primes_below(100000);
+    print("and {len(big)} below 100000, the largest being {big[len(big) - 1]}");
 }

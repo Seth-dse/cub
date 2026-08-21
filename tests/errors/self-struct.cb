@@ -1,2 +1,2 @@
-type Node = struct { value: int, next: Node }
-void main() { print("x") }
+struct Node { value: int; next: Node; }
+fn main() { print("x"); }

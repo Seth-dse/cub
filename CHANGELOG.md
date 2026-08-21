@@ -1,5 +1,62 @@
 # Changelog
 
+## 0.5.0
+
+A new syntax. Every declaration now reads the same way, and every statement
+ends with a semicolon.
+
+**Statements end at `;`.** A line break used to end a statement, which meant
+the parser had to guess whether an expression had finished and the formatter
+was forbidden from touching line breaks at all. Now the semicolon says where
+a statement stops, whitespace means nothing to the grammar, and an
+expression can be laid out however it reads best:
+
+    if temperature > 30
+        and humidity > 60
+        and not raining {
+        print("close the blinds");
+    }
+
+**Functions start with `fn`, and the return type comes last.** Cub used to
+put the return type first, C-style, while every other declaration in the
+language put the type after the name. One shape now covers all of them:
+
+    fn add(a: int, b: int): int { return a + b; }
+    fn greet(name: string) { print("hi {name}"); }
+
+A function with no `: type` gives nothing back, so `void` is gone.
+
+**`struct` and `enum` declare themselves.**
+
+    struct Point { x: int; y: int; }
+    enum Colour { Red, Green, Blue }
+
+rather than `type Point = struct { ... }`. Struct and class fields each end
+with a semicolon, like every other declaration.
+
+**A class names its parent with `extends`.** `class Dog extends Animal`,
+where it used to be `class Dog : Animal`. `:` now means one thing only: the
+type of the thing named to its left.
+
+**Every 0.4 shape is recognised and named.** The compiler does not report a
+puzzling token when it meets old code; it says what the line should be:
+
+    old.cb:1:1: error: a function starts with `fn`
+         1 | int add(a: int, b: int) {
+           | ^
+      help: write `fn add(...): <type>`, or leave the `: <type>` off when it
+            gives nothing back
+
+**`tools/migrate.py` does the move for you.** It parses the old grammar and
+edits by offset, so comments, blank lines, and the spelling of literals come
+through untouched:
+
+    tools/migrate.py -w src/*.cb
+
+The whole of `examples/`, `exercises/`, and `tests/` went through it, and
+every program produces byte-identical output to the version before the
+change.
+
 ## 0.4.2
 
 Fixes a build failure on Linux.

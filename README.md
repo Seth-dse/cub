@@ -11,26 +11,26 @@ It compiles to standalone C99, so a Cub program runs anywhere C runs.
 
 ```cub
 class Task {
-    title: string
-    done: bool
+    title: string;
+    done: bool;
 
-    void init(title: string) {
-        self.title = title
+    fn init(title: string) {
+        self.title = title;
     }
 
-    string to_string(){
-        return "{if self.done { "[x]" } else { "[ ]" }} {self.title}"
+    fn to_string(): string {
+        return "{if self.done { "[x]" } else { "[ ]" }} {self.title}";
     }
 }
 
-void main() {
-    let tasks = [Task("write a language"), Task("write the docs")]
-    tasks[0].done = true
+fn main() {
+    let tasks = [Task("write a language"), Task("write the docs")];
+    tasks[0].done = true;
 
     for task in tasks {
-        print(task)
+        print(task);
     }
-    print("{len(tasks)} tasks")
+    print("{len(tasks)} tasks");
 }
 ```
 
@@ -66,8 +66,8 @@ Then:
 **Text that reads like text.**
 
 ```cub
-let name = "Ada"
-print("Hello, {name}. Next year you turn {age + 1}.")
+let name = "Ada";
+print("Hello, {name}. Next year you turn {age + 1}.");
 ```
 
 **Errors written for a person.**
@@ -103,9 +103,9 @@ explanation instead of corrupting memory.
 
 ```cub
 // no #include, no header, no forward declarations,
-// no semicolons, no `int argc, char **argv`
-void main() {
-    print("that is the whole program")
+// no `int argc, char **argv`
+fn main() {
+    print("that is the whole program");
 }
 ```
 
@@ -119,8 +119,10 @@ void main() {
    returns — checked before the program runs, in plain words.
 3. **What the compiler cannot know, the program checks.** Bounds, division,
    parsing. No undefined behavior.
-4. **One way to write things.** No headers, no preprocessor, no macros.
-   Declaration order never matters.
+4. **One way to write things.** Every declaration reads name-first —
+   `let n: int`, `fn add(a: int): int`, `struct Point { x: int; }` — every
+   statement ends with `;`, and every body is wrapped in braces. No headers,
+   no preprocessor, no macros. Declaration order never matters.
 5. **The output is honest C.** `--emit-c` gives you one readable C99 file
    with no dependencies.
 
@@ -130,20 +132,20 @@ void main() {
 
 ```cub
 // Values: let never changes, var does.
-let limit = 100
-var count = 0
-count += 1
+let limit = 100;
+var count = 0;
+count += 1;
 
 // Types: int, float, bool, string, [T], and your own.
-let ratio: float = 1.5
-var names: [string] = []
+let ratio: float = 1.5;
+var names: [string] = [];
 
 // No implicit conversion, ever.
-let half = float(7) / 2.0        // 3.5
+let half = float(7) / 2.0;        // 3.5
 
 // Conditions are conditions -- there is no truthiness.
 if count > 0 and count < limit {
-    print("in range")
+    print("in range");
 }
 
 // Two kinds of loop.
@@ -151,60 +153,66 @@ for i in 0..5 { }                // 0 1 2 3 4
 for i in 1..=5 { }               // 1 2 3 4 5
 for name in names { }
 
-// Functions: typed, in any order, checked for every return path.
-float area(w: float, h: float){
-    return w * h
+// Functions: the name first, then what goes in, then what comes back.
+fn area(w: float, h: float): float {
+    return w * h;
+}
+
+// Leave the return type off when a function gives nothing back.
+fn shout(text: string) {
+    print(upper(text));
 }
 
 // Arrays and objects are shared. Structs are copied.
-type Point = struct { x: int, y: int }
-type Color = enum { Red, Green, Blue }
+struct Point { x: int; y: int; }
+enum Color { Red, Green, Blue }
 
-let p = Point { x: 1, y: 2 }
-print(p)                         // Point{x: 1, y: 2}
-print(Color.Green)               // Green
+let p = Point { x: 1, y: 2 };
+print(p);                        // Point{x: 1, y: 2}
+print(Color.Green);              // Green
 
 // Part of the library is always there; the rest is imported.
-import math
-import fs
+import math;
+import fs;
 
-print(math.sqrt(16.0))
-print(fs.exists("notes.txt"))
+print(math.sqrt(16.0));
+print(fs.exists("notes.txt"));
 
 // A program can span several files.
-import "shapes.cb"
+import "shapes.cb";
 
 // Maps, keyed by text or number.
-var ages = ["ada": 36]
-ages["grace"] = 45
-print(get(ages, "nobody", 0))    // 0
+var ages = ["ada": 36];
+ages["grace"] = 45;
+print(get(ages, "nobody", 0));   // 0
 
 // if also works as a value.
-let label = if count > 0 { "some" } else { "none" }
+let label = if count > 0 { "some" } else { "none" };
 
 // Classes: data with behaviour, and one parent at most.
 class Animal {
-    name: string
-    void init(name: string) { self.name = name }
-    string speak(){ return "{self.name} makes a sound" }
+    name: string;
+
+    fn init(name: string) { self.name = name; }
+    fn speak(): string { return "{self.name} makes a sound"; }
 }
 
-class Dog: Animal {
-    void init(name: string) { super.init(name) }
-    string speak(){ return "{self.name} says woof" }
+class Dog extends Animal {
+    fn init(name: string) { super.init(name); }
+    fn speak(): string { return "{self.name} says woof"; }
 }
 
-let pets: [Animal] = [Animal("Generic"), Dog("Rex")]
+let pets: [Animal] = [Animal("Generic"), Dog("Rex")];
 for pet in pets {
-    print(pet.speak())           // each one keeps its own voice
+    print(pet.speak());          // each one keeps its own voice
 }
 
 // A class can hold the starting point, and methods of its own.
 class App {
-    static int twice(n: int) { return n * 2 }
+    static fn twice(n: int): int { return n * 2; }
 
-    void main() {
-        print(App.twice(21))
+    fn main() {
+        print(App.twice(21));
     }
 }
 ```
@@ -228,7 +236,7 @@ compiler.
 | | |
 |---|---|
 | `src/lexer.c` | text to tokens, including `{interpolation}` splitting |
-| `src/parser.c` | recursive descent; newlines end statements |
+| `src/parser.c` | recursive descent; statements end at `;` |
 | `src/check.c` | types, names, mutability, return paths, and the messages |
 | `src/codegen.c` | standalone C99 |
 | `src/format.c` | `cubc fmt`, the canonical formatter |
@@ -236,6 +244,7 @@ compiler.
 | `editors/vscode/` | highlighting, formatting, and live errors in VS Code |
 | `runtime/cub_rt.h` | text, arrays, bounds checks, and the allocation registry |
 | `tests/` | programs, compile errors, and runtime failures |
+| `tools/migrate.py` | rewrites 0.4 source in the 0.5 syntax |
 
 Look at what your program becomes:
 
@@ -263,10 +272,10 @@ server meant to run for weeks. Reference counting is the next step.
 
 ## Status
 
-Version 0.4.2. The language described here works, and the test suite covers
+Version 0.5.0. The language described here works, and the test suite covers
 it. Not yet built: optional values, generics, closures, interfaces, and private
 declarations.
-[The reference](docs/LANGUAGE.md#19-what-cub-leaves-out-for-now) lists them
+[The reference](docs/LANGUAGE.md#20-what-cub-leaves-out-for-now) lists them
 with what is planned.
 
 ---
@@ -293,31 +302,61 @@ cubc fmt -w program.cb       rewrite it in place
 cubc fmt --check program.cb  exit non-zero if it needs formatting (for CI)
 ```
 
-Because Cub ends statements at ends of lines, the formatter **only changes
-horizontal whitespace** — indentation and spacing. It never moves code
-between lines, so it cannot change what a program does. It also re-lexes its
+The formatter **only changes horizontal whitespace** — indentation and
+spacing. It never moves code between lines, so a run of it can never
+rearrange your program into something you did not write. It also re-lexes its
 own output and refuses to write if the token stream changed, so a bug in it
 cannot damage your file.
 
 ```cub
 // before
-type   Point=struct{x:int,y:int}
-int dist( a:Point,b:Point ){
-let dx=a.x-b.x
-return dx*dx
+struct Point {x:int;y:int;}
+fn dist( a:Point,b:Point ): int{
+let dx=a.x-b.x;
+return dx*dx;
 }
 
 // after
-type Point = struct { x: int, y: int }
-int dist(a: Point, b: Point){
-    let dx = a.x - b.x
-    return dx * dx
+struct Point { x: int; y: int; }
+fn dist(a: Point, b: Point): int {
+    let dx = a.x - b.x;
+    return dx * dx;
 }
 ```
 
 The flip side of that guarantee: if you write a whole function on one line,
 the formatter leaves it on one line. It tidies what you wrote rather than
 rearranging it.
+
+## Coming from 0.4
+
+The syntax changed in 0.5, and one tool does the whole move:
+
+```bash
+tools/migrate.py -w your/*.cb
+```
+
+| 0.4 | 0.5 |
+|---|---|
+| `int add(a: int, b: int) { }` | `fn add(a: int, b: int): int { }` |
+| `void run() { }` | `fn run() { }` |
+| `type P = struct { x: int }` | `struct P { x: int; }` |
+| `type C = enum { Red }` | `enum C { Red }` |
+| `class Dog : Animal { }` | `class Dog extends Animal { }` |
+| a statement ends at the end of the line | a statement ends at `;` |
+
+The compiler recognises every one of the old shapes and names the
+replacement, so anything the tool misses still tells you what to write:
+
+```
+old.cb:1:1: error: a function starts with `fn`
+     1 | int add(a: int, b: int) {
+       | ^
+  help: write `fn add(...): <type>`, or leave the `: <type>` off when it
+        gives nothing back
+```
+
+---
 
 ## Commands
 

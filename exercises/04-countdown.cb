@@ -10,8 +10,8 @@
 //
 // `write` prints without a newline; `print("")` ends the line.
 
-void main() {
-    var n = 5
+fn main() {
+    var n = 5;
     // TODO: the while loop, then "liftoff"
 
     // TODO: 1 2 3 4 5

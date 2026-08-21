@@ -1,16 +1,16 @@
-void main() {
-    let messy = "   the Cub language   "
-    let clean = trim(messy)
+fn main() {
+    let messy = "   the Cub language   ";
+    let clean = trim(messy);
 
-    print("[{clean}]")
-    print(upper(clean))
-    print(len(clean))
+    print("[{clean}]");
+    print(upper(clean));
+    print(len(clean));
 
-    let words = split(clean, " ")
-    print(words)
-    print(len(words))
-    print(join(words, "-"))
+    let words = split(clean, " ");
+    print(words);
+    print(len(words));
+    print(join(words, "-"));
 
-    print(contains(clean, "Cub"), starts_with(clean, "the"), ends_with(clean, "age"))
-    print(replace(clean, "Cub", "cub"))
+    print(contains(clean, "Cub"), starts_with(clean, "the"), ends_with(clean, "age"));
+    print(replace(clean, "Cub", "cub"));
 }

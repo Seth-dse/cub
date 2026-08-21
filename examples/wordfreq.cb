@@ -1,68 +1,68 @@
 // Count how often each word appears, then show the most common ones.
-type Count = struct {
-    word: string,
-    times: int,
+struct Count {
+    word: string;
+    times: int;
 }
 
-string tidy(word: string) {
-    var out = ""
+fn tidy(word: string): string {
+    var out = "";
     for i in 0..len(word) {
-        let c = code_at(word, i)
-        let is_letter = (c >= 97 and c <= 122) or (c >= 65 and c <= 90)
-        let is_digit = c >= 48 and c <= 57
+        let c = code_at(word, i);
+        let is_letter = (c >= 97 and c <= 122) or (c >= 65 and c <= 90);
+        let is_digit = c >= 48 and c <= 57;
         if is_letter or is_digit or c == 39 {
-            out += char_at(word, i)
+            out += char_at(word, i);
         }
     }
-    return lower(out)
+    return lower(out);
 }
 
-[Count] tally(text: string) {
-    var counts: [Count] = []
+fn tally(text: string): [Count] {
+    var counts: [Count] = [];
     for raw in split(text, " ") {
-        let word = tidy(raw)
+        let word = tidy(raw);
         if len(word) == 0 {
-            continue
+            continue;
         }
-        var found = false
+        var found = false;
         for i in 0..len(counts) {
             if counts[i].word == word {
-                counts[i].times += 1
-                found = true
-                break
+                counts[i].times += 1;
+                found = true;
+                break;
             }
         }
         if not found {
-            push(counts, Count { word: word, times: 1 })
+            push(counts, Count { word: word, times: 1 });
         }
     }
-    return counts
+    return counts;
 }
 
 // Selection sort, most frequent first.
-void rank(counts: [Count]) {
+fn rank(counts: [Count]) {
     for i in 0..len(counts) {
-        var best = i
+        var best = i;
         for j in i + 1..len(counts) {
             if counts[j].times > counts[best].times {
-                best = j
+                best = j;
             }
         }
-        let hold = counts[i]
-        counts[i] = counts[best]
-        counts[best] = hold
+        let hold = counts[i];
+        counts[i] = counts[best];
+        counts[best] = hold;
     }
 }
 
-void main() {
+fn main() {
     let text = replace("the quick brown fox jumps over the lazy dog. " +
-            "the dog barks, and the fox runs. the end.", "\n", " ")
-    let counts = tally(text)
-    rank(counts)
+            "the dog barks, and the fox runs. the end.", "\n", " ");
+    let counts = tally(text);
+    rank(counts);
 
-    print("{len(counts)} distinct words")
+    print("{len(counts)} distinct words");
     for i in 0..min(5, len(counts)) {
-        let c = counts[i]
-        print("  {c.times}  {c.word}")
+        let c = counts[i];
+        print("  {c.times}  {c.word}");
     }
 }

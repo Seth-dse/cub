@@ -1,4 +1,4 @@
-void main() {
-    var items: [int] = []
-    print(pop(items))
+fn main() {
+    var items: [int] = [];
+    print(pop(items));
 }

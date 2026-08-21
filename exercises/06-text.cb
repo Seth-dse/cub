@@ -12,7 +12,7 @@
 //   truetruetrue           contains / starts_with / ends_with
 //   the cub language       "Cub" replaced with "cub"
 
-void main() {
-    let messy = "   the Cub language   "
+fn main() {
+    let messy = "   the Cub language   ";
     // TODO: the eight lines above
 }

@@ -1,4 +1,4 @@
 // The smallest Cub program.
-void main() {
-    print("Hello, world!")
+fn main() {
+    print("Hello, world!");
 }

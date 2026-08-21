@@ -1,55 +1,55 @@
 // A small to-do list, showing structs, enums, and arrays together.
-type Status = enum { Todo, Doing, Done }
+enum Status { Todo, Doing, Done }
 
-type Task = struct {
-    title: string,
-    status: Status,
-    hours: float,
+struct Task {
+    title: string;
+    status: Status;
+    hours: float;
 }
 
-void mark(list: [Task], title: string, status: Status) {
+fn mark(list: [Task], title: string, status: Status) {
     for i in 0..len(list) {
         if list[i].title == title {
-            list[i].status = status
-            return
+            list[i].status = status;
+            return;
         }
     }
-    print("no task called \"{title}\"")
+    print("no task called \"{title}\"");
 }
 
-string symbol(s: Status) {
+fn symbol(s: Status): string {
     if s == Status.Done {
-        return "[x]"
+        return "[x]";
     } else if s == Status.Doing {
-        return "[~]"
+        return "[~]";
     }
-    return "[ ]"
+    return "[ ]";
 }
 
-void show(list: [Task]) {
-    var remaining = 0.0
+fn show(list: [Task]) {
+    var remaining = 0.0;
     for t in list {
-        print("{symbol(t.status)} {t.title} ({t.hours}h)")
+        print("{symbol(t.status)} {t.title} ({t.hours}h)");
         if t.status != Status.Done {
-            remaining += t.hours
+            remaining += t.hours;
         }
     }
-    print("{remaining} hours left")
+    print("{remaining} hours left");
 }
 
-void main() {
+fn main() {
     let list = [
         Task { title: "write the parser", status: Status.Done, hours: 6.0 },
         Task { title: "write the checker", status: Status.Doing, hours: 4.5 },
         Task { title: "write the docs", status: Status.Todo, hours: 2.0 },
-    ]
+    ];
 
-    show(list)
-    print("")
+    show(list);
+    print("");
 
-    mark(list, "write the checker", Status.Done)
-    mark(list, "take a nap", Status.Done)
-    push(list, Task { title: "ship it", status: Status.Todo, hours: 0.5 })
-    print("")
-    show(list)
+    mark(list, "write the checker", Status.Done);
+    mark(list, "take a nap", Status.Done);
+    push(list, Task { title: "ship it", status: Status.Todo, hours: 0.5 });
+    print("");
+    show(list);
 }

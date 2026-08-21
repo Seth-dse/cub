@@ -9,20 +9,20 @@
 // Compare enums with ==, and always write the type in front:
 // `Light.Red`, never a bare `Red`.
 
-type Light = enum { Red, Green, Amber }
+enum Light { Red, Green, Amber }
 
-Light next(current: Light) {
-    return current // TODO
+fn next(current: Light): Light {
+    return current; // TODO
 }
 
-string advice(current: Light) {
-    return "?" // TODO
+fn advice(current: Light): string {
+    return "?"; // TODO
 }
 
-void main() {
-    var light = Light.Red
+fn main() {
+    var light = Light.Red;
     for i in 0..6 {
-        print("{light}: {advice(light)}")
+        print("{light}: {advice(light)}");
         // TODO: move the light on
     }
 }

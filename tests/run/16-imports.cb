@@ -1,26 +1,26 @@
-import "lib/helpers.cb"
-import "lib/helpers.cb"
-import os
-import fs
-import math
-import rand
+import "lib/helpers.cb";
+import "lib/helpers.cb";
+import os;
+import fs;
+import math;
+import rand;
 
-void main() {
-    print(double(21))
-    print(round2(math.PI))
-    print(Measure("width", 2.5))
+fn main() {
+    print(double(21));
+    print(round2(math.PI));
+    print(Measure("width", 2.5));
 
-    print(len(os.platform()) > 0, len(os.args()) >= 1)
-    print(math.sqrt(16.0), math.pow(2.0, 8.0))
-    print(math.is_nan(math.NAN), math.is_inf(math.INF))
+    print(len(os.platform()) > 0, len(os.args()) >= 1);
+    print(math.sqrt(16.0), math.pow(2.0, 8.0));
+    print(math.is_nan(math.NAN), math.is_inf(math.INF));
 
-    fs.write("tests/tmp/imp.txt", "a\nb\n")
-    fs.append("tests/tmp/imp.txt", "c\n")
-    print(fs.read_lines("tests/tmp/imp.txt"))
-    print(fs.exists("tests/tmp/imp.txt"))
-    fs.delete("tests/tmp/imp.txt")
-    print(fs.exists("tests/tmp/imp.txt"))
+    fs.write("tests/tmp/imp.txt", "a\nb\n");
+    fs.append("tests/tmp/imp.txt", "c\n");
+    print(fs.read_lines("tests/tmp/imp.txt"));
+    print(fs.exists("tests/tmp/imp.txt"));
+    fs.delete("tests/tmp/imp.txt");
+    print(fs.exists("tests/tmp/imp.txt"));
 
-    rand.seed(3)
-    print(rand.int(5, 5), rand.float() < 1.0)
+    rand.seed(3);
+    print(rand.int(5, 5), rand.float() < 1.0);
 }

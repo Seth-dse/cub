@@ -1,15 +1,15 @@
 // Guards the POSIX calls that need a feature-test macro before any
 // include.  On glibc with -std=c99 these are hidden unless asked for, so
 // this compiling at all is the point of the test.
-import os
+import os;
 
-void main() {
-    os.sleep_ms(1)
-    print(os.clock_ms() > 0)
-    print(os.time_ms() >= 0)
+fn main() {
+    os.sleep_ms(1);
+    print(os.clock_ms() > 0);
+    print(os.time_ms() >= 0);
 
-    let name = os.platform()
-    print(contains(["macos", "linux", "windows", "unknown"], name))
-    print(len(os.args()) >= 1)
-    print(len(os.env("PATH")) > 0)
+    let name = os.platform();
+    print(contains(["macos", "linux", "windows", "unknown"], name));
+    print(len(os.args()) >= 1);
+    print(len(os.env("PATH")) > 0);
 }

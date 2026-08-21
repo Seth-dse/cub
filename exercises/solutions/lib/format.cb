@@ -1,11 +1,11 @@
-import math
+import math;
 
 /// Rounds a number to two decimal places.
-float round2(v: float) {
-    return math.round(v * 100.0) / 100.0
+fn round2(v: float): float {
+    return math.round(v * 100.0) / 100.0;
 }
 
 /// Lays a label and a value out in a fixed-width column.
-string column(label: string, width: int) {
-    return pad_end(label, width, ".")
+fn column(label: string, width: int): string {
+    return pad_end(label, width, ".");
 }

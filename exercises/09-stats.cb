@@ -10,22 +10,22 @@
 // item; sorting the original would change the caller's array, which the
 // last line checks.
 
-import math
+import math;
 
-float mean(values: [int]) {
-    return 0.0 // TODO
+fn mean(values: [int]): float {
+    return 0.0; // TODO
 }
 
-int median(values: [int]) {
-    return 0 // TODO
+fn median(values: [int]): int {
+    return 0; // TODO
 }
 
-float round2(v: float) {
-    return math.round(v * 100.0) / 100.0
+fn round2(v: float): float {
+    return math.round(v * 100.0) / 100.0;
 }
 
-void main() {
-    let values = [8, 3, 17, 4, 9, 12]
+fn main() {
+    let values = [8, 3, 17, 4, 9, 12];
 
     // TODO: print sum, then min_of and max_of, then round2(mean), then median
 

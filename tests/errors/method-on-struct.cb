@@ -1,5 +1,5 @@
-type Point = struct { x: int }
-void main() {
-    let p = Point { x: 1 }
-    print(p.shift())
+struct Point { x: int; }
+fn main() {
+    let p = Point { x: 1 };
+    print(p.shift());
 }

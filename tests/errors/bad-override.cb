@@ -1,7 +1,7 @@
 class Animal {
-    string speak() { return "..." }
+    fn speak(): string { return "..."; }
 }
-class Dog: Animal {
-    string speak(loud: bool) { return "woof" }
+class Dog extends Animal {
+    fn speak(loud: bool): string { return "woof"; }
 }
-void main() { print(Dog().speak(true)) }
+fn main() { print(Dog().speak(true)); }

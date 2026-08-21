@@ -1,102 +1,102 @@
-import math
+import math;
 
 // Classes and maps working together: a tiny shop inventory.
 class Item {
-    name: string
-    price: float
-    tags: [string]
+    name: string;
+    price: float;
+    tags: [string];
 
-    void init(name: string, price: float) {
-        self.name = name
-        self.price = price
+    fn init(name: string, price: float) {
+        self.name = name;
+        self.price = price;
     }
 
-    void tag(label: string) {
-        push(self.tags, label)
+    fn tag(label: string) {
+        push(self.tags, label);
     }
 
-    bool has_tag(label: string) {
-        return contains(self.tags, label)
+    fn has_tag(label: string): bool {
+        return contains(self.tags, label);
     }
 
-    string to_string() {
-        return "{pad_end(self.name, 12, ".")} {pad_start(str(self.price), 7, " ")}"
+    fn to_string(): string {
+        return "{pad_end(self.name, 12, ".")} {pad_start(str(self.price), 7, " ")}";
     }
 }
 
 class Shop {
-    name: string
-    stock: [string: int]
-    items: [string: Item]
+    name: string;
+    stock: [string: int];
+    items: [string: Item];
 
-    void init(name: string) {
-        self.name = name
+    fn init(name: string) {
+        self.name = name;
     }
 
-    void add(item: Item, count: int) {
-        self.items[item.name] = item
-        self.stock[item.name] = get(self.stock, item.name, 0) + count
+    fn add(item: Item, count: int) {
+        self.items[item.name] = item;
+        self.stock[item.name] = get(self.stock, item.name, 0) + count;
     }
 
-    bool sell(name: string, count: int) {
+    fn sell(name: string, count: int): bool {
         if not has(self.stock, name) {
-            print("  no such item: {name}")
-            return false
+            print("  no such item: {name}");
+            return false;
         }
         if self.stock[name] < count {
-            print("  only {self.stock[name]} of {name} left")
-            return false
+            print("  only {self.stock[name]} of {name} left");
+            return false;
         }
-        self.stock[name] -= count
-        return true
+        self.stock[name] -= count;
+        return true;
     }
 
-    float value() {
-        var total = 0.0
+    fn value(): float {
+        var total = 0.0;
         for name in keys(self.stock) {
-            total += self.items[name].price * float(self.stock[name])
+            total += self.items[name].price * float(self.stock[name]);
         }
-        return total
+        return total;
     }
 
-    void report() {
-        print("{self.name}")
-        var names = keys(self.stock)
-        sort(names)
+    fn report() {
+        print("{self.name}");
+        var names = keys(self.stock);
+        sort(names);
         for name in names {
-            let line = str(self.items[name])
-            print("  {line}  x{self.stock[name]}")
+            let line = str(self.items[name]);
+            print("  {line}  x{self.stock[name]}");
         }
-        print("  total value: {math.round(self.value() * 100.0) / 100.0}")
+        print("  total value: {math.round(self.value() * 100.0) / 100.0}");
     }
 }
 
-void main() {
-    let shop = Shop("Corner Store")
+fn main() {
+    let shop = Shop("Corner Store");
 
-    let apple = Item("apple", 0.5)
-    apple.tag("fruit")
-    let bread = Item("bread", 2.25)
-    let cheese = Item("cheese", 4.0)
-    cheese.tag("dairy")
+    let apple = Item("apple", 0.5);
+    apple.tag("fruit");
+    let bread = Item("bread", 2.25);
+    let cheese = Item("cheese", 4.0);
+    cheese.tag("dairy");
 
-    shop.add(apple, 40)
-    shop.add(bread, 12)
-    shop.add(cheese, 6)
-    shop.add(apple, 10)
+    shop.add(apple, 40);
+    shop.add(bread, 12);
+    shop.add(cheese, 6);
+    shop.add(apple, 10);
 
-    shop.report()
+    shop.report();
 
-    print("")
-    print("selling:")
-    print("  20 apples: {shop.sell("apple", 20)}")
-    print("  99 bread:  {shop.sell("bread", 99)}")
-    print("  1 pear:    {shop.sell("pear", 1)}")
+    print("");
+    print("selling:");
+    print("  20 apples: {shop.sell("apple", 20)}");
+    print("  99 bread:  {shop.sell("bread", 99)}");
+    print("  1 pear:    {shop.sell("pear", 1)}");
 
-    print("")
-    shop.report()
+    print("");
+    shop.report();
 
-    print("")
-    print("apple is fruit: {apple.has_tag("fruit")}")
-    print("bread is fruit: {bread.has_tag("fruit")}")
+    print("");
+    print("apple is fruit: {apple.has_tag("fruit")}");
+    print("bread is fruit: {bread.has_tag("fruit")}");
 }

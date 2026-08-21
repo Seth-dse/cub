@@ -1,6 +1,6 @@
-import math
+import math;
 
 /// Rounds a number to two decimal places.
-float round2(v: float) {
-    return math.round(v * 100.0) / 100.0
+fn round2(v: float): float {
+    return math.round(v * 100.0) / 100.0;
 }

@@ -1,32 +1,32 @@
-int factorial(n: int) {
+fn factorial(n: int): int {
     if n <= 1 {
-        return 1
+        return 1;
     }
-    return n * factorial(n - 1)
+    return n * factorial(n - 1);
 }
 
-int fib(n: int) {
+fn fib(n: int): int {
     if n < 2 {
-        return n
+        return n;
     }
-    return fib(n - 1) + fib(n - 2)
+    return fib(n - 1) + fib(n - 2);
 }
 
-int digit_sum(n: int) {
+fn digit_sum(n: int): int {
     if n < 10 {
-        return n
+        return n;
     }
-    return n % 10 + digit_sum(n / 10)
+    return n % 10 + digit_sum(n / 10);
 }
 
-void main() {
-    print(factorial(5))
-    print(factorial(10))
+fn main() {
+    print(factorial(5));
+    print(factorial(10));
 
     for i in 0..10 {
-        write("{fib(i)} ")
+        write("{fib(i)} ");
     }
-    print("")
+    print("");
 
-    print(digit_sum(9481))
+    print(digit_sum(9481));
 }

@@ -1,3 +1,3 @@
-void main() {
-    let x = if true { 1 } else { "two" }
+fn main() {
+    let x = if true { 1 } else { "two" };
 }

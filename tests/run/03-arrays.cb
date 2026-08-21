@@ -1,37 +1,37 @@
-void main() {
-    var nums = [3, 1, 2]
-    push(nums, 4)
-    print(nums)
-    print(len(nums), " ", nums[0], " ", nums[len(nums) - 1])
-    sort(nums)
-    print(nums)
-    reverse(nums)
-    print(nums)
-    print(pop(nums), nums)
-    insert(nums, 0, 99)
-    print(nums)
-    remove(nums, 1)
-    print(nums)
-    print(contains(nums, 99), contains(nums, 1000))
-    print(slice([1, 2, 3, 4, 5], 1, 4))
+fn main() {
+    var nums = [3, 1, 2];
+    push(nums, 4);
+    print(nums);
+    print(len(nums), " ", nums[0], " ", nums[len(nums) - 1]);
+    sort(nums);
+    print(nums);
+    reverse(nums);
+    print(nums);
+    print(pop(nums), nums);
+    insert(nums, 0, 99);
+    print(nums);
+    remove(nums, 1);
+    print(nums);
+    print(contains(nums, 99), contains(nums, 1000));
+    print(slice([1, 2, 3, 4, 5], 1, 4));
 
-    nums[0] = 7
-    print(nums)
+    nums[0] = 7;
+    print(nums);
 
-    var empty: [string] = []
-    push(empty, "later")
-    print(empty)
+    var empty: [string] = [];
+    push(empty, "later");
+    print(empty);
 
-    let grid = [[1, 2], [3, 4]]
-    print(grid, " ", grid[1][0])
+    let grid = [[1, 2], [3, 4]];
+    print(grid, " ", grid[1][0]);
 
-    var total = 0
+    var total = 0;
     for n in [10, 20, 30] {
-        total += n
+        total += n;
     }
-    print(total)
+    print(total);
 
-    let words = ["pear", "apple", "fig"]
-    sort(words)
-    print(words)
+    let words = ["pear", "apple", "fig"];
+    sort(words);
+    print(words);
 }

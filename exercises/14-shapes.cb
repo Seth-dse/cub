@@ -12,30 +12,30 @@
 // The point of the loop in main: it holds Shapes, and never asks which
 // kind it has.  Each one still uses its own `area`.
 
-import math
+import math;
 
 class Shape {
-    name: string
+    name: string;
 
-    void init(name: string) {
-        self.name = name
+    fn init(name: string) {
+        self.name = name;
     }
 
-    float area() {
-        return 0.0
+    fn area(): float {
+        return 0.0;
     }
 
-    string to_string() {
-        return "{pad_end(self.name, 10, ".")} {math.round(self.area() * 100.0) / 100.0}"
+    fn to_string(): string {
+        return "{pad_end(self.name, 10, ".")} {math.round(self.area() * 100.0) / 100.0}";
     }
 }
 
-class Rect: Shape {
-    width: float
-    height: float
+class Rect extends Shape {
+    width: float;
+    height: float;
 
-    void init(width: float, height: float) {
-        super.init("rectangle")
+    fn init(width: float, height: float) {
+        super.init("rectangle");
         // TODO: keep width and height
     }
 
@@ -46,17 +46,17 @@ class Rect: Shape {
 
 // TODO: class Circle, built on Shape
 
-void main() {
-    let shapes: [Shape] = [Rect(3.0, 4.0)]
+fn main() {
+    let shapes: [Shape] = [Rect(3.0, 4.0)];
     // once Square and Circle exist, use:
     // let shapes: [Shape] = [Rect(3.0, 4.0), Square(5.0), Circle(1.0)]
 
-    var total = 0.0
+    var total = 0.0;
     for s in shapes {
-        print(s)
-        total += s.area()
+        print(s);
+        total += s.area();
     }
-    print("total {math.round(total * 100.0) / 100.0}")
+    print("total {math.round(total * 100.0) / 100.0}");
 
     // TODO: find the shape with the largest area and print
     //       "largest is the {name}"

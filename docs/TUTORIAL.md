@@ -13,8 +13,8 @@ watch what happens.
 Put this in `hello.cb`:
 
 ```cub
-void main() {
-    print("Hello, world!")
+fn main() {
+    print("Hello, world!");
 }
 ```
 
@@ -27,19 +27,21 @@ cubc run hello.cb
 Every Cub program starts at `main`. Code lives inside functions; the file
 itself holds only declarations.
 
-Notice what is not there: no `#include`, no header file, no semicolon, no
-`return 0`. A line ends where the line ends.
+Notice what is not there: no `#include`, no header file, no
+`int argc, char **argv`, no `return 0`. What is there is the semicolon:
+every statement in Cub ends with one, and the compiler says so plainly when
+you forget.
 
 ---
 
 ## 2. Values and names
 
 ```cub
-void main() {
-    let name = "Ada"
-    let age = 36
+fn main() {
+    let name = "Ada";
+    let age = 36;
 
-    print("Hello, {name}. You are {age}.")
+    print("Hello, {name}. You are {age}.");
 }
 ```
 
@@ -47,17 +49,17 @@ void main() {
 inside them, including arithmetic:
 
 ```cub
-print("Next year you will be {age + 1}.")
+print("Next year you will be {age + 1}.");
 ```
 
 `let` names never change. When you need one that does, use `var`:
 
 ```cub
-void main() {
-    var count = 0
-    count += 1
-    count += 1
-    print("count is {count}")      // count is 2
+fn main() {
+    var count = 0;
+    count += 1;
+    count += 1;
+    print("count is {count}");      // count is 2
 }
 ```
 
@@ -66,7 +68,7 @@ to be read:
 
 ```
 error: `count` was declared with `let`, so it never changes
-  help: declare it with `var count = ...` if it needs to change
+  help: declare it with `var count = ...;` if it needs to change
 ```
 
 ---
@@ -78,13 +80,13 @@ into another behind your back. This is the rule that surprises people coming
 from Python or JavaScript, so it is worth meeting early:
 
 ```cub
-void main() {
-    let whole = 7
-    let ratio = whole / 2         // 3, because both sides are whole numbers
-    print(ratio)
+fn main() {
+    let whole = 7;
+    let ratio = whole / 2;         // 3, because both sides are whole numbers
+    print(ratio);
 
-    let exact = float(whole) / 2.0
-    print(exact)                  // 3.5
+    let exact = float(whole) / 2.0;
+    print(exact);                  // 3.5
 }
 ```
 
@@ -103,7 +105,7 @@ the types you declare yourself.
 You can always write a type down if you want it visible:
 
 ```cub
-let temperature: float = 21.5
+let temperature: float = 21.5;
 ```
 
 ---
@@ -111,15 +113,15 @@ let temperature: float = 21.5
 ## 4. Deciding
 
 ```cub
-void main() {
-    let temperature = 22
+fn main() {
+    let temperature = 22;
 
     if temperature > 30 {
-        print("hot")
+        print("hot");
     } else if temperature > 15 {
-        print("mild")
+        print("mild");
     } else {
-        print("cold")
+        print("cold");
     }
 }
 ```
@@ -139,7 +141,7 @@ same thing, if you prefer them):
 
 ```cub
 if temperature > 15 and not raining {
-    print("go outside")
+    print("go outside");
 }
 ```
 
@@ -151,23 +153,23 @@ Counting loops use a range. The end is not included:
 
 ```cub
 for i in 0..5 {
-    print(i)               // 0 1 2 3 4
+    print(i);               // 0 1 2 3 4
 }
 
 for i in 1..=5 {
-    print(i)               // 1 2 3 4 5 -- `..=` includes the end
+    print(i);               // 1 2 3 4 5 -- `..=` includes the end
 }
 ```
 
 `while` repeats as long as something is true:
 
 ```cub
-var countdown = 3
+var countdown = 3;
 while countdown > 0 {
-    print(countdown)
-    countdown -= 1
+    print(countdown);
+    countdown -= 1;
 }
-print("liftoff")
+print("liftoff");
 ```
 
 `break` leaves a loop early and `continue` skips to the next pass.
@@ -177,23 +179,25 @@ print("liftoff")
 ## 6. Functions
 
 ```cub
-int double(n: int){
-    return n * 2
+fn double(n: int): int {
+    return n * 2;
 }
 
-void announce(message: string) {
-    print("** {message} **")
+fn announce(message: string) {
+    print("** {message} **");
 }
 
-void main() {
-    print(double(21))
-    announce("done")
+fn main() {
+    print(double(21));
+    announce("done");
 }
 ```
 
-A function leads with what it gives back, the way C does: `int` here, and
-`void` when it gives nothing. Parameters are always typed, written
-`name: type`.
+A function reads left to right in the order you would say it: `fn`, the
+name, what goes in, then `: int` for what comes back. Leave that last part
+off — as `announce` does — and the function gives nothing back. Parameters
+are always typed, written `name: type`, the same shape as everywhere else in
+the language.
 
 Order does not matter — `main` can call a function declared below it, and two
 functions can call each other. There are no forward declarations in Cub.
@@ -202,9 +206,9 @@ If a function promises to return something, it has to do so on every path.
 This is checked before your program runs:
 
 ```cub
-int biggest(a: int, b: int){
+fn biggest(a: int, b: int): int {
     if a > b {
-        return a
+        return a;
     }
 }
 ```
@@ -221,35 +225,35 @@ error: `biggest` must return int on every path
 An array holds many values of one type:
 
 ```cub
-void main() {
-    var scores = [10, 20, 30]
+fn main() {
+    var scores = [10, 20, 30];
 
-    push(scores, 40)              // add to the end
-    print(scores)                 // [10, 20, 30, 40]
-    print(len(scores))            // 4
-    print(scores[0])              // 10
+    push(scores, 40);              // add to the end
+    print(scores);                 // [10, 20, 30, 40]
+    print(len(scores));            // 4
+    print(scores[0]);              // 10
 
-    scores[0] = 15
-    sort(scores)
-    print(scores)                 // [15, 20, 30, 40]
+    scores[0] = 15;
+    sort(scores);
+    print(scores);                 // [15, 20, 30, 40]
 }
 ```
 
 Walk one with `for ... in`:
 
 ```cub
-var total = 0
+var total = 0;
 for score in scores {
-    total += score
+    total += score;
 }
-print("total is {total}")
+print("total is {total}");
 ```
 
 An empty array needs a type, because there is nothing to work it out from:
 
 ```cub
-var names: [string] = []
-push(names, "Ada")
+var names: [string] = [];
+push(names, "Ada");
 ```
 
 **Two things worth knowing.**
@@ -265,10 +269,10 @@ Runtime error: position 5 is outside the array, whose positions are 0 to 3
 Second, arrays are *shared*. Two names can refer to one array:
 
 ```cub
-var a = [1, 2]
-let b = a
-push(b, 3)
-print(a)          // [1, 2, 3] -- a and b are the same array
+var a = [1, 2];
+let b = a;
+push(b, 3);
+print(a);          // [1, 2, 3] -- a and b are the same array
 ```
 
 This is why an array declared with `let` can still change its contents:
@@ -279,18 +283,18 @@ This is why an array declared with `let` can still change its contents:
 ## 8. Text
 
 ```cub
-void main() {
-    let title = "  the Cub language  "
-    let clean = trim(title)
+fn main() {
+    let title = "  the Cub language  ";
+    let clean = trim(title);
 
-    print(upper(clean))                   // THE CUB LANGUAGE
-    print(len(clean))                     // 16
-    print(replace(clean, "Cub", "cub"))
-    print(contains(clean, "Cub"))         // true
+    print(upper(clean));                   // THE CUB LANGUAGE
+    print(len(clean));                     // 16
+    print(replace(clean, "Cub", "cub"));
+    print(contains(clean, "Cub"));         // true
 
-    let words = split(clean, " ")
-    print(words)                          // ["the", "Cub", "language"]
-    print(join(words, "-"))               // the-Cub-language
+    let words = split(clean, " ");
+    print(words);                          // ["the", "Cub", "language"]
+    print(join(words, "-"));               // the-Cub-language
 }
 ```
 
@@ -299,9 +303,9 @@ Text does not change in place — every one of these gives you a new string.
 To look at text one character at a time, walk the positions:
 
 ```cub
-let word = "cub"
+let word = "cub";
 for i in 0..len(word) {
-    print(char_at(word, i))
+    print(char_at(word, i));
 }
 ```
 
@@ -312,24 +316,24 @@ for i in 0..len(word) {
 Group related values into a `struct`:
 
 ```cub
-type Point = struct {
-    x: int,
-    y: int,
+struct Point {
+    x: int;
+    y: int;
 }
 
-int distance_squared(a: Point, b: Point){
-    let dx = a.x - b.x
-    let dy = a.y - b.y
-    return dx * dx + dy * dy
+fn distance_squared(a: Point, b: Point): int {
+    let dx = a.x - b.x;
+    let dy = a.y - b.y;
+    return dx * dx + dy * dy;
 }
 
-void main() {
-    let origin = Point { x: 0, y: 0 }
-    let target = Point { x: 3, y: 4 }
+fn main() {
+    let origin = Point { x: 0, y: 0 };
+    let target = Point { x: 3, y: 4 };
 
-    print(distance_squared(origin, target))    // 25
-    print(target)                              // Point{x: 3, y: 4}
-    print(target.x)                            // 3
+    print(distance_squared(origin, target));    // 25
+    print(target);                              // Point{x: 3, y: 4}
+    print(target.x);                            // 3
 }
 ```
 
@@ -338,25 +342,25 @@ Every field must be filled in. Leave one out and the compiler names it.
 Structs are **copied** when you assign them, unlike arrays:
 
 ```cub
-var a = Point { x: 1, y: 2 }
-var b = a
-b.x = 99
-print(a.x)        // still 1
+var a = Point { x: 1, y: 2 };
+var b = a;
+b.x = 99;
+print(a.x);        // still 1
 ```
 
 When a value is one of a fixed set of choices, use an `enum`:
 
 ```cub
-type Status = enum { Todo, Doing, Done }
+enum Status { Todo, Doing, Done }
 
-void main() {
-    var state = Status.Todo
-    state = Status.Doing
+fn main() {
+    var state = Status.Todo;
+    state = Status.Doing;
 
     if state == Status.Done {
-        print("finished")
+        print("finished");
     } else {
-        print("still {state}")     // still Doing
+        print("still {state}");     // still Doing
     }
 }
 ```
@@ -371,15 +375,15 @@ where a name comes from.
 An array finds things by position. A map finds them by name:
 
 ```cub
-void main() {
-    var ages = ["ada": 36, "alan": 41]
+fn main() {
+    var ages = ["ada": 36, "alan": 41];
 
-    ages["grace"] = 45           // add
-    ages["ada"] += 1             // change
+    ages["grace"] = 45;           // add
+    ages["ada"] += 1;             // change
 
-    print(ages["ada"])           // 37
-    print(len(ages))             // 3
-    print(has(ages, "turing"))   // false
+    print(ages["ada"]);           // 37
+    print(len(ages));             // 3
+    print(has(ages, "turing"));   // false
 }
 ```
 
@@ -387,24 +391,24 @@ Asking for a key that is not there stops the program, just like reading past
 the end of an array. When a key might be missing, say what to do instead:
 
 ```cub
-print(get(ages, "turing", 0))    // 0
+print(get(ages, "turing", 0));    // 0
 ```
 
 Keys can be text or whole numbers; values can be anything. An empty map is
 `[:]`, and needs a type so Cub knows what will go in it:
 
 ```cub
-var scores: [string: int] = [:]
+var scores: [string: int] = [:];
 ```
 
 To go through a map, go through its keys. They come out in no particular
 order, so sort them when the order matters:
 
 ```cub
-var names = keys(ages)
-sort(names)
+var names = keys(ages);
+sort(names);
 for name in names {
-    print("{name} is {ages[name]}")
+    print("{name} is {ages[name]}");
 }
 ```
 
@@ -417,22 +421,22 @@ it:
 
 ```cub
 class Counter {
-    count: int
+    count: int;
 
-    void bump() {
-        self.count += 1
+    fn bump() {
+        self.count += 1;
     }
 
-    int value(){
-        return self.count
+    fn value(): int {
+        return self.count;
     }
 }
 
-void main() {
-    let c = Counter()
-    c.bump()
-    c.bump()
-    print(c.value())      // 2
+fn main() {
+    let c = Counter();
+    c.bump();
+    c.bump();
+    print(c.value());      // 2
 }
 ```
 
@@ -444,19 +448,19 @@ To take values when the object is made, write an `init`:
 
 ```cub
 class Animal {
-    name: string
+    name: string;
 
-    void init(name: string) {
-        self.name = name
+    fn init(name: string) {
+        self.name = name;
     }
 
-    string speak(){
-        return "{self.name} makes a sound"
+    fn speak(): string {
+        return "{self.name} makes a sound";
     }
 }
 
-let a = Animal("Generic")
-print(a.speak())          // Generic makes a sound
+let a = Animal("Generic");
+print(a.speak());          // Generic makes a sound
 ```
 
 The class name is how you make one: `Animal("Generic")` runs `init`.
@@ -467,13 +471,13 @@ A class can build on another, keeping its fields and methods and replacing
 the ones it wants to do differently:
 
 ```cub
-class Dog: Animal {
-    void init(name: string) {
-        super.init(name)         // set up the Animal part
+class Dog extends Animal {
+    fn init(name: string) {
+        super.init(name);         // set up the Animal part
     }
 
-    string speak(){       // Dog's own version
-        return "{self.name} says woof"
+    fn speak(): string {       // Dog's own version
+        return "{self.name} says woof";
     }
 }
 ```
@@ -482,9 +486,9 @@ Now the useful part. A `Dog` can go anywhere an `Animal` is expected, and it
 still behaves like a dog:
 
 ```cub
-let pets: [Animal] = [Animal("Generic"), Dog("Rex")]
+let pets: [Animal] = [Animal("Generic"), Dog("Rex")];
 for p in pets {
-    print(p.speak())
+    print(p.speak());
 }
 ```
 
@@ -511,10 +515,10 @@ Assigning an object does not copy it — both names point at the same one.
 This is the same rule arrays follow, and the opposite of structs:
 
 ```cub
-let a = Counter()
-let b = a
-b.bump()
-print(a.value())      // 1 -- a and b are the same counter
+let a = Counter();
+let b = a;
+b.bump();
+print(a.value());      // 1 -- a and b are the same counter
 ```
 
 ### Methods on the class itself
@@ -524,12 +528,12 @@ object of it. Mark it `static` and call it through the class name:
 
 ```cub
 class MathKit {
-    static int double(n: int) {
-        return n * 2
+    static fn double(n: int): int {
+        return n * 2;
     }
 }
 
-print(MathKit.double(21))       // 42
+print(MathKit.double(21));       // 42
 ```
 
 There is no `self` inside a static method, because there is no object.
@@ -540,14 +544,14 @@ Your `main` can live inside a class instead of at the top level:
 
 ```cub
 class App {
-    greeting: string
+    greeting: string;
 
-    void init() {
-        self.greeting = "hello"
+    fn init() {
+        self.greeting = "hello";
     }
 
-    void main() {
-        print(self.greeting)
+    fn main() {
+        print(self.greeting);
     }
 }
 ```
@@ -561,13 +565,14 @@ Give a class a `to_string` and `print` will use it:
 
 ```cub
 class Point {
-    x: int
-    y: int
-    void init(x: int, y: int) { self.x = x  self.y = y }
-    string to_string(){ return "({self.x}, {self.y})" }
+    x: int;
+    y: int;
+
+    fn init(x: int, y: int) { self.x = x; self.y = y; }
+    fn to_string(): string { return "({self.x}, {self.y})"; }
 }
 
-print(Point(3, 4))        // (3, 4)
+print(Point(3, 4));        // (3, 4)
 ```
 
 Without one you still get something useful: `Point{x: 3, y: 4}`.
@@ -581,15 +586,15 @@ text and array functions. Anything that reaches outside your program lives in
 a module you import:
 
 ```cub
-import math
-import fs
+import math;
+import fs;
 
-void main() {
-    print(math.sqrt(16.0))        // 4.0
-    print(math.round(math.PI))    // 3.0
+fn main() {
+    print(math.sqrt(16.0));        // 4.0
+    print(math.round(math.PI));    // 3.0
 
     if fs.exists("notes.txt") {
-        print(fs.read("notes.txt"))
+        print(fs.read("notes.txt"));
     }
 }
 ```
@@ -610,18 +615,18 @@ import them by name:
 ```cub
 // shapes.cb
 class Circle {
-    radius: float
-    void init(radius: float) { self.radius = radius }
-    float area() { return 3.14159 * self.radius * self.radius }
+    radius: float;
+    fn init(radius: float) { self.radius = radius; }
+    fn area(): float { return 3.14159 * self.radius * self.radius; }
 }
 ```
 
 ```cub
 // main.cb
-import "shapes.cb"
+import "shapes.cb";
 
-void main() {
-    print(Circle(2.0).area())
+fn main() {
+    print(Circle(2.0).area());
 }
 ```
 
@@ -638,8 +643,8 @@ Three slashes document what comes next:
 /// Works out how much space a circle covers.
 ///
 /// The radius is measured from the middle to the edge.
-float circle_area(radius: float) {
-    return 3.14159 * radius * radius
+fn circle_area(radius: float): float {
+    return 3.14159 * radius * radius;
 }
 ```
 
@@ -660,16 +665,16 @@ A program that reads numbers, and reports on them. It uses almost everything
 above.
 
 ```cub
-type Stats = struct {
-    count: int,
-    total: int,
-    lowest: int,
-    highest: int,
+struct Stats {
+    count: int;
+    total: int;
+    lowest: int;
+    highest: int;
 }
 
-Stats summarize(numbers: [int]){
+fn summarize(numbers: [int]): Stats {
     if len(numbers) == 0 {
-        return Stats { count: 0, total: 0, lowest: 0, highest: 0 }
+        return Stats { count: 0, total: 0, lowest: 0, highest: 0 };
     }
 
     var stats = Stats {
@@ -677,36 +682,36 @@ Stats summarize(numbers: [int]){
         total: 0,
         lowest: numbers[0],
         highest: numbers[0],
-    }
+    };
 
     for n in numbers {
-        stats.total += n
-        stats.lowest = min(stats.lowest, n)
-        stats.highest = max(stats.highest, n)
+        stats.total += n;
+        stats.lowest = min(stats.lowest, n);
+        stats.highest = max(stats.highest, n);
     }
-    return stats
+    return stats;
 }
 
-[int] parse_all(line: string){
-    var numbers: [int] = []
+fn parse_all(line: string): [int] {
+    var numbers: [int] = [];
     for piece in split(line, " ") {
-        let clean = trim(piece)
+        let clean = trim(piece);
         if len(clean) > 0 {
-            push(numbers, int(clean))
+            push(numbers, int(clean));
         }
     }
-    return numbers
+    return numbers;
 }
 
-void main() {
-    let numbers = parse_all("8 3 17 4 9 12")
-    let stats = summarize(numbers)
+fn main() {
+    let numbers = parse_all("8 3 17 4 9 12");
+    let stats = summarize(numbers);
 
-    print("count:   {stats.count}")
-    print("total:   {stats.total}")
-    print("lowest:  {stats.lowest}")
-    print("highest: {stats.highest}")
-    print("mean:    {float(stats.total) / float(stats.count)}")
+    print("count: {stats.count}");
+    print("total: {stats.total}");
+    print("lowest: {stats.lowest}");
+    print("highest: {stats.highest}");
+    print("mean: {float(stats.total) / float(stats.count)}");
 }
 ```
 

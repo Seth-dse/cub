@@ -40,7 +40,7 @@ tells you how to fix it:
 
 > `count` was declared with `let`, so it never changes
 >
-> **help:** declare it with `var count = ...` if it needs to change
+> **help:** declare it with `var count = ...;` if it needs to change
 
 Misspell a name and it suggests the right one. Forget a struct field and it
 names the one you forgot. Skip a `return` on one branch and it finds the
@@ -56,9 +56,8 @@ as an expression rather than as string contents.
 
 ### Formatting
 
-**Format Document** (`Shift+Alt+F`) runs `cubc fmt`. Because Cub ends
-statements at ends of lines, the formatter only ever changes horizontal
-whitespace — it cannot alter what your program does.
+**Format Document** (`Shift+Alt+F`) runs `cubc fmt`. The formatter only ever
+changes horizontal whitespace — it cannot alter what your program does.
 
 Format on save:
 
@@ -81,7 +80,7 @@ those you will see the theme's generic icon instead.
 
 ### Snippets
 
-`main`, `fn`, `void`, `fnm`, `static`, `if`, `ife`, `ifx`, `for`, `fore`,
+`main`, `fn`, `fnv`, `fnm`, `static`, `if`, `ife`, `ifx`, `for`, `fore`,
 `while`, `struct`, `enum`, `class`, `classx`, `classmain`, `map`, `import`,
 `importf`, `///`, `print`, `printv`.
 
@@ -111,26 +110,26 @@ Command Palette, or right-click in a `.cb` file:
 
 ```cub
 class Animal {
-    name: string
+    name: string;
 
-    void init(name: string) {
-        self.name = name
+    fn init(name: string) {
+        self.name = name;
     }
 
-    string speak(){
-        return "{self.name} makes a sound"
+    fn speak(): string{
+        return "{self.name} makes a sound";
     }
 }
 
-class Dog: Animal {
-    void init(name: string) { super.init(name) }
-    string speak(){ return "{self.name} says woof" }
+class Dog extends Animal {
+    fn init(name: string) { super.init(name); }
+    fn speak(): string{ return "{self.name} says woof"; }
 }
 
-void main() {
-    let pets: [Animal] = [Animal("Generic"), Dog("Rex")]
+fn main() {
+    let pets: [Animal] = [Animal("Generic"), Dog("Rex")];
     for pet in pets {
-        print(pet.speak())      // each one keeps its own voice
+        print(pet.speak());      // each one keeps its own voice
     }
 }
 ```
