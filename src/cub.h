@@ -17,7 +17,7 @@
 #include <stdbool.h>
 #include <stdarg.h>
 
-#define CUB_VERSION "0.4.2"
+#define CUB_VERSION "0.5.0"
 
 /* ------------------------------------------------------------------ */
 /* small utilities                                                     */
@@ -72,7 +72,7 @@ typedef enum {
     TK_FN, TK_LET, TK_VAR, TK_IF, TK_ELSE, TK_WHILE, TK_FOR, TK_IN,
     TK_RETURN, TK_BREAK, TK_CONTINUE, TK_TYPE, TK_STRUCT, TK_ENUM,
     TK_TRUE, TK_FALSE, TK_AND, TK_OR, TK_NOT,
-    TK_CLASS, TK_SELF, TK_SUPER, TK_VOID, TK_STATIC, TK_IMPORT,
+    TK_CLASS, TK_EXTENDS, TK_SELF, TK_SUPER, TK_VOID, TK_STATIC, TK_IMPORT,
     /* punctuation */
     TK_LPAREN, TK_RPAREN, TK_LBRACE, TK_RBRACE, TK_LBRACK, TK_RBRACK,
     TK_COMMA, TK_DOT, TK_RANGE, TK_RANGEEQ, TK_COLON, TK_SEMI, TK_ARROW,
@@ -97,7 +97,6 @@ typedef struct {
 typedef struct {
     TokKind  kind;
     int      line, col;
-    bool     nl_before;   /* a newline appeared before this token */
     char    *lex;         /* identifier text                      */
     int64_t  ival;
     double   fval;

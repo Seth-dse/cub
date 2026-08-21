@@ -9,20 +9,20 @@
 // Everything here is a float, so write 9.0 rather than 9.  The last two
 // lines show why: one division gives 3.5, the other gives 3.
 
-float to_fahrenheit(celsius: float) {
-    return 0.0 // TODO
+fn to_fahrenheit(celsius: float): float {
+    return 0.0; // TODO
 }
 
-float to_celsius(fahrenheit: float) {
-    return 0.0 // TODO
+fn to_celsius(fahrenheit: float): float {
+    return 0.0; // TODO
 }
 
-void main() {
-    print(to_fahrenheit(100.0))
-    print(to_fahrenheit(0.0))
-    print(to_celsius(212.0))
+fn main() {
+    print(to_fahrenheit(100.0));
+    print(to_fahrenheit(0.0));
+    print(to_celsius(212.0));
 
-    let whole = 7
+    let whole = 7;
     // TODO: print 3.5 by turning `whole` into a float first
     // TODO: print 3 using whole-number division
 }

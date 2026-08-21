@@ -1,5 +1,5 @@
-type Color = enum { Red, Green }
-void main() {
-    let c = Color.Blu
-    print(c)
+enum Color { Red, Green }
+fn main() {
+    let c = Color.Blu;
+    print(c);
 }

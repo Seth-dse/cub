@@ -1,46 +1,46 @@
 class Account {
-    owner: string
-    balance: int
+    owner: string;
+    balance: int;
 
-    void init(owner: string) {
-        self.owner = owner
+    fn init(owner: string) {
+        self.owner = owner;
     }
 
-    void deposit(amount: int) {
+    fn deposit(amount: int) {
         if amount <= 0 {
-            print("  a deposit must be more than nothing")
-            return
+            print("  a deposit must be more than nothing");
+            return;
         }
-        self.balance += amount
+        self.balance += amount;
     }
 
-    bool withdraw(amount: int) {
+    fn withdraw(amount: int): bool {
         if amount > self.balance {
-            print("  {self.owner} cannot take out {amount}, only has {self.balance}")
-            return false
+            print("  {self.owner} cannot take out {amount}, only has {self.balance}");
+            return false;
         }
-        self.balance -= amount
-        return true
+        self.balance -= amount;
+        return true;
     }
 
-    string to_string() {
-        return "{self.owner}: {self.balance}"
+    fn to_string(): string {
+        return "{self.owner}: {self.balance}";
     }
 }
 
-void main() {
-    let a = Account("Ada")
-    a.deposit(100)
-    a.deposit(50)
-    print(a)
+fn main() {
+    let a = Account("Ada");
+    a.deposit(100);
+    a.deposit(50);
+    print(a);
 
-    print(a.withdraw(30))
-    print(a.withdraw(500))
-    print(a)
+    print(a.withdraw(30));
+    print(a.withdraw(500));
+    print(a);
 
-    a.deposit(-5)
+    a.deposit(-5);
 
-    let shared = a
-    shared.deposit(1000)
-    print(a)
+    let shared = a;
+    shared.deposit(1000);
+    print(a);
 }

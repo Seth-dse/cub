@@ -12,21 +12,21 @@
 // `describe` returns something, so it leads with `string`.  `banner` only
 // prints, so it leads with `void`.
 
-bool is_even(n: int) {
-    return false // TODO
+fn is_even(n: int): bool {
+    return false; // TODO
 }
 
-string describe(n: int) {
-    return "?" // TODO
+fn describe(n: int): string {
+    return "?"; // TODO
 }
 
-void banner(title: string) {
+fn banner(title: string) {
     // TODO
 }
 
-void main() {
-    banner("Numbers")
+fn main() {
+    banner("Numbers");
     for n in [-4, 0, 7, 12] {
-        print("{n} is {describe(n)}")
+        print("{n} is {describe(n)}");
     }
 }

@@ -55,7 +55,7 @@ static VarSym *declare(const char *name, Type *t, bool is_mut, bool global, int 
     VarSym *old = lookup_local(name);
     if (old) {
         err_at(line, col, "`%s` is already declared in this scope", name);
-        err_help("pick a different name, or assign to the existing one with `%s = ...`", name);
+        err_help("pick a different name, or assign to the existing one with `%s = ...;`", name);
     }
     VarSym *v = cx_alloc(sizeof(VarSym));
     v->name = cx_strdup(name);
@@ -249,7 +249,7 @@ static Type *resolve_type(Type *t, int line, int col) {
         vec_push(&cands, (void *)"string");
         const char *m = best_match(t->name, &cands);
         if (m) err_help("did you mean `%s`?", m);
-        else   err_help("declare it with `type %s = struct { ... }`", t->name);
+        else   err_help("declare it with `struct %s { ... }`", t->name);
         return ty_err();
     }
     return t;
@@ -967,7 +967,7 @@ static Type *check_method_call(Expr *e) {
         for (int i = 0; i < e->args.len; i++) check_expr(arg(e, i), NULL);
         err_at(e->line, e->col, "%s has no methods", ty_show(obj));
         if (obj->kind == TY_STRUCT)
-            err_help("a `type ... = struct` holds data only; use a `class` for methods");
+            err_help("a `struct` holds data only; use a `class` for methods");
         return ty_err();
     }
 
@@ -1449,7 +1449,7 @@ static Type *check_expr(Expr *e, Type *hint) {
         if (!cur_class->base) {
             err_at(e->line, e->col, "`%s` is not built on another class, "
                    "so it has no `super`", cur_class->name);
-            err_help("write `class %s : Parent { ... }` to build on one", cur_class->name);
+            err_help("write `class %s extends Parent { ... }` to build on one", cur_class->name);
             break;
         }
         t = find_named(cur_class->base->name);
@@ -1486,7 +1486,7 @@ static Type *check_expr(Expr *e, Type *hint) {
         if (e->args.len == 0) {
             if (!elem) {
                 err_at(e->line, e->col, "the type of this empty array is unclear");
-                err_help("add a type, as in `var items: [int] = []`");
+                err_help("add a type, as in `var items: [int] = [];`");
                 break;
             }
             t = ty_array(elem);
@@ -1544,7 +1544,7 @@ static Type *check_expr(Expr *e, Type *hint) {
         if (e->args.len == 0) {
             if (!kt) {
                 err_at(e->line, e->col, "the type of this empty map is unclear");
-                err_help("add a type, as in `var ages: [string: int] = [:]`");
+                err_help("add a type, as in `var ages: [string: int] = [:];`");
                 break;
             }
             t = ty_map(kt, vt);
@@ -1613,7 +1613,7 @@ static void check_assignable(Expr *lhs) {
         else
             err_at(lhs->line, lhs->col, "`%s` was declared with `let`, so its fields never change",
                    v->name);
-        err_help("declare it with `var %s = ...` if it needs to change", v->name);
+        err_help("declare it with `var %s = ...;` if it needs to change", v->name);
     }
 }
 
@@ -1718,7 +1718,7 @@ static void check_stmt(Stmt *s) {
             if (a->kind == TY_ARRAY) elem = a->elem;
             else if (a->kind == TY_STR) {
                 err_at(s->rhs->line, s->rhs->col, "text cannot be looped over directly");
-                err_help("loop over positions instead: `for i in 0..len(s) { ... char_at(s, i) }`");
+                err_help("loop over positions instead: `for i in 0..len(s) { ... char_at(s, i) ... }`");
             } else {
                 err_at(s->rhs->line, s->rhs->col, "`for ... in` needs an array or a range, "
                        "but this is %s", ty_show(a));
@@ -1742,7 +1742,7 @@ static void check_stmt(Stmt *s) {
                 if (!is_err(got)) {
                     err_at(s->line, s->col, "`%s` returns nothing, so it cannot return a value",
                            cur_fn->name);
-                    err_help("declare what it gives back: `fn %s(...) -> %s`",
+                    err_help("declare what it gives back: `fn %s(...): %s`",
                              cur_fn->name, ty_show(got));
                 }
             } else {
@@ -2144,7 +2144,7 @@ void check_program(Program *p, bool require_main) {
             }
             if (m->is_init && m->ret->kind != TY_VOID) {
                 err_at(m->line, m->col, "`init` sets an object up, so it returns nothing");
-                err_help("drop the `-> %s`", ty_show(m->ret));
+                err_help("drop the `: %s`", ty_show(m->ret));
             }
             cur_class = NULL;
             cur_method = NULL;
@@ -2159,7 +2159,7 @@ void check_program(Program *p, bool require_main) {
                     err_at(cd->line, cd->col,
                            "`%s` needs an `init`, because `%s` is built from values",
                            cd->name, cd->base->name);
-                    err_help("add `fn init(...) { super.init(...) }`");
+                    err_help("add `fn init(...) { super.init(...); }`");
                 }
             } else if (!calls_super_init(&cd->init->body)) {
                 err_at(cd->init->line, cd->init->col,
@@ -2208,7 +2208,7 @@ void check_program(Program *p, bool require_main) {
     if (!entry) {
         if (require_main) {
             err_at(1, 1, "this program has no `main`");
-            err_help("start it with `void main() { ... }`, "
+            err_help("start it with `fn main() { ... }`, "
                      "or give a class a `main` of its own");
         }
     } else {

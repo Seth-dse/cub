@@ -1,5 +1,5 @@
-type Point = struct { x: int, y: int }
-void main() {
-    let p = Point { x: 1 }
-    print(p)
+struct Point { x: int; y: int; }
+fn main() {
+    let p = Point { x: 1 };
+    print(p);
 }

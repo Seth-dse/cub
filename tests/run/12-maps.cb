@@ -1,39 +1,39 @@
-void main() {
-    var ages = ["ada": 36, "alan": 41]
-    ages["grace"] = 45
-    ages["ada"] += 1
+fn main() {
+    var ages = ["ada": 36, "alan": 41];
+    ages["grace"] = 45;
+    ages["ada"] += 1;
 
-    print(ages["ada"])
-    print(len(ages))
-    print(has(ages, "alan"), has(ages, "nobody"))
-    print(get(ages, "nobody", 0))
+    print(ages["ada"]);
+    print(len(ages));
+    print(has(ages, "alan"), has(ages, "nobody"));
+    print(get(ages, "nobody", 0));
 
-    var names = keys(ages)
-    sort(names)
-    print(names)
+    var names = keys(ages);
+    sort(names);
+    print(names);
 
     for name in keys(ages) {
         if name == "alan" {
-            print("{name} is {ages[name]}")
+            print("{name} is {ages[name]}");
         }
     }
 
-    remove(ages, "alan")
-    print(len(ages), has(ages, "alan"))
+    remove(ages, "alan");
+    print(len(ages), has(ages, "alan"));
 
-    var empty: [string: int] = [:]
-    print(len(empty), empty)
+    var empty: [string: int] = [:];
+    print(len(empty), empty);
 
     // int keys, and values of any type
-    var squares: [int: int] = [:]
+    var squares: [int: int] = [:];
     for i in 1..=5 {
-        squares[i] = i * i
+        squares[i] = i * i;
     }
-    print(squares[4])
+    print(squares[4]);
 
-    var lists: [string: [int]] = [:]
-    lists["odds"] = [1, 3, 5]
-    push(lists["odds"], 7)
-    print(lists["odds"])
-    print(len(values(squares)))
+    var lists: [string: [int]] = [:];
+    lists["odds"] = [1, 3, 5];
+    push(lists["odds"], 7);
+    print(lists["odds"]);
+    print(len(values(squares)));
 }

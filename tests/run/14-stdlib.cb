@@ -1,49 +1,49 @@
-import fs
-import math
-import os
-import rand
+import fs;
+import math;
+import os;
+import rand;
 
-void main() {
-    print(math.round(math.PI * 100.0) / 100.0)
-    print(sign(-9), sign(0), sign(4.5))
-    print(clamp(15, 0, 10), clamp(-1.5, 0.0, 1.0))
-    print(math.is_nan(math.NAN), math.is_inf(math.INF), math.is_nan(1.0))
-    print(INT_MAX)
-    print(math.exp(0.0), math.log10(100.0), math.pow(2.0, 10.0))
+fn main() {
+    print(math.round(math.PI * 100.0) / 100.0);
+    print(sign(-9), sign(0), sign(4.5));
+    print(clamp(15, 0, 10), clamp(-1.5, 0.0, 1.0));
+    print(math.is_nan(math.NAN), math.is_inf(math.INF), math.is_nan(1.0));
+    print(INT_MAX);
+    print(math.exp(0.0), math.log10(100.0), math.pow(2.0, 10.0));
 
-    print(pad_start("7", 3, "0"), " ", pad_end("ab", 5, "."))
-    print("[" + trim_start("  x  ") + "]", "[" + trim_end("  x  ") + "]")
-    print(capitalize("hELLO wORLD"))
-    print(lines("one\ntwo\nthree"))
-    print(chars("abc"))
-    print(count("banana", "an"), index_of("banana", "na"), last_index_of("banana", "na"))
-    print(is_digit("123"), is_alpha("abc"), is_alnum("a1"), is_space("  "))
-    print(is_upper("ABC"), is_lower("abc"), is_digit("12a"))
+    print(pad_start("7", 3, "0"), " ", pad_end("ab", 5, "."));
+    print("[" + trim_start("  x  ") + "]", "[" + trim_end("  x  ") + "]");
+    print(capitalize("hELLO wORLD"));
+    print(lines("one\ntwo\nthree"));
+    print(chars("abc"));
+    print(count("banana", "an"), index_of("banana", "na"), last_index_of("banana", "na"));
+    print(is_digit("123"), is_alpha("abc"), is_alnum("a1"), is_space("  "));
+    print(is_upper("ABC"), is_lower("abc"), is_digit("12a"));
 
-    let nums = [5, 2, 9, 2, 7]
-    print(sum(nums), min_of(nums), max_of(nums))
-    print(index_of(nums, 9), count(nums, 2))
-    let dup = copy(nums)
-    push(dup, 100)
-    print(nums, dup)
-    print(concat([1, 2], [3, 4]))
-    var s = [1, 2, 3]
-    swap(s, 0, 2)
-    print(s)
-    clear(s)
-    print(len(s), s)
-    print(sum([1.5, 2.5]), max_of(["pear", "apple"]))
+    let nums = [5, 2, 9, 2, 7];
+    print(sum(nums), min_of(nums), max_of(nums));
+    print(index_of(nums, 9), count(nums, 2));
+    let dup = copy(nums);
+    push(dup, 100);
+    print(nums, dup);
+    print(concat([1, 2], [3, 4]));
+    var s = [1, 2, 3];
+    swap(s, 0, 2);
+    print(s);
+    clear(s);
+    print(len(s), s);
+    print(sum([1.5, 2.5]), max_of(["pear", "apple"]));
 
-    print(len(os.args()) >= 1, os.clock_ms() > 0, len(os.env("PATH")) > 0)
+    print(len(os.args()) >= 1, os.clock_ms() > 0, len(os.env("PATH")) > 0);
 
-    fs.write("tests/tmp/std.txt", "alpha\nbeta\n")
-    fs.append("tests/tmp/std.txt", "gamma\n")
-    print(fs.read_lines("tests/tmp/std.txt"))
-    print(fs.exists("tests/tmp/std.txt"))
-    fs.delete("tests/tmp/std.txt")
-    print(fs.exists("tests/tmp/std.txt"))
+    fs.write("tests/tmp/std.txt", "alpha\nbeta\n");
+    fs.append("tests/tmp/std.txt", "gamma\n");
+    print(fs.read_lines("tests/tmp/std.txt"));
+    print(fs.exists("tests/tmp/std.txt"));
+    fs.delete("tests/tmp/std.txt");
+    print(fs.exists("tests/tmp/std.txt"));
 
-    rand.seed(1)
-    let r = rand.float()
-    print(r >= 0.0 and r < 1.0)
+    rand.seed(1);
+    let r = rand.float();
+    print(r >= 0.0 and r < 1.0);
 }

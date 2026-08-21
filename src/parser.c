@@ -1,22 +1,27 @@
 /* parser.c -- recursive descent with precedence climbing.
  *
- * Cub has no statement terminators.  A statement ends where its expression
- * runs out, and an expression stops at a newline unless we are inside
- * brackets or the line ended on an operator:
+ * Every statement ends with a semicolon, so line breaks mean nothing to the
+ * grammar and an expression can be spread over as many lines as it needs:
  *
- *     let a = 1 + 2      // ends here
- *     let b = 1 +        // continues: the line ended on `+`
- *             2
+ *     let a = 1 + 2;
+ *     let b = first_part
+ *           + second_part;
  *
- * Semicolons are accepted and ignored, so nobody is ever punished for a
- * habit carried over from C.
+ * Declarations all read the same way -- the name first, then what it is:
+ *
+ *     let count: int = 0;
+ *     fn add(a: int, b: int): int { ... }
+ *     struct Point { x: int; y: int; }
+ *     class Dog extends Animal { ... }
+ *
+ * Where an older shape is recognisable, the parser says so by name rather
+ * than complaining about an unexpected token.
  */
 #include "cub.h"
 
 typedef struct {
     Token  *t;
     int     n, i;
-    int     depth;          /* > 0 while inside ( ) or [ ]        */
     bool    no_struct_lit;  /* while parsing if/while/for headers */
     Source *src;            /* the file these tokens came from    */
 } P;
@@ -45,9 +50,20 @@ static void expect(P *p, TokKind k, const char *what) {
     stop_if_errors();
 }
 
-/* Does the current token continue the expression on the previous line? */
-static bool continues(P *p) { return p->depth > 0 || !cur(p)->nl_before; }
+/* Statements end at `;`.  The complaint points just past the last token of
+ * the statement, which is where the semicolon should have gone. */
+static void expect_semi(P *p, const char *what) {
+    if (eat(p, TK_SEMI)) return;
+    Token *pv = prev(p);
+    err_at(pv->line, pv->col + pv->raw_len, "expected `;` to end this %s", what);
+    if (strcmp(what, "field") == 0)
+        err_help("every field in a struct or a class ends with a semicolon");
+    else
+        err_help("every statement in Cub ends with a semicolon");
+    stop_if_errors();
+}
 
+/* A stray `;` on its own is harmless; skip any run of them. */
 static void skip_semis(P *p) { while (eat(p, TK_SEMI)) {} }
 
 /* ---------------- node constructors ---------------- */
@@ -72,7 +88,13 @@ static Stmt *mkstmt(P *p, StmtKind k) {
 /* ---------------- types ---------------- */
 
 static Type *parse_type(P *p) {
-    if (eat(p, TK_VOID)) return ty_void();
+    if (at(p, TK_VOID)) {
+        Token *c = cur(p);
+        err_at(c->line, c->col, "Cub has no `void` type");
+        err_help("a function that gives nothing back leaves the return type "
+                 "off: `fn greet(name: string) { ... }`");
+        stop_if_errors();
+    }
     if (eat(p, TK_LBRACK)) {
         Type *el = parse_type(p);
         if (eat(p, TK_COLON)) {                 /* [key: value] is a map */
@@ -100,16 +122,35 @@ static Type *parse_type(P *p) {
     return ty_named(TY_STRUCT, c->lex);
 }
 
+/* Cub used to lead a function with its return type: `int add(a: int)`.
+ * Recognising that shape lets the parser name the change instead of
+ * pointing at a token that looks perfectly fine on its own. */
+static const char *old_fn_name(P *p) {
+    int j = p->i;
+    if (j < p->n && p->t[j].kind == TK_STATIC) j++;
+
+    if (j < p->n && (p->t[j].kind == TK_VOID || p->t[j].kind == TK_IDENT)) {
+        j++;
+    } else if (j < p->n && p->t[j].kind == TK_LBRACK) {
+        int nest = 0;
+        while (j < p->n) {
+            if (p->t[j].kind == TK_LBRACK) nest++;
+            else if (p->t[j].kind == TK_RBRACK && --nest == 0) { j++; break; }
+            j++;
+        }
+    } else {
+        return NULL;
+    }
+    if (j + 1 < p->n && p->t[j].kind == TK_IDENT && p->t[j + 1].kind == TK_LPAREN)
+        return p->t[j].lex;
+    return NULL;
+}
+
 /* ---------------- expressions ---------------- */
 
 static Expr *parse_expr(P *p);
 static void  parse_block(P *p, Vec *out);
 static FnDecl *parse_fn(P *p, bool is_static);
-
-/* A declaration leads with its type, so this is what starts one. */
-static bool starts_type(P *p) {
-    return at(p, TK_VOID) || at(p, TK_LBRACK) || at(p, TK_IDENT);
-}
 
 static Expr *parse_string(P *p, Token *t) {
     /* A literal with no interpolation is just text. */
@@ -158,12 +199,9 @@ static Expr *parse_if_expr(P *p) {
     e->a = parse_expr(p);
     p->no_struct_lit = saved;
 
-    int saved_depth = p->depth;
     expect(p, TK_LBRACE, "`{` and one value for the `if` branch");
-    p->depth++;
     e->b = parse_expr(p);
     expect(p, TK_RBRACE, "`}` after the value");
-    p->depth = saved_depth;
 
     if (!eat(p, TK_ELSE)) {
         Token *c = cur(p);
@@ -177,10 +215,8 @@ static Expr *parse_if_expr(P *p) {
         return e;
     }
     expect(p, TK_LBRACE, "`{` and one value for the `else` branch");
-    p->depth++;
     vec_push(&e->args, parse_expr(p));
     expect(p, TK_RBRACE, "`}` after the value");
-    p->depth = saved_depth;
     return e;
 }
 
@@ -199,18 +235,15 @@ static Expr *parse_primary(P *p) {
     if (eat(p, TK_STRLIT))   { return parse_string(p, t); }
 
     if (eat(p, TK_LPAREN)) {
-        p->depth++;
         bool saved = p->no_struct_lit;
         p->no_struct_lit = false;
         Expr *e = parse_expr(p);
         p->no_struct_lit = saved;
         expect(p, TK_RPAREN, "`)` to close the group");
-        p->depth--;
         return e;
     }
 
     if (eat(p, TK_LBRACK)) {                  /* array or map literal */
-        p->depth++;
         bool saved = p->no_struct_lit;
         p->no_struct_lit = false;
         Expr *e = mkexpr(p, EX_ARRAYLIT);
@@ -220,7 +253,6 @@ static Expr *parse_primary(P *p) {
             e->kind = EX_MAPLIT;
             p->no_struct_lit = saved;
             expect(p, TK_RBRACK, "`]` to close the map");
-            p->depth--;
             return e;
         }
         while (!at(p, TK_RBRACK)) {
@@ -238,7 +270,6 @@ static Expr *parse_primary(P *p) {
         p->no_struct_lit = saved;
         expect(p, TK_RBRACK, e->kind == EX_MAPLIT ? "`]` to close the map"
                                                   : "`]` to close the array");
-        p->depth--;
         return e;
     }
 
@@ -278,11 +309,8 @@ static Expr *parse_primary(P *p) {
 static Expr *parse_postfix(P *p) {
     Expr *e = parse_primary(p);
     for (;;) {
-        if (!continues(p)) break;
-
         if (at(p, TK_LPAREN)) {
             p->i++;
-            p->depth++;
             Expr *call = cx_alloc(sizeof(Expr));
             call->kind = EX_CALL;
             call->builtin = BI_NONE;
@@ -297,14 +325,12 @@ static Expr *parse_postfix(P *p) {
             }
             p->no_struct_lit = saved;
             expect(p, TK_RPAREN, "`)` to close the call");
-            p->depth--;
             e = call;
             continue;
         }
 
         if (at(p, TK_LBRACK)) {
             p->i++;
-            p->depth++;
             bool saved = p->no_struct_lit;
             p->no_struct_lit = false;
             Expr *ix = cx_alloc(sizeof(Expr));
@@ -315,7 +341,6 @@ static Expr *parse_postfix(P *p) {
             ix->b = parse_expr(p);
             p->no_struct_lit = saved;
             expect(p, TK_RBRACK, "`]` to close the index");
-            p->depth--;
             e = ix;
             continue;
         }
@@ -368,7 +393,6 @@ static int precedence(TokKind k) {
 static Expr *parse_binary(P *p, int min_prec) {
     Expr *lhs = parse_unary(p);
     for (;;) {
-        if (!continues(p)) break;
         TokKind k = cur(p)->kind;
         int prec = precedence(k);
         if (prec == 0 || prec < min_prec) break;
@@ -402,7 +426,7 @@ Expr *parse_expr_source(const char *src, int line, int col) {
     int n = 0;
     Token *toks = lex_all(&s, 1, &n);
 
-    P sub = { toks, n, 0, 1, false, g_source };
+    P sub = { toks, n, 0, false, g_source };
     if (sub.t[0].kind == TK_EOF) {
         err_at(line, col, "there is no expression inside these braces");
         err_help("write `{name}` to insert a value, or `\\{` for a real brace");
@@ -448,8 +472,11 @@ static Stmt *parse_stmt(P *p) {
     skip_semis(p);
     Token *t = cur(p);
 
-    if (at(p, TK_LET)) return parse_let(p, false);
-    if (at(p, TK_VAR)) return parse_let(p, true);
+    if (at(p, TK_LET) || at(p, TK_VAR)) {
+        Stmt *s = parse_let(p, at(p, TK_VAR));
+        expect_semi(p, "declaration");
+        return s;
+    }
 
     if (at(p, TK_IF)) {
         Stmt *s = mkstmt(p, ST_IF);
@@ -508,13 +535,23 @@ static Stmt *parse_stmt(P *p) {
     if (at(p, TK_RETURN)) {
         Stmt *s = mkstmt(p, ST_RETURN);
         p->i++;
-        if (!at(p, TK_RBRACE) && !at(p, TK_SEMI) && !at(p, TK_EOF) && !cur(p)->nl_before)
-            s->rhs = parse_expr(p);
+        if (!at(p, TK_SEMI)) s->rhs = parse_expr(p);
+        expect_semi(p, "`return`");
         return s;
     }
 
-    if (at(p, TK_BREAK))    { Stmt *s = mkstmt(p, ST_BREAK);    p->i++; return s; }
-    if (at(p, TK_CONTINUE)) { Stmt *s = mkstmt(p, ST_CONTINUE); p->i++; return s; }
+    if (at(p, TK_BREAK)) {
+        Stmt *s = mkstmt(p, ST_BREAK);
+        p->i++;
+        expect_semi(p, "`break`");
+        return s;
+    }
+    if (at(p, TK_CONTINUE)) {
+        Stmt *s = mkstmt(p, ST_CONTINUE);
+        p->i++;
+        expect_semi(p, "`continue`");
+        return s;
+    }
 
     if (at(p, TK_LBRACE)) {
         Stmt *s = mkstmt(p, ST_BLOCK);
@@ -523,15 +560,14 @@ static Stmt *parse_stmt(P *p) {
     }
 
     if (at(p, TK_FN)) {
-        err_at(t->line, t->col, "Cub does not use `fn`");
-        err_help("write what the function gives back first, as in "
-                 "`int add(a: int, b: int)`");
+        err_at(t->line, t->col, "a function cannot be declared inside another one");
+        err_help("move `fn` out to the top level of the file");
         stop_if_errors();
     }
 
     /* expression, possibly the target of an assignment */
     Expr *e = parse_expr(p);
-    if (is_assign_op(cur(p)->kind) && continues(p)) {
+    if (is_assign_op(cur(p)->kind)) {
         Stmt *s = cx_alloc(sizeof(Stmt));
         s->kind = ST_ASSIGN;
         s->line = cur(p)->line;
@@ -540,6 +576,7 @@ static Stmt *parse_stmt(P *p) {
         p->i++;
         s->lhs = e;
         s->rhs = parse_expr(p);
+        expect_semi(p, "assignment");
         return s;
     }
     Stmt *s = cx_alloc(sizeof(Stmt));
@@ -547,6 +584,7 @@ static Stmt *parse_stmt(P *p) {
     s->line = e->line;
     s->col = e->col;
     s->rhs = e;
+    expect_semi(p, "statement");
     return s;
 }
 
@@ -558,21 +596,19 @@ static void parse_block(P *p, Vec *out) {
         stop_if_errors();
     }
     p->i++;
-    int saved_depth = p->depth;
-    p->depth = 0;                 /* newlines matter again inside a block */
     skip_semis(p);
     while (!at(p, TK_RBRACE) && !at(p, TK_EOF)) {
         vec_push(out, parse_stmt(p));
         skip_semis(p);
     }
     expect(p, TK_RBRACE, "`}` to close the block");
-    p->depth = saved_depth;
 }
 
 /* ---------------- declarations ---------------- */
 
-/* `int add(a: int, b: int) { ... }` -- the return type comes first, and
- * `void` means it gives nothing back, exactly as in C. */
+/* `fn add(a: int, b: int): int { ... }` -- the name first, then what goes
+ * in, then what comes back.  Leaving the `: type` off means the function
+ * gives nothing back. */
 static FnDecl *parse_fn(P *p, bool is_static) {
     FnDecl *f = cx_alloc(sizeof(FnDecl));
     f->src = p->src;
@@ -581,22 +617,13 @@ static FnDecl *parse_fn(P *p, bool is_static) {
     f->col = cur(p)->col;
     f->is_static = is_static;
 
-    if (at(p, TK_FN)) {
-        Token *c = cur(p);
-        err_at(c->line, c->col, "Cub does not use `fn`");
-        err_help("write what the function gives back first: "
-                 "`int add(a: int, b: int)`, or `void` when it gives nothing");
-        stop_if_errors();
-    }
-
-    f->ret = parse_type(p);
+    expect(p, TK_FN, "`fn` to start a function");
 
     Token *nm = cur(p);
     expect(p, TK_IDENT, "a name for the function");
     f->name = nm->lex;
 
     expect(p, TK_LPAREN, "`(` to start the parameter list");
-    p->depth++;
     while (!at(p, TK_RPAREN)) {
         Token *pn = cur(p);
         expect(p, TK_IDENT, "a parameter name");
@@ -614,22 +641,23 @@ static FnDecl *parse_fn(P *p, bool is_static) {
         if (!eat(p, TK_COMMA)) break;
     }
     expect(p, TK_RPAREN, "`)` to close the parameter list");
-    p->depth--;
 
     if (at(p, TK_ARROW)) {
         Token *c = cur(p);
-        err_at(c->line, c->col, "the return type goes before the name, not after");
-        err_help("write `%s %s(...)` instead of `%s(...) -> %s`",
-                 ty_show(f->ret), f->name, f->name, ty_show(f->ret));
+        err_at(c->line, c->col, "the return type is written with `:`, not `->`");
+        err_help("write `fn %s(...): <type>`", f->name);
         stop_if_errors();
     }
+
+    f->ret = eat(p, TK_COLON) ? parse_type(p) : ty_void();
+
     parse_block(p, &f->body);
     return f;
 }
 
-/* class Name : Base {
- *     field: type
- *     fn method(...) -> type { ... }
+/* class Dog extends Animal {
+ *     name: string;
+ *     fn speak(): string { ... }
  * }
  */
 static void parse_class(P *p, Program *prog) {
@@ -644,7 +672,14 @@ static void parse_class(P *p, Program *prog) {
     expect(p, TK_IDENT, "a name for the class");
     cd->name = nm->lex;
 
-    if (eat(p, TK_COLON)) {
+    if (at(p, TK_COLON)) {
+        Token *c = cur(p);
+        const char *base = at_next(p, TK_IDENT) ? p->t[p->i + 1].lex : "<name>";
+        err_at(c->line, c->col, "a class names the one it builds on with `extends`");
+        err_help("write `class %s extends %s { ... }`", cd->name, base);
+        stop_if_errors();
+    }
+    if (eat(p, TK_EXTENDS)) {
         Token *bn = cur(p);
         expect(p, TK_IDENT, "the name of the class to build on");
         cd->base_name = bn->lex;
@@ -653,27 +688,34 @@ static void parse_class(P *p, Program *prog) {
     expect(p, TK_LBRACE, "`{` to start the class body");
     skip_semis(p);
     while (!at(p, TK_RBRACE) && !at(p, TK_EOF)) {
-        /* `name: type` is a field; anything else leads with a type and is
-         * therefore a method. */
+        /* `name: type;` is a field; a member that starts with `fn` is a
+         * method.  Nothing else belongs in a class body. */
         if (at(p, TK_IDENT) && at_next(p, TK_COLON)) {
             Token *f = cur(p);
             p->i += 2;
             vec_push(&cd->fnames, f->lex);
             vec_push(&cd->fdocs, f->doc);
             vec_push(&cd->ftypes, parse_type(p));
-            eat(p, TK_COMMA);
+            expect_semi(p, "field");
             skip_semis(p);
             continue;
         }
 
         char *member_doc = cur(p)->doc;
         bool is_static = eat(p, TK_STATIC);
-        if (!starts_type(p) && !at(p, TK_FN)) {
+        if (!at(p, TK_FN)) {
             Token *c = cur(p);
-            err_at(c->line, c->col, "expected a field or a method, but found `%s`",
-                   tok_name(c->kind));
-            err_help("a class holds `name: type` fields and methods "
-                     "written `int area()` or `void run()`");
+            const char *old = old_fn_name(p);
+            if (old) {
+                err_at(c->line, c->col, "a method starts with `fn`");
+                err_help("write `fn %s(...): <type>`, with the return type "
+                         "after the parameters", old);
+            } else {
+                err_at(c->line, c->col, "expected a field or a method, but found `%s`",
+                       tok_name(c->kind));
+                err_help("a class holds `name: type;` fields and methods "
+                         "written `fn area(): float { ... }`");
+            }
             stop_if_errors();
         }
         FnDecl *m = parse_fn(p, is_static);
@@ -696,62 +738,78 @@ static void parse_class(P *p, Program *prog) {
     vec_push(&prog->classes, cd);
 }
 
-static void parse_type_decl(P *p, Program *prog) {
-    int line = cur(p)->line, col = cur(p)->col;
-    char *doc = cur(p)->doc;
-    p->i++;                                     /* type */
+/* `struct Point { x: int; y: int; }` -- a plain bag of named values. */
+static void parse_struct_decl(P *p, Program *prog) {
+    StructDef *sd = cx_alloc(sizeof(StructDef));
+    sd->src = p->src;
+    sd->doc = cur(p)->doc;
+    sd->line = cur(p)->line;
+    sd->col = cur(p)->col;
+    p->i++;                                     /* struct */
+
     Token *nm = cur(p);
-    expect(p, TK_IDENT, "a name for the type");
-    expect(p, TK_ASSIGN, "`=` after the type name");
+    expect(p, TK_IDENT, "a name for the struct");
+    sd->name = nm->lex;
 
-    if (eat(p, TK_STRUCT)) {
-        StructDef *sd = cx_alloc(sizeof(StructDef));
-        sd->src = p->src;
-        sd->doc = doc;
-        sd->name = nm->lex;
-        sd->line = line; sd->col = col;
-        expect(p, TK_LBRACE, "`{` to start the field list");
-        while (!at(p, TK_RBRACE)) {
-            Token *fn = cur(p);
-            expect(p, TK_IDENT, "a field name");
-            if (!eat(p, TK_COLON)) {
-                Token *c = cur(p);
-                err_at(c->line, c->col, "field `%s` needs a type", fn->lex);
-                err_help("write `%s: int`, `%s: string`, and so on", fn->lex, fn->lex);
-                stop_if_errors();
-            }
-            vec_push(&sd->fnames, fn->lex);
-            vec_push(&sd->fdocs, fn->doc);
-            vec_push(&sd->ftypes, parse_type(p));
-            if (!eat(p, TK_COMMA)) break;
+    expect(p, TK_LBRACE, "`{` to start the field list");
+    skip_semis(p);
+    while (!at(p, TK_RBRACE) && !at(p, TK_EOF)) {
+        Token *fn = cur(p);
+        expect(p, TK_IDENT, "a field name");
+        if (!eat(p, TK_COLON)) {
+            Token *c = cur(p);
+            err_at(c->line, c->col, "field `%s` needs a type", fn->lex);
+            err_help("write `%s: int;`, `%s: string;`, and so on", fn->lex, fn->lex);
+            stop_if_errors();
         }
-        expect(p, TK_RBRACE, "`}` to close the field list");
-        vec_push(&prog->structs, sd);
-        return;
+        vec_push(&sd->fnames, fn->lex);
+        vec_push(&sd->fdocs, fn->doc);
+        vec_push(&sd->ftypes, parse_type(p));
+        expect_semi(p, "field");
+        skip_semis(p);
     }
+    expect(p, TK_RBRACE, "`}` to close the field list");
+    vec_push(&prog->structs, sd);
+}
 
-    if (eat(p, TK_ENUM)) {
-        EnumDef *ed = cx_alloc(sizeof(EnumDef));
-        ed->src = p->src;
-        ed->doc = doc;
-        ed->name = nm->lex;
-        ed->line = line; ed->col = col;
-        expect(p, TK_LBRACE, "`{` to start the value list");
-        while (!at(p, TK_RBRACE)) {
-            Token *vn = cur(p);
-            expect(p, TK_IDENT, "a value name");
-            vec_push(&ed->vals, vn->lex);
-            if (!eat(p, TK_COMMA)) break;
-        }
-        expect(p, TK_RBRACE, "`}` to close the value list");
-        vec_push(&prog->enums, ed);
-        return;
+/* `enum Colour { Red, Green, Blue }` -- a fixed list of named values. */
+static void parse_enum_decl(P *p, Program *prog) {
+    EnumDef *ed = cx_alloc(sizeof(EnumDef));
+    ed->src = p->src;
+    ed->doc = cur(p)->doc;
+    ed->line = cur(p)->line;
+    ed->col = cur(p)->col;
+    p->i++;                                     /* enum */
+
+    Token *nm = cur(p);
+    expect(p, TK_IDENT, "a name for the enum");
+    ed->name = nm->lex;
+
+    expect(p, TK_LBRACE, "`{` to start the value list");
+    while (!at(p, TK_RBRACE) && !at(p, TK_EOF)) {
+        Token *vn = cur(p);
+        expect(p, TK_IDENT, "a value name");
+        vec_push(&ed->vals, vn->lex);
+        if (!eat(p, TK_COMMA)) break;
     }
+    expect(p, TK_RBRACE, "`}` to close the value list");
+    vec_push(&prog->enums, ed);
+}
 
-    Token *c = cur(p);
-    err_at(c->line, c->col, "expected `struct` or `enum` after `=`");
-    err_help("write `type %s = struct { ... }` or `type %s = enum { ... }`",
-             nm->lex, nm->lex);
+/* Cub used to spell these `type Point = struct { ... }`. */
+static void parse_old_type_decl(P *p) {
+    Token *kw = cur(p);
+    p->i++;                                     /* type */
+    const char *name = at(p, TK_IDENT) ? cur(p)->lex : "Name";
+    const char *what = "struct";
+    for (int j = p->i; j < p->n && j < p->i + 3; j++) {
+        if (p->t[j].kind == TK_ENUM) { what = "enum"; break; }
+    }
+    err_at(kw->line, kw->col, "Cub declares a type with `%s`, not `type`", what);
+    if (strcmp(what, "enum") == 0)
+        err_help("write `enum %s { Red, Green, Blue }`", name);
+    else
+        err_help("write `struct %s { x: int; y: int; }`", name);
     stop_if_errors();
 }
 
@@ -778,7 +836,7 @@ static char *read_file_or_null(const char *path) {
     return buf;
 }
 
-/* `import os` names a module; `import "utils.cub"` pulls in a file. */
+/* `import os;` names a module; `import "utils.cb";` pulls in a file. */
 static void parse_import(P *p, Program *prog) {
     int line = cur(p)->line, col = cur(p)->col;
     p->i++;                                     /* import */
@@ -786,6 +844,7 @@ static void parse_import(P *p, Program *prog) {
     if (at(p, TK_IDENT)) {
         Token *m = cur(p);
         p->i++;
+        expect_semi(p, "import");
         for (int i = 0; i < prog->modules.len; i++)
             if (strcmp((char *)prog->modules.items[i], m->lex) == 0) return;
         vec_push(&prog->modules, m->lex);
@@ -795,13 +854,14 @@ static void parse_import(P *p, Program *prog) {
     if (!at(p, TK_STRLIT)) {
         Token *c = cur(p);
         err_at(c->line, c->col, "expected a module name or a file after `import`");
-        err_help("write `import os` for a built-in module, "
-                 "or `import \"helpers.cub\"` for one of your files");
+        err_help("write `import os;` for a built-in module, "
+                 "or `import \"helpers.cb\";` for one of your files");
         stop_if_errors();
     }
 
     Token *t = cur(p);
     p->i++;
+    expect_semi(p, "import");
     if (t->parts.len != 1 || !((StrPart *)t->parts.items[0])->text) {
         err_at(t->line, t->col, "a file name cannot have `{ }` in it");
         stop_if_errors();
@@ -836,23 +896,37 @@ static void parse_import(P *p, Program *prog) {
 }
 
 static void parse_into(Program *prog, Token *toks, int ntoks, Source *src) {
-    P p = { toks, ntoks, 0, 0, false, src };
+    P p = { toks, ntoks, 0, false, src };
 
     skip_semis(&p);
     while (!at(&p, TK_EOF)) {
         if (at(&p, TK_IMPORT)) { parse_import(&p, prog); skip_semis(&p); continue; }
-        if (at(&p, TK_CLASS))      parse_class(&p, prog);
-        else if (at(&p, TK_TYPE))  parse_type_decl(&p, prog);
-        else if (at(&p, TK_LET))   vec_push(&prog->globals, parse_let(&p, false));
-        else if (at(&p, TK_VAR))   vec_push(&prog->globals, parse_let(&p, true));
-        else if (at(&p, TK_FN) || starts_type(&p))
-            vec_push(&prog->fns, parse_fn(&p, false));
-        else {
+        if (at(&p, TK_CLASS))         parse_class(&p, prog);
+        else if (at(&p, TK_STRUCT))   parse_struct_decl(&p, prog);
+        else if (at(&p, TK_ENUM))     parse_enum_decl(&p, prog);
+        else if (at(&p, TK_TYPE))     parse_old_type_decl(&p);
+        else if (at(&p, TK_FN))       vec_push(&prog->fns, parse_fn(&p, false));
+        else if (at(&p, TK_LET) || at(&p, TK_VAR)) {
+            Stmt *g = parse_let(&p, at(&p, TK_VAR));
+            expect_semi(&p, "declaration");
+            vec_push(&prog->globals, g);
+        } else {
             Token *c = cur(&p);
-            err_at(c->line, c->col, "expected a declaration, but found `%s`", tok_name(c->kind));
-            err_help("the top level of a file holds functions, `class`, `type`, "
-                     "`let`, and `var` declarations; runnable code goes inside "
-                     "`void main()`");
+            const char *old = old_fn_name(&p);
+            if (old) {
+                err_at(c->line, c->col, "a function starts with `fn`");
+                err_help("write `fn %s(...): <type>`, or leave the `: <type>` "
+                         "off when it gives nothing back", old);
+            } else if (at(&p, TK_STATIC)) {
+                err_at(c->line, c->col, "only a class can hold a `static` function");
+                err_help("drop the `static`, or move the function into a class");
+            } else {
+                err_at(c->line, c->col, "expected a declaration, but found `%s`",
+                       tok_name(c->kind));
+                err_help("the top level of a file holds `fn`, `class`, `struct`, "
+                         "`enum`, `let`, and `var` declarations; runnable code "
+                         "goes inside `fn main()`");
+            }
             stop_if_errors();
         }
         skip_semis(&p);

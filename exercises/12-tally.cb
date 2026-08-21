@@ -10,14 +10,14 @@
 //
 // Map keys come out in no useful order, so sort them before printing.
 
-[string: int] tally(text: string) {
-    var counts: [string: int] = [:]
+fn tally(text: string): [string: int] {
+    var counts: [string: int] = [:];
     // TODO
-    return counts
+    return counts;
 }
 
-void main() {
-    let counts = tally("the quick brown fox the lazy dog the end")
+fn main() {
+    let counts = tally("the quick brown fox the lazy dog the end");
 
     // TODO: print how many distinct words, then counts["the"]
     // TODO: print has(...) for "fox" and "cat", then get(..., "cat", 0)

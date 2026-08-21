@@ -1,20 +1,20 @@
 class MathKit {
-    static int double(n: int) { return n * 2 }
-    static int clamp01(n: int) { return clamp(n, 0, 1) }
-    static string shout(s: string) { return upper(s) + "!" }
+    static fn double(n: int): int { return n * 2; }
+    static fn clamp01(n: int): int { return clamp(n, 0, 1); }
+    static fn shout(s: string): string { return upper(s) + "!"; }
 }
 
 class App {
-    greeting: string
+    greeting: string;
 
-    void init() {
-        self.greeting = "hello from a class"
+    fn init() {
+        self.greeting = "hello from a class";
     }
 
-    void main() {
-        print(self.greeting)
-        print(MathKit.double(21))
-        print(MathKit.shout("cub"))
-        print(MathKit.clamp01(9))
+    fn main() {
+        print(self.greeting);
+        print(MathKit.double(21));
+        print(MathKit.shout("cub"));
+        print(MathKit.clamp01(9));
     }
 }

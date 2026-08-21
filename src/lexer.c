@@ -1,14 +1,12 @@
 /* lexer.c -- turns source text into a flat array of tokens.
  *
- * Two things here are worth knowing about:
+ * Line breaks carry no meaning in Cub: a statement ends at its semicolon,
+ * so the lexer treats a newline as plain whitespace and the parser never
+ * has to guess where an expression stopped.
  *
- *   1. Every token records whether a newline preceded it.  Cub has no
- *      statement terminators; the parser uses that flag to decide when an
- *      expression has ended.
- *
- *   2. String literals are split into parts at scan time, so that
- *      "total: {a + b}" arrives at the parser as three pieces: the text
- *      "total: " and the expression source "a + b".
+ * The one thing worth knowing about: string literals are split into parts
+ * at scan time, so that "total: {a + b}" arrives at the parser as three
+ * pieces -- the text "total: ", the expression source "a + b", and "".
  */
 #include "cub.h"
 #include <ctype.h>
@@ -16,7 +14,6 @@
 typedef struct {
     const char *p;
     int         line, col;
-    bool        nl;
     Buf         doc;        /* /// lines waiting for a declaration */
     bool        has_doc;
 } Lexer;
@@ -26,7 +23,7 @@ static const char *tok_names[TK__COUNT] = {
     "fn", "let", "var", "if", "else", "while", "for", "in",
     "return", "break", "continue", "type", "struct", "enum",
     "true", "false", "and", "or", "not",
-    "class", "self", "super", "void", "static", "import",
+    "class", "extends", "self", "super", "void", "static", "import",
     "(", ")", "{", "}", "[", "]",
     ",", ".", "..", "..=", ":", ";", "->",
     "+", "-", "*", "/", "%",
@@ -46,7 +43,8 @@ static const struct { const char *word; TokKind kind; } keywords[] = {
     {"type", TK_TYPE}, {"struct", TK_STRUCT}, {"enum", TK_ENUM},
     {"true", TK_TRUE}, {"false", TK_FALSE},
     {"and", TK_AND}, {"or", TK_OR}, {"not", TK_NOT},
-    {"class", TK_CLASS}, {"self", TK_SELF}, {"super", TK_SUPER},
+    {"class", TK_CLASS}, {"extends", TK_EXTENDS},
+    {"self", TK_SELF}, {"super", TK_SUPER},
     {"void", TK_VOID}, {"static", TK_STATIC}, {"import", TK_IMPORT},
     {NULL, TK_EOF}
 };
@@ -56,7 +54,7 @@ static char peek2(Lexer *L)     { return *L->p ? L->p[1] : 0; }
 
 static char advance(Lexer *L) {
     char c = *L->p++;
-    if (c == '\n') { L->line++; L->col = 1; L->nl = true; }
+    if (c == '\n') { L->line++; L->col = 1; }
     else            L->col++;
     return c;
 }
@@ -238,7 +236,7 @@ static bool ident_start(char c) { return isalpha((unsigned char)c) || c == '_'; 
 static bool ident_part(char c)  { return isalnum((unsigned char)c) || c == '_'; }
 
 Token *lex_all(Source *src, int first_line, int *out_count) {
-    Lexer L = { src->text, first_line, 1, false, {0}, false };
+    Lexer L = { src->text, first_line, 1, {0}, false };
     Vec toks = {0};
 
     for (;;) {
@@ -247,8 +245,6 @@ Token *lex_all(Source *src, int first_line, int *out_count) {
         Token *t = cx_alloc(sizeof(Token));
         t->line = L.line;
         t->col = L.col;
-        t->nl_before = L.nl || toks.len == 0;
-        L.nl = false;
 
         if (L.has_doc) {
             t->doc = cx_strndup(L.doc.data, L.doc.len);

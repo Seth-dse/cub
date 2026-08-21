@@ -1,19 +1,19 @@
-void main() {
-    print(2 + 3 * 4)
-    print((2 + 3) * 4)
-    print(17 / 5)
-    print(17 % 5)
-    print(-7 / 2)
-    print(-7 % 2)
-    print(1.5 + 2.25)
-    print(10.0 / 4.0)
-    print(2 < 3 and 3 <= 3)
-    print(not (1 == 2))
-    print(1_000_000 + 1)
-    print(0xff)
-    print(1e3)
-    print(float(7) / 2.0)
-    print(int(3.9))
-    print(abs(-5), " ", abs(-2.5))
-    print(min(3, 9), max(3, 9))
+fn main() {
+    print(2 + 3 * 4);
+    print((2 + 3) * 4);
+    print(17 / 5);
+    print(17 % 5);
+    print(-7 / 2);
+    print(-7 % 2);
+    print(1.5 + 2.25);
+    print(10.0 / 4.0);
+    print(2 < 3 and 3 <= 3);
+    print(not (1 == 2));
+    print(1_000_000 + 1);
+    print(0xff);
+    print(1e3);
+    print(float(7) / 2.0);
+    print(int(3.9));
+    print(abs(-5), " ", abs(-2.5));
+    print(min(3, 9), max(3, 9));
 }

@@ -1,49 +1,49 @@
-import math
+import math;
 
 /// A shape that knows how much space it covers.
 class Shape {
     /// What to call this shape when showing it.
-    name: string
+    name: string;
 
-    void init(name: string) {
-        self.name = name
+    fn init(name: string) {
+        self.name = name;
     }
 
     /// How much space the shape covers.
-    float area() {
-        return 0.0
+    fn area(): float {
+        return 0.0;
     }
 }
 
 /// A circle, described by how far its edge sits from the middle.
-class Circle: Shape {
+class Circle extends Shape {
     /// The distance from the middle to the edge.
-    radius: float
+    radius: float;
 
-    void init(radius: float) {
-        super.init("circle")
-        self.radius = radius
+    fn init(radius: float) {
+        super.init("circle");
+        self.radius = radius;
     }
 
-    float area() {
-        return math.PI * self.radius * self.radius
+    fn area(): float {
+        return math.PI * self.radius * self.radius;
     }
 }
 
 /// A rectangle, described by two sides.
-class Rect: Shape {
+class Rect extends Shape {
     /// The side running left to right.
-    width: float
+    width: float;
     /// The side running top to bottom.
-    height: float
+    height: float;
 
-    void init(width: float, height: float) {
-        super.init("rectangle")
-        self.width = width
-        self.height = height
+    fn init(width: float, height: float) {
+        super.init("rectangle");
+        self.width = width;
+        self.height = height;
     }
 
-    float area() {
-        return self.width * self.height
+    fn area(): float {
+        return self.width * self.height;
     }
 }

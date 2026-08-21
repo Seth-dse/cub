@@ -1,24 +1,24 @@
-void main() {
-    var n = 5
+fn main() {
+    var n = 5;
     while n > 0 {
-        print(n)
-        n -= 1
+        print(n);
+        n -= 1;
     }
-    print("liftoff")
+    print("liftoff");
 
     for i in 1..=5 {
-        write("{i} ")
+        write("{i} ");
     }
-    print("")
+    print("");
 
     for i in 1..=10 {
         if i % 2 == 1 {
-            continue
+            continue;
         }
         if i > 8 {
-            break
+            break;
         }
-        write("{i} ")
+        write("{i} ");
     }
-    print("")
+    print("");
 }

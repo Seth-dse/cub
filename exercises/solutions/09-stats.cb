@@ -1,34 +1,34 @@
-import math
+import math;
 
-float mean(values: [int]) {
+fn mean(values: [int]): float {
     if len(values) == 0 {
-        return 0.0
+        return 0.0;
     }
-    return float(sum(values)) / float(len(values))
+    return float(sum(values)) / float(len(values));
 }
 
-int median(values: [int]) {
-    let ordered = copy(values)
-    sort(ordered)
-    return ordered[len(ordered) / 2]
+fn median(values: [int]): int {
+    let ordered = copy(values);
+    sort(ordered);
+    return ordered[len(ordered) / 2];
 }
 
-float round2(v: float) {
-    return math.round(v * 100.0) / 100.0
+fn round2(v: float): float {
+    return math.round(v * 100.0) / 100.0;
 }
 
-void main() {
-    let values = [8, 3, 17, 4, 9, 12]
+fn main() {
+    let values = [8, 3, 17, 4, 9, 12];
 
-    print(sum(values))
-    print(min_of(values), " ", max_of(values))
-    print(round2(mean(values)))
-    print(median(values))
+    print(sum(values));
+    print(min_of(values), " ", max_of(values));
+    print(round2(mean(values)));
+    print(median(values));
 
-    let ordered = copy(values)
-    sort(ordered)
-    print(ordered)
-    reverse(ordered)
-    print(ordered)
-    print(values)
+    let ordered = copy(values);
+    sort(ordered);
+    print(ordered);
+    reverse(ordered);
+    print(ordered);
+    print(values);
 }

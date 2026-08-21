@@ -29,7 +29,7 @@ install: cubc
 	install -m 755 cubc $(PREFIX)/bin/cubc
 
 # Link the editor extension into every VS Code-family editor that is present.
-EXT_NAME := Sethttech.cub-0.4.1
+EXT_NAME := Sethttech.cub-0.5.0
 install-vscode:
 	@found=0; \
 	for dir in $$HOME/.vscode/extensions $$HOME/.vscode-insiders/extensions \
@@ -79,7 +79,7 @@ check-linux:
 	    make clean >/dev/null 2>&1 && \
 	    make 2>&1 | grep -E "error|warning" && exit 1; \
 	    ./tests/run_tests.sh | tail -2 && \
-	    printf "import os\\nvoid main() {\\n  os.sleep_ms(1)\\n  print(os.clock_ms() > 0)\\n}\\n" > /tmp/p.cb && \
+	    printf "import os;\\nfn main() {\\n  os.sleep_ms(1);\\n  print(os.clock_ms() > 0);\\n}\\n" > /tmp/p.cb && \
 	    ./cubc run /tmp/p.cb'
 	@$(MAKE) clean >/dev/null 2>&1 && $(MAKE) >/dev/null 2>&1
 

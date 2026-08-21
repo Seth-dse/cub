@@ -17,59 +17,59 @@
 //
 // Catalogue has no init, so its array and map start empty on their own.
 
-import "lib/format.cb"
+import "lib/format.cb";
 
 /// One item on the shelves.
 class Book {
-    title: string
-    author: string
-    copies: int
+    title: string;
+    author: string;
+    copies: int;
 
-    void init(title: string, author: string, copies: int) {
+    fn init(title: string, author: string, copies: int) {
         // TODO: keep all three
     }
 
-    string to_string() {
-        return "?" // TODO
+    fn to_string(): string {
+        return "?"; // TODO
     }
 }
 
 /// A shelf of books, and who wrote how many.
 class Catalogue {
-    books: [Book]
-    by_author: [string: int]
+    books: [Book];
+    by_author: [string: int];
 
-    void add(book: Book) {
+    fn add(book: Book) {
         // TODO: shelve it, and count its copies against its author
     }
 
-    int total() {
-        return 0 // TODO
+    fn total(): int {
+        return 0; // TODO
     }
 
-    void report() {
+    fn report() {
         // TODO
     }
 }
 
 /// Reads "title|author|copies" into a book.
-Book parse(line: string) {
-    return Book("?", "?", 0) // TODO: split on "|", trim each piece
+fn parse(line: string): Book {
+    return Book("?", "?", 0); // TODO: split on "|", trim each piece
 }
 
-void main() {
+fn main() {
     let lines = [
         "Dune          | Herbert   | 3",
         "Emma          | Austen    | 2",
         "Persuasion    | Austen    | 1",
         "Children Of D | Herbert   | 4",
-    ]
+    ];
 
-    let shelf = Catalogue()
+    let shelf = Catalogue();
     for line in lines {
-        shelf.add(parse(line))
+        shelf.add(parse(line));
     }
 
-    shelf.report()
-    print(round2(float(shelf.total()) / float(len(shelf.books))))
+    shelf.report();
+    print(round2(float(shelf.total()) / float(len(shelf.books))));
 }

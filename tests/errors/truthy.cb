@@ -1,6 +1,6 @@
-void main() {
-    let count = 3
+fn main() {
+    let count = 3;
     if count {
-        print("yes")
+        print("yes");
     }
 }

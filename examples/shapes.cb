@@ -1,100 +1,100 @@
-import math
+import math;
 
 // Classes, inheritance, and methods that a subclass replaces.
 class Shape {
-    name: string
+    name: string;
 
-    void init(name: string) {
-        self.name = name
+    fn init(name: string) {
+        self.name = name;
     }
 
-    float area() {
-        return 0.0
+    fn area(): float {
+        return 0.0;
     }
 
-    float perimeter() {
-        return 0.0
+    fn perimeter(): float {
+        return 0.0;
     }
 
     // print() uses this whenever a class declares it.
-    string to_string() {
+    fn to_string(): string {
         return "{pad_end(self.name, 10, " ")} area {pad_start(str(round2(self.area())), 8, " ")}" +
-            "  perimeter {pad_start(str(round2(self.perimeter())), 8, " ")}"
+            "  perimeter {pad_start(str(round2(self.perimeter())), 8, " ")}";
     }
 }
 
-class Rectangle: Shape {
-    width: float
-    height: float
+class Rectangle extends Shape {
+    width: float;
+    height: float;
 
-    void init(width: float, height: float) {
-        super.init("rectangle")
-        self.width = width
-        self.height = height
+    fn init(width: float, height: float) {
+        super.init("rectangle");
+        self.width = width;
+        self.height = height;
     }
 
-    float area() {
-        return self.width * self.height
+    fn area(): float {
+        return self.width * self.height;
     }
 
-    float perimeter() {
-        return 2.0 * (self.width + self.height)
-    }
-}
-
-class Square: Rectangle {
-    void init(side: float) {
-        super.init(side, side)
-        self.name = "square"
+    fn perimeter(): float {
+        return 2.0 * (self.width + self.height);
     }
 }
 
-class Circle: Shape {
-    radius: float
-
-    void init(radius: float) {
-        super.init("circle")
-        self.radius = radius
-    }
-
-    float area() {
-        return math.PI * self.radius * self.radius
-    }
-
-    float perimeter() {
-        return math.TAU * self.radius
+class Square extends Rectangle {
+    fn init(side: float) {
+        super.init(side, side);
+        self.name = "square";
     }
 }
 
-float round2(v: float) {
-    return math.round(v * 100.0) / 100.0
+class Circle extends Shape {
+    radius: float;
+
+    fn init(radius: float) {
+        super.init("circle");
+        self.radius = radius;
+    }
+
+    fn area(): float {
+        return math.PI * self.radius * self.radius;
+    }
+
+    fn perimeter(): float {
+        return math.TAU * self.radius;
+    }
 }
 
-void main() {
+fn round2(v: float): float {
+    return math.round(v * 100.0) / 100.0;
+}
+
+fn main() {
     // Every one of these is a Shape, and each keeps its own behaviour.
     let shapes: [Shape] = [
         Rectangle(3.0, 4.0),
         Square(5.0),
         Circle(1.0),
-    ]
+    ];
 
     for s in shapes {
-        print(s)
+        print(s);
     }
 
-    var total = 0.0
+    var total = 0.0;
     for s in shapes {
-        total += s.area()
+        total += s.area();
     }
-    print("")
-    print("total area: {round2(total)}")
+    print("");
+    print("total area: {round2(total)}");
 
     // The largest one, found without knowing which class it is.
-    var biggest = shapes[0]
+    var biggest = shapes[0];
     for s in shapes {
         if s.area() > biggest.area() {
-            biggest = s
+            biggest = s;
         }
     }
-    print("largest:    {biggest.name} at {round2(biggest.area())}")
+    print("largest:    {biggest.name} at {round2(biggest.area())}");
 }

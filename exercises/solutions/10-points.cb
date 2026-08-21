@@ -1,35 +1,35 @@
-type Point = struct {
-    x: int,
-    y: int,
+struct Point {
+    x: int;
+    y: int;
 }
 
-int distance_squared(a: Point, b: Point) {
-    let dx = a.x - b.x
-    let dy = a.y - b.y
-    return dx * dx + dy * dy
+fn distance_squared(a: Point, b: Point): int {
+    let dx = a.x - b.x;
+    let dy = a.y - b.y;
+    return dx * dx + dy * dy;
 }
 
-Point shifted(p: Point, dx: int, dy: int) {
-    return Point { x: p.x + dx, y: p.y + dy }
+fn shifted(p: Point, dx: int, dy: int): Point {
+    return Point { x: p.x + dx, y: p.y + dy };
 }
 
-void main() {
-    let origin = Point { x: 0, y: 0 }
-    let target = Point { x: 3, y: 4 }
+fn main() {
+    let origin = Point { x: 0, y: 0 };
+    let target = Point { x: 3, y: 4 };
 
-    print(origin)
-    print(target)
-    print(distance_squared(origin, target))
-    print(shifted(target, 10, -2))
+    print(origin);
+    print(target);
+    print(distance_squared(origin, target));
+    print(shifted(target, 10, -2));
 
-    var copy_of = target
-    copy_of.x = 99
-    print(target.x, " ", copy_of.x)
+    var copy_of = target;
+    copy_of.x = 99;
+    print(target.x, " ", copy_of.x);
 
-    let path = [origin, target, Point { x: 6, y: 8 }]
-    var total = 0
+    let path = [origin, target, Point { x: 6, y: 8 }];
+    var total = 0;
     for i in 1..len(path) {
-        total += distance_squared(path[i - 1], path[i])
+        total += distance_squared(path[i - 1], path[i]);
     }
-    print(total)
+    print(total);
 }
