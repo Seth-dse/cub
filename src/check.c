@@ -360,6 +360,37 @@ static bool init_assigns(FnDecl *init, const char *field) {
     return false;
 }
 
+/* Only the types C and Cub agree on can cross an `extern`.  Everything
+ * else -- arrays, maps, objects, and anything that may be missing -- has a
+ * shape the C side knows nothing about. */
+static bool ffi_type_ok(Type *t) {
+    if (!t) return false;
+    switch (t->kind) {
+    case TY_VOID: case TY_INT: case TY_FLOAT: case TY_BOOL: case TY_STR:
+        return true;
+    default:
+        return false;
+    }
+}
+
+static void check_extern_types(FnDecl *f) {
+    if (!ffi_type_ok(f->ret)) {
+        err_at(f->line, f->col, "`%s` gives back %s, which C has no shape for",
+               f->name, ty_show(f->ret));
+        err_help("an `extern` may use int, float, bool, string, and void");
+    }
+    for (int i = 0; i < f->params.len; i++) {
+        VarSym *v = f->params.items[i];
+        if (ffi_type_ok(v->type)) continue;
+        err_at(f->line, f->col, "`%s` takes %s, which C has no shape for",
+               v->name, ty_show(v->type));
+        err_help("an `extern` may use int, float, bool, string, and void");
+    }
+    if (strcmp(f->name, "main") == 0)
+        err_at(f->line, f->col, "`main` is where a Cub program starts, "
+               "so it cannot be an `extern`");
+}
+
 /* `void!` gives nothing back, so like `void` it needs no `return`. */
 static bool ty_is_void_fail(Type *t) {
     return t && t->kind == TY_FAIL && t->elem && t->elem->kind == TY_VOID;
@@ -2295,6 +2326,11 @@ void check_program(Program *p, bool require_main) {
         }
     }
 
+    /* C functions join the same namespace, so a call finds either kind and
+     * a clash between them is reported once. */
+    for (int i = 0; i < p->externs.len; i++)
+        vec_push(&p->fns, p->externs.items[i]);
+
     /* 3. function signatures */
     for (int i = 0; i < p->fns.len; i++) {
         FnDecl *f = p->fns.items[i];
@@ -2316,7 +2352,8 @@ void check_program(Program *p, bool require_main) {
             v->type = resolve_type(v->type, f->line, f->col);
             v->cname = cx_fmt("cubp_%s_%d", v->name, ++uid);
         }
-        f->cname = cx_fmt("cubf_%s", f->name);
+        f->cname = f->is_extern ? f->c_name : cx_fmt("cubf_%s", f->name);
+        if (f->is_extern) check_extern_types(f);
     }
 
     /* 4. globals live in the outermost scope */
@@ -2333,6 +2370,7 @@ void check_program(Program *p, bool require_main) {
     /* 5. function bodies */
     for (int i = 0; i < p->fns.len; i++) {
         FnDecl *f = p->fns.items[i];
+        if (f->is_extern) continue;         /* the body lives in C */
         in_file(f->src);
         cur_fn = f;
         push_scope();

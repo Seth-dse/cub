@@ -251,7 +251,7 @@
         },
         {
           "name": "keyword.declaration.cub",
-          "match": "\\b(let|var|struct|enum|class|extends|static|import)\\b"
+          "match": "\\b(let|var|struct|enum|class|extends|static|import|extern|link)\\b"
         },
         {
           "name": "variable.language.cub",

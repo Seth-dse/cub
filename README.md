@@ -46,7 +46,7 @@ Nothing to install beyond a C compiler and `make`.
 
 ```bash
 make
-make test          # 67 tests: programs, compile errors, runtime failures
+make test          # 70 tests: programs, compile errors, runtime failures
 make check-linux   # optional: build and test under glibc in a container
 make examples      # run everything in examples/
 sudo make install  # optional: puts cubc in /usr/local/bin
@@ -185,6 +185,12 @@ print(fs.exists("notes.txt"));
 // A program can span several files.
 import "shapes.cb";
 
+// And it can reach into C, because that is what it compiles to.
+extern "math.h" {
+    float cbrt(x: float);
+}
+print(cbrt(27.0));               // 3.0
+
 // Maps, keyed by text or number.
 var ages = ["ada": 36];
 ages["grace"] = 45;
@@ -260,6 +266,10 @@ compiler.
 | `tests/` | programs, compile errors, and runtime failures |
 | `tools/migrate.py` | rewrites 0.4 source in the 0.5 syntax |
 
+`extern "header.h" { ... }` borrows a C function; `link "name";` puts
+`-lname` on the C compiler's command line. Everything Cub promises stops at
+that boundary — see [the reference](docs/LANGUAGE.md#18-reaching-into-c).
+
 Look at what your program becomes:
 
 ```bash
@@ -286,7 +296,7 @@ server meant to run for weeks. Reference counting is the next step.
 
 ## Status
 
-Version 0.6.0. The language described here works, and the test suite covers
+Version 0.7.0. The language described here works, and the test suite covers
 it. Not yet built: generics, closures, interfaces, and private declarations.
 [The reference](docs/LANGUAGE.md#20-what-cub-leaves-out-for-now) lists them
 with what is planned.

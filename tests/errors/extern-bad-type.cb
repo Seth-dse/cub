@@ -1,0 +1,4 @@
+extern "x.h" {
+    int total(items: [int]);
+}
+void main() { print(total([1, 2])); }

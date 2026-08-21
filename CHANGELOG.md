@@ -1,5 +1,38 @@
 # Changelog
 
+## 0.7.0
+
+Cub can call C.
+
+The language compiles to C99 and always could, but there was no way to use
+any of it. `extern` borrows a function from a header:
+
+    extern "math.h" {
+        float cbrt(x: float);
+        float hypot(a: float, b: float);
+    }
+
+    void main() {
+        print(cbrt(27.0));        // 3.0
+    }
+
+They are called like any other function and their arguments are checked the
+same way. `= "name"` gives the C name when it differs, and `link "sqlite3";`
+puts `-lsqlite3` on the C compiler's command line.
+
+**The header is required.** Cub has one integer type where C has several, so
+a declaration Cub guessed at would be wrong in ways nothing on this side
+could catch. With the real header in scope the C compiler converts the
+arguments and the result, which is what makes the call safe.
+
+`int`, `float`, `bool`, `string`, and `void` may cross. Arrays, maps,
+structs, enums, objects, `T?`, and `T!` are refused -- C has no shape for
+them. Text goes out as the bytes Cub holds, NUL-terminated, and comes back
+measured and copied so the runtime owns it.
+
+Everything else in the reference describes what Cub guarantees. Across an
+`extern` none of it holds, and the reference says so plainly.
+
 ## 0.6.0
 
 Values that may not be there.

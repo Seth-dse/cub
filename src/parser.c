@@ -863,6 +863,111 @@ static void parse_old_type_decl(P *p) {
     stop_if_errors();
 }
 
+/* extern "math.h" {
+ *     float pow(base: float, exponent: float);
+ *     int getpid() = "getpid";      // when the C name differs
+ * }
+ *
+ * A declaration with no body: Cub writes the call, the C library does the
+ * work.  The header, if given, is included in the generated C.
+ */
+static void parse_extern(P *p, Program *prog) {
+    Token *kw = cur(p);
+    p->i++;                                     /* extern */
+    char *header = NULL;
+
+    /* The header is what makes this safe: with the real declaration in
+     * scope, the C compiler converts the arguments and the result.  Cub
+     * has one integer type and C has several, so a guessed declaration
+     * would be wrong in ways nothing could catch. */
+    if (!at(p, TK_STRLIT)) {
+        err_at(kw->line, kw->col, "`extern` needs the header that declares "
+               "these functions");
+        err_help("write `extern \"math.h\" { ... }`; Cub cannot guess what "
+                 "the C library says they look like");
+        stop_if_errors();
+    }
+    {
+        Token *h = cur(p);
+        p->i++;
+        if (h->parts.len != 1 || !((StrPart *)h->parts.items[0])->text) {
+            err_at(h->line, h->col, "a header name cannot have `{ }` in it");
+            stop_if_errors();
+        }
+        char *name = ((StrPart *)h->parts.items[0])->text;
+        header = name;
+        bool seen = false;
+        for (int i = 0; i < prog->headers.len; i++)
+            if (strcmp((char *)prog->headers.items[i], name) == 0) seen = true;
+        if (!seen) vec_push(&prog->headers, name);
+    }
+
+    expect(p, TK_LBRACE, "`{` to start the list of C functions");
+    skip_semis(p);
+    while (!at(p, TK_RBRACE) && !at(p, TK_EOF)) {
+        FnDecl *f = cx_alloc(sizeof(FnDecl));
+        f->src = p->src;
+        f->doc = cur(p)->doc;
+        f->line = cur(p)->line;
+        f->col = cur(p)->col;
+        f->is_extern = true;
+        f->header = header;
+
+        f->ret = parse_type(p);
+        Token *nm = cur(p);
+        expect(p, TK_IDENT, "a name for the C function");
+        f->name = nm->lex;
+        f->c_name = nm->lex;
+
+        expect(p, TK_LPAREN, "`(` to start the parameter list");
+        while (!at(p, TK_RPAREN)) {
+            Token *pn = cur(p);
+            expect(p, TK_IDENT, "a parameter name");
+            if (!eat(p, TK_COLON)) {
+                Token *c = cur(p);
+                err_at(c->line, c->col, "parameter `%s` needs a type", pn->lex);
+                stop_if_errors();
+            }
+            VarSym *v = cx_alloc(sizeof(VarSym));
+            v->name = pn->lex;
+            v->type = parse_type(p);
+            vec_push(&f->params, v);
+            if (!eat(p, TK_COMMA)) break;
+        }
+        expect(p, TK_RPAREN, "`)` to close the parameter list");
+
+        if (eat(p, TK_ASSIGN)) {                /* = "the real C name" */
+            Token *cn = cur(p);
+            expect(p, TK_STRLIT, "the name the C library uses, in quotes");
+            if (cn->parts.len != 1 || !((StrPart *)cn->parts.items[0])->text) {
+                err_at(cn->line, cn->col, "a C name cannot have `{ }` in it");
+                stop_if_errors();
+            }
+            f->c_name = ((StrPart *)cn->parts.items[0])->text;
+        }
+        expect_semi(p, "declaration");
+        skip_semis(p);
+        vec_push(&prog->externs, f);
+    }
+    expect(p, TK_RBRACE, "`}` to close the list of C functions");
+}
+
+/* `link "sqlite3";` puts -lsqlite3 on the C compiler's command line. */
+static void parse_link(P *p, Program *prog) {
+    p->i++;                                     /* link */
+    Token *t = cur(p);
+    expect(p, TK_STRLIT, "the name of a library, in quotes");
+    if (t->parts.len != 1 || !((StrPart *)t->parts.items[0])->text) {
+        err_at(t->line, t->col, "a library name cannot have `{ }` in it");
+        stop_if_errors();
+    }
+    expect_semi(p, "declaration");
+    char *name = ((StrPart *)t->parts.items[0])->text;
+    for (int i = 0; i < prog->links.len; i++)
+        if (strcmp((char *)prog->links.items[i], name) == 0) return;
+    vec_push(&prog->links, name);
+}
+
 static void parse_into(Program *prog, Token *toks, int ntoks, Source *src);
 
 /* Everything after the last slash is the file; what precedes it is where
@@ -951,7 +1056,9 @@ static void parse_into(Program *prog, Token *toks, int ntoks, Source *src) {
     skip_semis(&p);
     while (!at(&p, TK_EOF)) {
         if (at(&p, TK_IMPORT)) { parse_import(&p, prog); skip_semis(&p); continue; }
-        if (at(&p, TK_CLASS))         parse_class(&p, prog);
+        if (at(&p, TK_EXTERN))        parse_extern(&p, prog);
+        else if (at(&p, TK_LINK))     parse_link(&p, prog);
+        else if (at(&p, TK_CLASS))    parse_class(&p, prog);
         else if (at(&p, TK_STRUCT))   parse_struct_decl(&p, prog);
         else if (at(&p, TK_ENUM))     parse_enum_decl(&p, prog);
         else if (at(&p, TK_TYPE))     parse_old_type_decl(&p);

@@ -1,6 +1,6 @@
 # The Cub Language Reference
 
-Version 0.6.0
+Version 0.7.0
 
 Cub is a small statically typed language in the C family. It compiles to
 standalone C99, so a Cub program runs anywhere a C compiler runs and starts
@@ -901,7 +901,80 @@ condition to handle, and stops it with a message.
 
 ---
 
-## 18. Errors
+## 18. Reaching into C
+
+Cub compiles to C, so it can call C. An `extern` block names a header and
+the functions to borrow from it:
+
+```cub
+extern "math.h" {
+    float cbrt(x: float);
+    float hypot(a: float, b: float);
+}
+
+void main() {
+    print(cbrt(27.0));        // 3.0
+    print(hypot(3.0, 4.0));   // 5.0
+}
+```
+
+They are called like any other function, and the compiler checks the
+arguments as it would for one of yours.
+
+**The header is required.** Cub has one integer type where C has several, so
+a declaration Cub guessed at would be wrong in ways nothing could catch.
+With the real header in scope, the C compiler converts the arguments and the
+result.
+
+**When the C name differs**, say so with `=`:
+
+```cub
+extern "stdlib.h" {
+    int absolute(n: int) = "abs";
+}
+```
+
+**Libraries** outside libc need to be linked, which `link` arranges:
+
+```cub
+link "sqlite3";
+
+extern "sqlite3.h" {
+    int sqlite3_libversion_number();
+}
+```
+
+`link "sqlite3";` puts `-lsqlite3` on the C compiler's command line.
+
+### What can cross
+
+| Cub | C |
+|---|---|
+| `int` | any integer type |
+| `float` | `double`, `float` |
+| `bool` | `bool` |
+| `string` | `const char *`, NUL-terminated |
+| `void` | `void` |
+
+Arrays, maps, structs, enums, objects, `T?`, and `T!` have shapes C knows
+nothing about, and are refused.
+
+Text handed to C is the same bytes Cub holds, always NUL-terminated. Text
+handed back is measured with `strlen` and copied, so the runtime owns it
+like any other string; a null pointer arrives as `""`. A Cub string
+containing a zero byte will look shorter to C than it is.
+
+### Where the promises stop
+
+Everything else in this document describes what Cub guarantees. Across an
+`extern`, none of it holds: the C function can do anything at all, and a
+declaration that does not match the library it names is undefined behavior
+that no amount of checking on this side can see. This is the one place where
+being careful is your job rather than the compiler's.
+
+---
+
+## 19. Errors
 
 **Compile-time errors** point at the exact spot, explain the problem in
 words, and suggest a fix:
@@ -938,7 +1011,7 @@ panic("this should be unreachable");
 
 ---
 
-## 19. The standard library
+## 20. The standard library
 
 Ninety-seven built-ins. The everyday ones are always in scope; the rest live
 in a module you `import` (see [section 14](#14-imports)) and are marked here
@@ -1069,7 +1142,7 @@ rather than silently shadowing it.
 
 ---
 
-## 20. How memory works
+## 21. How memory works
 
 Cub has no manual memory management and no pointers. Text and arrays live on
 the heap; the runtime records every allocation and releases all of it when
@@ -1084,7 +1157,7 @@ allocation registry is already the hook for it.
 
 ---
 
-## 21. What Cub leaves out, for now
+## 22. What Cub leaves out, for now
 
 Left out deliberately, and not missed: pointers, pointer arithmetic, manual
 `malloc`/`free`, header files, the preprocessor, `goto`, implicit
@@ -1093,6 +1166,8 @@ conversions, truthiness, uninitialized variables, and undefined behavior.
 Genuinely missing, and planned:
 
 - **Private declarations** — an imported file shares everything it declares.
+- **Structs and arrays across `extern`** — only the types in
+  [section 18](#18-reaching-into-c) can cross into C.
 - **Renaming on import** — no `import os as system` yet.
 - **Generics** — arrays and maps are the only generic types.
 - **Closures and function values** — functions cannot yet be passed around,
@@ -1102,15 +1177,18 @@ Genuinely missing, and planned:
 - **Asking an object what it is** — no `is` test and no downcast, so once a
   `Dog` is held as an `Animal` you can call it but not narrow it back.
 - **Private fields** — every field is readable and writable from anywhere.
-- **Reference counting** — see section 20.
+- **Reference counting** — see section 21.
 - **`==` on structs, arrays, and maps** — compare the parts for now.
 
 ---
 
-## 22. Grammar
+## 23. Grammar
 
 ```ebnf
-program     = { import | declaration } ;
+program     = { import | externblock | linkdecl | declaration } ;
+externblock = "extern" STRING "{" { externfn } "}" ;
+externfn    = type IDENT "(" [ params [ "," ] ] ")" [ "=" STRING ] ";" ;
+linkdecl    = "link" STRING ";" ;
 import      = "import" ( IDENT | STRING ) ";" ;
 declaration = function | classdecl | structdecl | enumdecl | binding ";" ;
 
@@ -1167,7 +1245,7 @@ is.
 
 ---
 
-## 23. The compiler
+## 24. The compiler
 
 ```
 cubc program.cb              compile to ./program

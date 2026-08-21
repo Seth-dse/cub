@@ -281,6 +281,15 @@ typedef struct { bool ok; CubStr err; } CubMaybe_void;
 
 static CubStr cub_str_lit(const char *s, int64_t n) { CubStr r; r.data = s; r.len = n; return r; }
 
+/* Text handed back by a C function: a bare pointer, measured and copied so
+ * the runtime owns it like any other string.  A null pointer is empty. */
+static CubStr cub_str_new(const char *s, int64_t n);
+
+static CubStr cub_str_of_c(const char *s) {
+    if (!s) return cub_str_lit("", 0);
+    return cub_str_new(s, (int64_t)strlen(s));
+}
+
 static CubStr cub_str_new(const char *s, int64_t n) {
     char *p = (char *)cub_alloc((size_t)n + 1);
     if (n) memcpy(p, s, (size_t)n);

@@ -744,7 +744,21 @@ static void gen_expr(Expr *e) {
     case EX_BINARY: gen_binary(e); break;
 
     case EX_CALL:
-        if (e->fn) {
+        if (e->fn && e->fn->is_extern) {
+            /* Text is a pointer and a length here and a bare pointer there,
+             * so it is unwrapped going out and measured coming back. */
+            bool gives_text = e->fn->ret->kind == TY_STR;
+            if (gives_text) E("cub_str_of_c(");
+            E("%s(", e->fn->cname);
+            for (int i = 0; i < e->args.len; i++) {
+                Expr *a = e->args.items[i];
+                if (i) E(", ");
+                if (a->type && a->type->kind == TY_STR) E("(%s).data", expr_str(a));
+                else gen_expr(a);
+            }
+            E(")");
+            if (gives_text) E(")");
+        } else if (e->fn) {
             E("%s(", e->fn->cname);
             for (int i = 0; i < e->args.len; i++) {
                 if (i) E(", ");
@@ -1345,6 +1359,13 @@ char *codegen_program(Program *p, const char *unit_name) {
       " */\n", CUB_VERSION, unit_name);
     E("%s\n", CUB_RUNTIME_SRC);
 
+    if (p->headers.len || p->externs.len) {
+        E("/* ---- C the program reaches into ---- */\n\n");
+        for (int i = 0; i < p->headers.len; i++)
+            E("#include <%s>\n", (char *)p->headers.items[i]);
+        if (p->headers.len) E("\n");
+    }
+
     E("/* ---- types ---- */\n\n");
     for (int i = 0; i < p->enums.len; i++) {
         EnumDef *ed = p->enums.items[i];
@@ -1416,6 +1437,7 @@ char *codegen_program(Program *p, const char *unit_name) {
     /* ---- function bodies (collects the helpers they need) ---- */
     for (int i = 0; i < p->fns.len; i++) {
         FnDecl *f = p->fns.items[i];
+        if (f->is_extern) continue;          /* C already has the body */
         in_unit(f->src);
         fn_signature(f);
         cur_ret = f->ret;
@@ -1471,9 +1493,12 @@ char *codegen_program(Program *p, const char *unit_name) {
           t->kind == TY_ARRAY ? "CubArr" : ctype(t));
     }
     for (int i = 0; i < p->fns.len; i++) {
-        fn_signature(p->fns.items[i]);
+        FnDecl *f = p->fns.items[i];
+        if (f->is_extern) continue;
+        fn_signature(f);
         E(";\n");
     }
+
     for (int i = 0; i < ordered.len; i++) {
         ClassDef *cd = ordered.items[i];
         for (int j = 0; j < cd->methods.len; j++) {

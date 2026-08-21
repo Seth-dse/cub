@@ -220,15 +220,26 @@ int main(int argc, char **argv) {
     /* -fwrapv: the runtime checks every int operator it emits, but the
      * generated C does arithmetic of its own, and defined wraparound is
      * cheaper to reason about than a compiler free to assume it away. */
-    char *cmd = cx_fmt("%s -std=c99 -O2 -fwrapv -w -o '%s' '%s' -lm",
-                       cc, exe, cpath);
+    /* `link "sqlite3";` in the source becomes -lsqlite3 here */
+    Buf libs;
+    buf_init(&libs);
+    for (int i = 0; i < prog->links.len; i++)
+        buf_printf(&libs, " -l%s", (char *)prog->links.items[i]);
+
+    char *cmd = cx_fmt("%s -std=c99 -O2 -fwrapv -w -o '%s' '%s' -lm%s",
+                       cc, exe, cpath, libs.data ? libs.data : "");
     if (verbose) fprintf(stderr, "cubc: %s\n", cmd);
 
     int rc = system(cmd);
     if (rc != 0) {
         fprintf(stderr, "cubc: the C compiler rejected the generated code.\n"
-                        "      This is a bug in cubc, not in your program.\n"
-                        "      The generated file is %s\n", cpath);
+                        "%s"
+                        "      The generated file is %s\n",
+                        prog->externs.len
+                          ? "      This program uses `extern`, so check that each declaration\n"
+                            "      matches the C library it names; otherwise it is a bug in cubc.\n"
+                          : "      This is a bug in cubc, not in your program.\n",
+                        cpath);
         return 1;
     }
     if (!keep_c) remove(cpath);

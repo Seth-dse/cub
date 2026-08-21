@@ -17,7 +17,7 @@
 #include <stdbool.h>
 #include <stdarg.h>
 
-#define CUB_VERSION "0.6.0"
+#define CUB_VERSION "0.7.0"
 
 /* ------------------------------------------------------------------ */
 /* small utilities                                                     */
@@ -73,7 +73,7 @@ typedef enum {
     TK_RETURN, TK_BREAK, TK_CONTINUE, TK_TYPE, TK_STRUCT, TK_ENUM,
     TK_TRUE, TK_FALSE, TK_AND, TK_OR, TK_NOT,
     TK_CLASS, TK_EXTENDS, TK_SELF, TK_SUPER, TK_VOID, TK_STATIC, TK_IMPORT,
-    TK_NOTHING, TK_TRY,
+    TK_NOTHING, TK_TRY, TK_EXTERN, TK_LINK,
     /* punctuation */
     TK_LPAREN, TK_RPAREN, TK_LBRACE, TK_RBRACE, TK_LBRACK, TK_RBRACK,
     TK_COMMA, TK_DOT, TK_RANGE, TK_RANGEEQ, TK_COLON, TK_SEMI, TK_ARROW,
@@ -256,6 +256,12 @@ struct FnDecl {
     int       line, col;
     char     *cname;
 
+    /* `extern` only: the name to call it by in C, and the header that
+     * declares it (NULL when cubc has to write the declaration itself) */
+    bool      is_extern;
+    char     *c_name;
+    char     *header;
+
     /* methods only */
     bool      is_static;  /* belongs to the class, not to an object */
     ClassDef *owner;      /* the class that declares this body     */
@@ -311,6 +317,10 @@ typedef struct {
     Vec enums;            /* EnumDef*   */
     Vec classes;          /* ClassDef*  */
     Vec globals;          /* Stmt* (ST_LET) */
+
+    Vec externs;          /* FnDecl* -- C functions declared here  */
+    Vec headers;          /* char*   -- headers to #include        */
+    Vec links;            /* char*   -- libraries to link against  */
 
     Vec modules;          /* char*   -- `import os` and friends   */
     Vec files;            /* Source* -- every file that was read  */

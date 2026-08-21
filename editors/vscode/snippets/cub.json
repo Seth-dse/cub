@@ -211,5 +211,14 @@
       "}"
     ],
     "description": "A function that can fail with a reason"
+  },
+  "extern block": {
+    "prefix": "extern",
+    "body": [
+      "extern \"${1:math.h}\" {",
+      "\t${2:float} ${3:name}(${4:x}: ${5:float});",
+      "}"
+    ],
+    "description": "Borrow functions from a C header"
   }
 }

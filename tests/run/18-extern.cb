@@ -1,0 +1,25 @@
+// Cub compiles to C, so it can call C.
+extern "math.h" {
+    float cbrt(x: float);
+    float hypot(a: float, b: float);
+}
+
+extern "string.h" {
+    int strlen(s: string) = "strlen";
+}
+
+extern "stdlib.h" {
+    int abs32(n: int) = "abs";
+}
+
+void main() {
+    print(cbrt(27.0));
+    print(hypot(3.0, 4.0));
+    print(strlen("hello"));
+    print(strlen(""));
+    print(abs32(-7));
+
+    // text made at runtime crosses the boundary too
+    let joined = "ab" + "cde";
+    print(strlen(joined));
+}

@@ -1,0 +1,4 @@
+extern {
+    int getpid();
+}
+void main() { print(getpid()); }
