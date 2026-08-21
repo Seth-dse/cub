@@ -1,4 +1,4 @@
 class Robot {
-    fn beep(): string { return "beep"; }
+    string beep() { return "beep"; }
 }
-fn main() { print(Robot().beeep()); }
+void main() { print(Robot().beeep()); }

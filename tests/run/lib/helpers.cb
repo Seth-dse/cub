@@ -1,10 +1,10 @@
 import math;
 
 /// Doubles a whole number.
-fn double(n: int): int { return n * 2; }
+int double(n: int) { return n * 2; }
 
 /// Rounds to two decimal places.
-fn round2(v: float): float { return math.round(v * 100.0) / 100.0; }
+float round2(v: float) { return math.round(v * 100.0) / 100.0; }
 
 /// A named quantity.
 class Measure {
@@ -13,10 +13,10 @@ class Measure {
     /// How much of it there is.
     amount: float;
 
-    fn init(label: string, amount: float) {
+    void init(label: string, amount: float) {
         self.label = label;
         self.amount = amount;
     }
 
-    fn to_string(): string { return "{self.label}={round2(self.amount)}"; }
+    string to_string() { return "{self.label}={round2(self.amount)}"; }
 }

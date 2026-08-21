@@ -1,9 +1,9 @@
 class Base {
     id: int;
-    fn init(id: int) { self.id = id; }
+    void init(id: int) { self.id = id; }
 }
 class Child extends Base {
     tag: string;
-    fn init(tag: string) { self.tag = tag; }
+    void init(tag: string) { self.tag = tag; }
 }
-fn main() { print(Child("x")); }
+void main() { print(Child("x")); }

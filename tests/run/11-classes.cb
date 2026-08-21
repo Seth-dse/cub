@@ -1,39 +1,39 @@
 class Shape {
     name: string;
-    fn init(name: string) { self.name = name; }
-    fn area(): float { return 0.0; }
-    fn to_string(): string { return "{self.name} of area {self.area_str()}"; }
-    fn area_str(): string { return str(self.area()); }
+    void init(name: string) { self.name = name; }
+    float area() { return 0.0; }
+    string to_string() { return "{self.name} of area {self.area_str()}"; }
+    string area_str() { return str(self.area()); }
 }
 
 class Rect extends Shape {
     w: float;
     h: float;
-    fn init(w: float, h: float) {
+    void init(w: float, h: float) {
         super.init("rectangle");
         self.w = w;
         self.h = h;
     }
-    fn area(): float { return self.w * self.h; }
+    float area() { return self.w * self.h; }
 }
 
 class Square extends Rect {
-    fn init(side: float) {
+    void init(side: float) {
         super.init(side, side);
         self.name = "square";
     }
-    fn describe(): string {
+    string describe() {
         return "a {self.name} with side {self.w}, twice the base area is {super.area() * 2.0}";
     }
 }
 
 class Counter {
     count: int;
-    fn bump() { self.count += 1; }
-    fn value(): int { return self.count; }
+    void bump() { self.count += 1; }
+    int value() { return self.count; }
 }
 
-fn main() {
+void main() {
     let shapes: [Shape] = [Rect(3.0, 4.0), Square(5.0)];
     for s in shapes {
         print(s);

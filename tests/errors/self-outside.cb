@@ -1,1 +1,1 @@
-fn main() { print(self); }
+void main() { print(self); }

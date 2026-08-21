@@ -1,5 +1,5 @@
 enum Color { Red, Green }
-fn main() {
+void main() {
     let c = Color.Blu;
     print(c);
 }

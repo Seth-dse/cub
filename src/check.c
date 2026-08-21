@@ -1742,8 +1742,8 @@ static void check_stmt(Stmt *s) {
                 if (!is_err(got)) {
                     err_at(s->line, s->col, "`%s` returns nothing, so it cannot return a value",
                            cur_fn->name);
-                    err_help("declare what it gives back: `fn %s(...): %s`",
-                             cur_fn->name, ty_show(got));
+                    err_help("declare what it gives back: `%s %s(...)`",
+                             ty_show(got), cur_fn->name);
                 }
             } else {
                 want(s->rhs, got, want_, cx_fmt("`%s`", cur_fn->name));
@@ -2144,7 +2144,7 @@ void check_program(Program *p, bool require_main) {
             }
             if (m->is_init && m->ret->kind != TY_VOID) {
                 err_at(m->line, m->col, "`init` sets an object up, so it returns nothing");
-                err_help("drop the `: %s`", ty_show(m->ret));
+                err_help("write `void init(...)` instead");
             }
             cur_class = NULL;
             cur_method = NULL;
@@ -2159,7 +2159,7 @@ void check_program(Program *p, bool require_main) {
                     err_at(cd->line, cd->col,
                            "`%s` needs an `init`, because `%s` is built from values",
                            cd->name, cd->base->name);
-                    err_help("add `fn init(...) { super.init(...); }`");
+                    err_help("add `void init(...) { super.init(...); }`");
                 }
             } else if (!calls_super_init(&cd->init->body)) {
                 err_at(cd->init->line, cd->init->col,
@@ -2208,7 +2208,7 @@ void check_program(Program *p, bool require_main) {
     if (!entry) {
         if (require_main) {
             err_at(1, 1, "this program has no `main`");
-            err_help("start it with `fn main() { ... }`, "
+            err_help("start it with `void main() { ... }`, "
                      "or give a class a `main` of its own");
         }
     } else {

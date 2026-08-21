@@ -3,17 +3,17 @@ struct Point {
     y: int;
 }
 
-fn distance_squared(a: Point, b: Point): int {
+int distance_squared(a: Point, b: Point) {
     let dx = a.x - b.x;
     let dy = a.y - b.y;
     return dx * dx + dy * dy;
 }
 
-fn shifted(p: Point, dx: int, dy: int): Point {
+Point shifted(p: Point, dx: int, dy: int) {
     return Point { x: p.x + dx, y: p.y + dy };
 }
 
-fn main() {
+void main() {
     let origin = Point { x: 0, y: 0 };
     let target = Point { x: 3, y: 4 };
 

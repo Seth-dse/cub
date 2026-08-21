@@ -4,16 +4,15 @@
     tools/migrate.py file.cb ...      print what would change
     tools/migrate.py -w file.cb ...   rewrite the files in place
 
-Four things move:
+Three things move:
 
-    int add(a: int, b: int) { }   ->  fn add(a: int, b: int): int { }
-    void run() { }                ->  fn run() { }
     type P = struct { x: int }    ->  struct P { x: int; }
     type C = enum { Red }         ->  enum C { Red }
     class Dog : Animal { }        ->  class Dog extends Animal { }
 
 and every statement gains the semicolon that used to be implied by the end
-of the line.
+of the line.  Functions are untouched: they still lead with what they give
+back, as `int add(a: int, b: int)` and `void run()`.
 
 The tool parses the old grammar rather than matching patterns, and edits the
 original text by offset, so comments, blank lines, and the exact spelling of
@@ -239,20 +238,19 @@ class Migrator:
         return self.src[start.start:self.prev().end]
 
     def fn_decl(self):
-        """`[static] <type> name(params) { }` becomes `fn name(params): <type> { }`."""
+        """`[static] <type> name(params) { }` -- walked, but left as written."""
         head = self.cur()
         if self.at("static"):
             self.take()
             head = self.cur()
         if self.at("fn"):
-            raise Fail(f"{self.path}:{head.line}: this file already uses `fn`")
-        ret = self.a_type()
+            raise Fail(f"{self.path}:{head.line}: Cub has no `fn` keyword")
+        self.a_type()
         name = self.cur()
         if name.kind != "name":
             raise Fail(f"{self.path}:{name.line}: expected a function name, "
                        f"found `{name.text}`")
         self.take()
-        self.replace(head.start, name.start, "fn ")
 
         self.expect("(")
         while not self.at(")"):
@@ -262,11 +260,7 @@ class Migrator:
             if not self.at(","):
                 break
             self.take()
-        close = self.expect(")")
-        if ret != "void":
-            # `string speak(){` used to be legal; keep the brace off the type
-            tail = " " if self.src[close.end:close.end + 1] == "{" else ""
-            self.replace(close.end, close.end, f": {ret}{tail}")
+        self.expect(")")
         self.block()
 
     def type_decl(self):

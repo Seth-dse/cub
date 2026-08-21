@@ -1,4 +1,4 @@
-fn main() {
+void main() {
     let items = [1, 2, 3];
     print("before");
     print(items[5]);

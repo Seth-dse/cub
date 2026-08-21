@@ -3,7 +3,7 @@ import math;
 import os;
 import rand;
 
-fn main() {
+void main() {
     print(math.round(math.PI * 100.0) / 100.0);
     print(sign(-9), sign(0), sign(4.5));
     print(clamp(15, 0, 10), clamp(-1.5, 0.0, 1.0));

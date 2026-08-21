@@ -1,4 +1,4 @@
-fn main() {
+void main() {
     let name = "Ada";
     let age = 36;
 

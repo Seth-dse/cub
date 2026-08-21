@@ -1,4 +1,4 @@
-fn main() {
+void main() {
     var m: [string: int] = [:];
     m[3] = 1;
 }

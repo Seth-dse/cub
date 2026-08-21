@@ -1,7 +1,7 @@
 import rand;
 
 // A guessing game.  Run it with `cubc run examples/guess.cub`.
-fn main() {
+void main() {
     rand.seed(7);
     let secret = rand.int(1, 100);
     var tries = 0;

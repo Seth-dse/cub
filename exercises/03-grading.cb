@@ -8,11 +8,11 @@
 // The last line wants an `if` used as a value:
 //   let word = if n % 2 == 0 { "even" } else { "odd" }
 
-fn grade(score: int): string {
+string grade(score: int) {
     return "?"; // TODO
 }
 
-fn main() {
+void main() {
     for score in [95, 83, 71, 40] {
         print("{score}: {grade(score)}");
     }

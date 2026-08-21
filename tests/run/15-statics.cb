@@ -1,17 +1,17 @@
 class MathKit {
-    static fn double(n: int): int { return n * 2; }
-    static fn clamp01(n: int): int { return clamp(n, 0, 1); }
-    static fn shout(s: string): string { return upper(s) + "!"; }
+    static int double(n: int) { return n * 2; }
+    static int clamp01(n: int) { return clamp(n, 0, 1); }
+    static string shout(s: string) { return upper(s) + "!"; }
 }
 
 class App {
     greeting: string;
 
-    fn init() {
+    void init() {
         self.greeting = "hello from a class";
     }
 
-    fn main() {
+    void main() {
         print(self.greeting);
         print(MathKit.double(21));
         print(MathKit.shout("cub"));

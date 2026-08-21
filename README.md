@@ -14,16 +14,16 @@ class Task {
     title: string;
     done: bool;
 
-    fn init(title: string) {
+    void init(title: string) {
         self.title = title;
     }
 
-    fn to_string(): string {
+    string to_string() {
         return "{if self.done { "[x]" } else { "[ ]" }} {self.title}";
     }
 }
 
-fn main() {
+void main() {
     let tasks = [Task("write a language"), Task("write the docs")];
     tasks[0].done = true;
 
@@ -46,7 +46,7 @@ Nothing to install beyond a C compiler and `make`.
 
 ```bash
 make
-make test          # 53 tests: programs, compile errors, runtime failures
+make test          # 58 tests: programs, compile errors, runtime failures
 make check-linux   # optional: build and test under glibc in a container
 make examples      # run everything in examples/
 sudo make install  # optional: puts cubc in /usr/local/bin
@@ -74,14 +74,14 @@ print("Hello, {name}. Next year you turn {age + 1}.");
 
 ```
 sum.cb:2:15: error: cannot add int and string
-     2 |     let n = 1 + "two"
+     2 |     let n = 1 + "two";
        |               ^
   help: turn the other side into text with `str(x)`, or write "...{value}..."
 ```
 
 ```
 count.cb:3:5: error: `count` was declared with `let`, so it never changes
-  help: declare it with `var count = ...` if it needs to change
+  help: declare it with `var count = ...;` if it needs to change
 ```
 
 Misspell a name and it guesses what you meant. Forget a struct field and it
@@ -104,7 +104,7 @@ explanation instead of corrupting memory.
 ```cub
 // no #include, no header, no forward declarations,
 // no `int argc, char **argv`
-fn main() {
+void main() {
     print("that is the whole program");
 }
 ```
@@ -119,10 +119,10 @@ fn main() {
    returns — checked before the program runs, in plain words.
 3. **What the compiler cannot know, the program checks.** Bounds, division,
    parsing. No undefined behavior.
-4. **One way to write things.** Every declaration reads name-first —
-   `let n: int`, `fn add(a: int): int`, `struct Point { x: int; }` — every
-   statement ends with `;`, and every body is wrapped in braces. No headers,
-   no preprocessor, no macros. Declaration order never matters.
+4. **One way to write things.** Every statement ends with `;`, every body is
+   wrapped in braces, and a function says what it gives back before its name,
+   the way C does. No headers, no preprocessor, no macros. Declaration order
+   never matters.
 5. **The output is honest C.** `--emit-c` gives you one readable C99 file
    with no dependencies.
 
@@ -153,13 +153,13 @@ for i in 0..5 { }                // 0 1 2 3 4
 for i in 1..=5 { }               // 1 2 3 4 5
 for name in names { }
 
-// Functions: the name first, then what goes in, then what comes back.
-fn area(w: float, h: float): float {
+// Functions: typed, in any order, checked for every return path.
+float area(w: float, h: float) {
     return w * h;
 }
 
-// Leave the return type off when a function gives nothing back.
-fn shout(text: string) {
+// `void` is a function that gives nothing back.
+void shout(text: string) {
     print(upper(text));
 }
 
@@ -193,13 +193,13 @@ let label = if count > 0 { "some" } else { "none" };
 class Animal {
     name: string;
 
-    fn init(name: string) { self.name = name; }
-    fn speak(): string { return "{self.name} makes a sound"; }
+    void init(name: string) { self.name = name; }
+    string speak() { return "{self.name} makes a sound"; }
 }
 
 class Dog extends Animal {
-    fn init(name: string) { super.init(name); }
-    fn speak(): string { return "{self.name} says woof"; }
+    void init(name: string) { super.init(name); }
+    string speak() { return "{self.name} says woof"; }
 }
 
 let pets: [Animal] = [Animal("Generic"), Dog("Rex")];
@@ -209,9 +209,9 @@ for pet in pets {
 
 // A class can hold the starting point, and methods of its own.
 class App {
-    static fn twice(n: int): int { return n * 2; }
+    static int twice(n: int) { return n * 2; }
 
-    fn main() {
+    void main() {
         print(App.twice(21));
     }
 }
@@ -311,14 +311,14 @@ cannot damage your file.
 ```cub
 // before
 struct Point {x:int;y:int;}
-fn dist( a:Point,b:Point ): int{
+int dist( a:Point,b:Point ){
 let dx=a.x-b.x;
 return dx*dx;
 }
 
 // after
 struct Point { x: int; y: int; }
-fn dist(a: Point, b: Point): int {
+int dist(a: Point, b: Point) {
     let dx = a.x - b.x;
     return dx * dx;
 }
@@ -338,22 +338,22 @@ tools/migrate.py -w your/*.cb
 
 | 0.4 | 0.5 |
 |---|---|
-| `int add(a: int, b: int) { }` | `fn add(a: int, b: int): int { }` |
-| `void run() { }` | `fn run() { }` |
+| a statement ends at the end of the line | a statement ends at `;` |
 | `type P = struct { x: int }` | `struct P { x: int; }` |
 | `type C = enum { Red }` | `enum C { Red }` |
 | `class Dog : Animal { }` | `class Dog extends Animal { }` |
-| a statement ends at the end of the line | a statement ends at `;` |
 
-The compiler recognises every one of the old shapes and names the
-replacement, so anything the tool misses still tells you what to write:
+Functions are unchanged: they still lead with what they give back, as
+`int add(a: int, b: int)` and `void main()`.
+
+The compiler recognises each of the old shapes and names the replacement, so
+anything the tool misses still tells you what to write:
 
 ```
-old.cb:1:1: error: a function starts with `fn`
-     1 | int add(a: int, b: int) {
+old.cb:1:1: error: Cub declares a type with `struct`, not `type`
+     1 | type Point = struct { x: int, y: int }
        | ^
-  help: write `fn add(...): <type>`, or leave the `: <type>` off when it
-        gives nothing back
+  help: write `struct Point { x: int; y: int; }`
 ```
 
 ---

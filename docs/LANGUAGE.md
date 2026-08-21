@@ -46,7 +46,7 @@ let GREETING = "hello";
 
 struct Point { x: int; y: int; }
 
-fn main() {
+void main() {
     print(GREETING);
 }
 ```
@@ -55,7 +55,7 @@ fn main() {
 the process exit code.
 
 ```cub
-fn main(): int {
+int main() {
     return 0;
 }
 ```
@@ -82,7 +82,7 @@ reference, and everything else ignores them:
 /// Adds two whole numbers together.
 ///
 /// Returns their sum.
-fn add(a: int, b: int): int {
+int add(a: int, b: int) {
     return a + b;
 }
 
@@ -129,12 +129,12 @@ if temperature > 30
 }
 ```
 
-Declarations that end in a block — `fn`, `class`, `struct`, `enum`, and the
-body of an `if`, `while`, or `for` — end at their closing brace and take no
-semicolon:
+Declarations that end in a block — a function, `class`, `struct`, `enum`, and
+the body of an `if`, `while`, or `for` — end at their closing brace and take
+no semicolon:
 
 ```cub
-fn twice(n: int): int {
+int twice(n: int) {
     return n * 2;
 }                       // no semicolon here
 
@@ -315,30 +315,29 @@ for i in 0..len(word) {
 ## 9. Functions
 
 ```cub
-fn area(width: float, height: float): float {
+float area(width: float, height: float) {
     return width * height;
 }
 
-fn shout(message: string) {        // no `: type`, so it gives nothing back
+void shout(message: string) {        // `void` means it gives nothing back
     print(upper(message));
 }
 ```
 
-A function reads in the order you would say it out loud: the name, what goes
-in, then what comes back. Every parameter is typed, written `name: type`, and
-the return type is written the same way after the parameters. Leave it off
-and the function gives nothing back — there is no `void` to write.
+A declaration leads with what it gives back, the way C does: `int` for a
+whole number, `[string]` for an array of text, `void` for nothing at all.
+Every parameter is typed, written `name: type`.
 
 Declaration order does not matter — functions may call each other freely,
 including mutual recursion:
 
 ```cub
-fn is_even(n: int): bool {
+bool is_even(n: int) {
     if n == 0 { return true; }
     return is_odd(n - 1);
 }
 
-fn is_odd(n: int): bool {
+bool is_odd(n: int) {
     if n == 0 { return false; }
     return is_even(n - 1);
 }
@@ -514,7 +513,7 @@ import fs;
 import math;
 import rand;
 
-fn main() {
+void main() {
     print(os.platform());              // "macos", "linux", "windows"
     print(math.round(math.PI));
     if fs.exists("notes.txt") {
@@ -614,11 +613,11 @@ the option to build on another class.
 class Animal {
     name: string;
 
-    fn init(name: string) {
+    void init(name: string) {
         self.name = name;
     }
 
-    fn speak(): string {
+    string speak() {
         return "{self.name} makes a sound";
     }
 }
@@ -651,15 +650,15 @@ Runtime error: there is no Engine here yet
 class Dog extends Animal {
     tricks: [string];
 
-    fn init(name: string) {
+    void init(name: string) {
         super.init(name);          // set up the Animal part first
     }
 
-    fn speak(): string {       // replaces Animal's version
+    string speak() {       // replaces Animal's version
         return "{self.name} says woof";
     }
 
-    fn learn(trick: string) {
+    void learn(trick: string) {
         push(self.tricks, trick);
     }
 }
@@ -693,7 +692,7 @@ has no `self`, and you call it through the class name:
 
 ```cub
 class MathKit {
-    static fn double(n: int): int {
+    static int double(n: int) {
         return n * 2;
     }
 }
@@ -713,11 +712,11 @@ live inside a class:
 class App {
     greeting: string;
 
-    fn init() {
+    void init() {
         self.greeting = "hello";
     }
 
-    fn main() {
+    void main() {
         print(self.greeting);
     }
 }
@@ -729,7 +728,7 @@ no object were made:
 
 ```cub
 class Program {
-    static fn main() {
+    static void main() {
         print("started");
     }
 }
@@ -740,7 +739,7 @@ classes or in a class and at the top level — is an error that names both.
 
 ### Printing an object
 
-If a class declares `fn to_string(): string`, then `print` and `str` use it.
+If a class declares `string to_string()`, then `print` and `str` use it.
 Otherwise you get every field, inherited ones first:
 
 ```cub
@@ -972,8 +971,7 @@ program     = { import | declaration } ;
 import      = "import" ( IDENT | STRING ) ";" ;
 declaration = function | classdecl | structdecl | enumdecl | binding ";" ;
 
-function    = [ "static" ] "fn" IDENT "(" [ params [ "," ] ] ")"
-              [ ":" type ] block ;
+function    = [ "static" ] type IDENT "(" [ params [ "," ] ] ")" block ;
 params      = param { "," param } ;
 param       = IDENT ":" type ;
 
@@ -986,7 +984,7 @@ enumdecl    = "enum" IDENT "{" [ IDENT { "," IDENT } [ "," ] ] "}" ;
 
 binding     = ( "let" | "var" ) IDENT [ ":" type ] "=" expr ;
 
-type        = "int" | "float" | "bool" | "string"
+type        = "void" | "int" | "float" | "bool" | "string"
             | "[" type "]" | "[" type ":" type "]" | IDENT ;
 
 block       = "{" { statement } "}" ;

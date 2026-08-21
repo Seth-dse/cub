@@ -1,12 +1,12 @@
-fn to_fahrenheit(celsius: float): float {
+float to_fahrenheit(celsius: float) {
     return celsius * 9.0 / 5.0 + 32.0;
 }
 
-fn to_celsius(fahrenheit: float): float {
+float to_celsius(fahrenheit: float) {
     return (fahrenheit - 32.0) * 5.0 / 9.0;
 }
 
-fn main() {
+void main() {
     print(to_fahrenheit(100.0));
     print(to_fahrenheit(0.0));
     print(to_celsius(212.0));

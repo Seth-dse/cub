@@ -11,7 +11,7 @@
 // braces: "Hello, {name}!".  Work the letter count and next year's age out
 // rather than typing 3 and 37.
 
-fn main() {
+void main() {
     let name = "Ada";
     let age = 36;
 

@@ -5,12 +5,12 @@ class Shape {
     /// What to call this shape when showing it.
     name: string;
 
-    fn init(name: string) {
+    void init(name: string) {
         self.name = name;
     }
 
     /// How much space the shape covers.
-    fn area(): float {
+    float area() {
         return 0.0;
     }
 }
@@ -20,12 +20,12 @@ class Circle extends Shape {
     /// The distance from the middle to the edge.
     radius: float;
 
-    fn init(radius: float) {
+    void init(radius: float) {
         super.init("circle");
         self.radius = radius;
     }
 
-    fn area(): float {
+    float area() {
         return math.PI * self.radius * self.radius;
     }
 }
@@ -37,13 +37,13 @@ class Rect extends Shape {
     /// The side running top to bottom.
     height: float;
 
-    fn init(width: float, height: float) {
+    void init(width: float, height: float) {
         super.init("rectangle");
         self.width = width;
         self.height = height;
     }
 
-    fn area(): float {
+    float area() {
         return self.width * self.height;
     }
 }

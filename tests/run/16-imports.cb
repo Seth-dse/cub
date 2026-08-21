@@ -5,7 +5,7 @@ import fs;
 import math;
 import rand;
 
-fn main() {
+void main() {
     print(double(21));
     print(round2(math.PI));
     print(Measure("width", 2.5));

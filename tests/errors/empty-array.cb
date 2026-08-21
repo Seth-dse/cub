@@ -1,4 +1,4 @@
-fn main() {
+void main() {
     var items = [];
     push(items, 1);
 }

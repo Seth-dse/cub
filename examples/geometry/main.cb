@@ -3,7 +3,7 @@
 import "shapes.cb";
 import "util.cb";
 
-fn main() {
+void main() {
     let shapes: [Shape] = [Circle(1.0), Rect(3.0, 4.0), Circle(2.0)];
 
     var total = 0.0;

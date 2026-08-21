@@ -6,13 +6,13 @@ class Book {
     author: string;
     copies: int;
 
-    fn init(title: string, author: string, copies: int) {
+    void init(title: string, author: string, copies: int) {
         self.title = title;
         self.author = author;
         self.copies = copies;
     }
 
-    fn to_string(): string {
+    string to_string() {
         return "{column(self.title, 16)} {column(self.author, 12)} x{self.copies}";
     }
 }
@@ -22,12 +22,12 @@ class Catalogue {
     books: [Book];
     by_author: [string: int];
 
-    fn add(book: Book) {
+    void add(book: Book) {
         push(self.books, book);
         self.by_author[book.author] = get(self.by_author, book.author, 0) + book.copies;
     }
 
-    fn total(): int {
+    int total() {
         var n = 0;
         for b in self.books {
             n += b.copies;
@@ -35,7 +35,7 @@ class Catalogue {
         return n;
     }
 
-    fn report() {
+    void report() {
         for b in self.books {
             print(b);
         }
@@ -50,12 +50,12 @@ class Catalogue {
 }
 
 /// Reads "title|author|copies" into a book.
-fn parse(line: string): Book {
+Book parse(line: string) {
     let parts = split(line, "|");
     return Book(trim(parts[0]), trim(parts[1]), int(trim(parts[2])));
 }
 
-fn main() {
+void main() {
     let lines = [
         "Dune          | Herbert   | 3",
         "Emma          | Austen    | 2",

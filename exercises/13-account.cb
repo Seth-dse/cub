@@ -19,24 +19,24 @@ class Account {
     owner: string;
     balance: int;
 
-    fn init(owner: string) {
+    void init(owner: string) {
         self.owner = owner;
     }
 
-    fn deposit(amount: int) {
+    void deposit(amount: int) {
         // TODO
     }
 
-    fn withdraw(amount: int): bool {
+    bool withdraw(amount: int) {
         return false; // TODO
     }
 
-    fn to_string(): string {
+    string to_string() {
         return "?"; // TODO
     }
 }
 
-fn main() {
+void main() {
     let a = Account("Ada");
     a.deposit(100);
     a.deposit(50);

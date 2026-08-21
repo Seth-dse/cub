@@ -1,4 +1,4 @@
-fn main(): int {
+int main() {
     print("finishing with a code");
     return 0;
 }

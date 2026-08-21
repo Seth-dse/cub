@@ -2,7 +2,7 @@
   "main": {
     "prefix": "main",
     "body": [
-      "fn main() {",
+      "void main() {",
       "\t$0",
       "}"
     ],
@@ -11,16 +11,16 @@
   "function": {
     "prefix": "fn",
     "body": [
-      "fn ${1:name}(${2:arg}: ${3:int}): ${4:int} {",
+      "${1:int} ${2:name}(${3:arg}: ${4:int}) {",
       "\t$0",
       "}"
     ],
     "description": "A function that returns a value"
   },
   "procedure": {
-    "prefix": "fnv",
+    "prefix": "void",
     "body": [
-      "fn ${1:name}(${2:arg}: ${3:int}) {",
+      "void ${1:name}(${2:arg}: ${3:int}) {",
       "\t$0",
       "}"
     ],
@@ -109,7 +109,7 @@
       "class ${1:Name} {",
       "\t${2:field}: ${3:int};",
       "",
-      "\tfn init(${4:value}: ${3:int}) {",
+      "\tvoid init(${4:value}: ${3:int}) {",
       "\t\tself.${2:field} = ${4:value};",
       "\t}",
       "}"
@@ -120,7 +120,7 @@
     "prefix": "classx",
     "body": [
       "class ${1:Name} extends ${2:Parent} {",
-      "\tfn init(${3:args}) {",
+      "\tvoid init(${3:args}) {",
       "\t\tsuper.init(${3:args});",
       "\t}",
       "}"
@@ -130,7 +130,7 @@
   "method": {
     "prefix": "fnm",
     "body": [
-      "fn ${1:name}(${2:arg}: ${3:int}): ${4:int} {",
+      "${1:int} ${2:name}(${3:arg}: ${4:int}) {",
       "\t$0",
       "}"
     ],
@@ -139,7 +139,7 @@
   "static method": {
     "prefix": "static",
     "body": [
-      "static fn ${1:name}(${2:arg}: ${3:int}): ${4:int} {",
+      "static ${1:int} ${2:name}(${3:arg}: ${4:int}) {",
       "\t$0",
       "}"
     ],
@@ -149,7 +149,7 @@
     "prefix": "classmain",
     "body": [
       "class ${1:App} {",
-      "\tfn main() {",
+      "\tvoid main() {",
       "\t\t$0",
       "\t}",
       "}"

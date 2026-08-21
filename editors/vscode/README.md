@@ -80,7 +80,7 @@ those you will see the theme's generic icon instead.
 
 ### Snippets
 
-`main`, `fn`, `fnv`, `fnm`, `static`, `if`, `ife`, `ifx`, `for`, `fore`,
+`main`, `fn`, `void`, `fnm`, `static`, `if`, `ife`, `ifx`, `for`, `fore`,
 `while`, `struct`, `enum`, `class`, `classx`, `classmain`, `map`, `import`,
 `importf`, `///`, `print`, `printv`.
 
@@ -112,21 +112,21 @@ Command Palette, or right-click in a `.cb` file:
 class Animal {
     name: string;
 
-    fn init(name: string) {
+    void init(name: string) {
         self.name = name;
     }
 
-    fn speak(): string{
+    string speak(){
         return "{self.name} makes a sound";
     }
 }
 
 class Dog extends Animal {
-    fn init(name: string) { super.init(name); }
-    fn speak(): string{ return "{self.name} says woof"; }
+    void init(name: string) { super.init(name); }
+    string speak(){ return "{self.name} says woof"; }
 }
 
-fn main() {
+void main() {
     let pets: [Animal] = [Animal("Generic"), Dog("Rex")];
     for pet in pets {
         print(pet.speak());      // each one keeps its own voice

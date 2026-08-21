@@ -4,12 +4,12 @@ struct Inner { tag: string; values: [int]; }
 struct Outer { name: string; inner: Inner; }
 struct Tree { label: string; children: [Tree]; }
 
-fn leaf(label: string): Tree {
+Tree leaf(label: string) {
     var kids: [Tree] = [];
     return Tree { label: label, children: kids };
 }
 
-fn depth(t: Tree): int {
+int depth(t: Tree) {
     var best = 0;
     for child in t.children {
         best = max(best, depth(child));
@@ -17,7 +17,7 @@ fn depth(t: Tree): int {
     return best + 1;
 }
 
-fn main() {
+void main() {
     // assignment through several levels
     var items = [
         Outer { name: "a", inner: Inner { tag: "x", values: [1, 2] } },
