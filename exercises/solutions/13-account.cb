@@ -2,11 +2,11 @@ class Account {
     owner: string;
     balance: int;
 
-    fn init(owner: string) {
+    void init(owner: string) {
         self.owner = owner;
     }
 
-    fn deposit(amount: int) {
+    void deposit(amount: int) {
         if amount <= 0 {
             print("  a deposit must be more than nothing");
             return;
@@ -14,7 +14,7 @@ class Account {
         self.balance += amount;
     }
 
-    fn withdraw(amount: int): bool {
+    bool withdraw(amount: int) {
         if amount > self.balance {
             print("  {self.owner} cannot take out {amount}, only has {self.balance}");
             return false;
@@ -23,12 +23,12 @@ class Account {
         return true;
     }
 
-    fn to_string(): string {
+    string to_string() {
         return "{self.owner}: {self.balance}";
     }
 }
 
-fn main() {
+void main() {
     let a = Account("Ada");
     a.deposit(100);
     a.deposit(50);

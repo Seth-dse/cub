@@ -1,23 +1,23 @@
 import math;
 
-fn mean(values: [int]): float {
+float mean(values: [int]) {
     if len(values) == 0 {
         return 0.0;
     }
     return float(sum(values)) / float(len(values));
 }
 
-fn median(values: [int]): int {
+int median(values: [int]) {
     let ordered = copy(values);
     sort(ordered);
     return ordered[len(ordered) / 2];
 }
 
-fn round2(v: float): float {
+float round2(v: float) {
     return math.round(v * 100.0) / 100.0;
 }
 
-fn main() {
+void main() {
     let values = [8, 3, 17, 4, 9, 12];
 
     print(sum(values));

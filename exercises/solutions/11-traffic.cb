@@ -1,6 +1,6 @@
 enum Light { Red, Green, Amber }
 
-fn next(current: Light): Light {
+Light next(current: Light) {
     if current == Light.Red {
         return Light.Green;
     } else if current == Light.Green {
@@ -9,7 +9,7 @@ fn next(current: Light): Light {
     return Light.Red;
 }
 
-fn advice(current: Light): string {
+string advice(current: Light) {
     if current == Light.Red {
         return "stop";
     } else if current == Light.Green {
@@ -18,7 +18,7 @@ fn advice(current: Light): string {
     return "slow down";
 }
 
-fn main() {
+void main() {
     var light = Light.Red;
     for i in 0..6 {
         print("{light}: {advice(light)}");

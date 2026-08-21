@@ -1,9 +1,9 @@
 class Engine { power: int; }
 class Car {
     engine: Engine;
-    fn describe(): string { return "engine {self.engine.power}"; }
+    string describe() { return "engine {self.engine.power}"; }
 }
-fn main() {
+void main() {
     let c = Car();
     print("made the car");
     print(c.describe());

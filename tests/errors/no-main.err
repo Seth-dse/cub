@@ -1,2 +1,2 @@
 this program has no `main`
-start it with `fn main() { ... }`
+start it with `void main() { ... }`

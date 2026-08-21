@@ -13,7 +13,7 @@ watch what happens.
 Put this in `hello.cb`:
 
 ```cub
-fn main() {
+void main() {
     print("Hello, world!");
 }
 ```
@@ -37,7 +37,7 @@ you forget.
 ## 2. Values and names
 
 ```cub
-fn main() {
+void main() {
     let name = "Ada";
     let age = 36;
 
@@ -55,7 +55,7 @@ print("Next year you will be {age + 1}.");
 `let` names never change. When you need one that does, use `var`:
 
 ```cub
-fn main() {
+void main() {
     var count = 0;
     count += 1;
     count += 1;
@@ -80,7 +80,7 @@ into another behind your back. This is the rule that surprises people coming
 from Python or JavaScript, so it is worth meeting early:
 
 ```cub
-fn main() {
+void main() {
     let whole = 7;
     let ratio = whole / 2;         // 3, because both sides are whole numbers
     print(ratio);
@@ -113,7 +113,7 @@ let temperature: float = 21.5;
 ## 4. Deciding
 
 ```cub
-fn main() {
+void main() {
     let temperature = 22;
 
     if temperature > 30 {
@@ -179,15 +179,15 @@ print("liftoff");
 ## 6. Functions
 
 ```cub
-fn double(n: int): int {
+int double(n: int) {
     return n * 2;
 }
 
-fn announce(message: string) {
+void announce(message: string) {
     print("** {message} **");
 }
 
-fn main() {
+void main() {
     print(double(21));
     announce("done");
 }
@@ -206,7 +206,7 @@ If a function promises to return something, it has to do so on every path.
 This is checked before your program runs:
 
 ```cub
-fn biggest(a: int, b: int): int {
+int biggest(a: int, b: int) {
     if a > b {
         return a;
     }
@@ -225,7 +225,7 @@ error: `biggest` must return int on every path
 An array holds many values of one type:
 
 ```cub
-fn main() {
+void main() {
     var scores = [10, 20, 30];
 
     push(scores, 40);              // add to the end
@@ -283,7 +283,7 @@ This is why an array declared with `let` can still change its contents:
 ## 8. Text
 
 ```cub
-fn main() {
+void main() {
     let title = "  the Cub language  ";
     let clean = trim(title);
 
@@ -321,13 +321,13 @@ struct Point {
     y: int;
 }
 
-fn distance_squared(a: Point, b: Point): int {
+int distance_squared(a: Point, b: Point) {
     let dx = a.x - b.x;
     let dy = a.y - b.y;
     return dx * dx + dy * dy;
 }
 
-fn main() {
+void main() {
     let origin = Point { x: 0, y: 0 };
     let target = Point { x: 3, y: 4 };
 
@@ -353,7 +353,7 @@ When a value is one of a fixed set of choices, use an `enum`:
 ```cub
 enum Status { Todo, Doing, Done }
 
-fn main() {
+void main() {
     var state = Status.Todo;
     state = Status.Doing;
 
@@ -375,7 +375,7 @@ where a name comes from.
 An array finds things by position. A map finds them by name:
 
 ```cub
-fn main() {
+void main() {
     var ages = ["ada": 36, "alan": 41];
 
     ages["grace"] = 45;           // add
@@ -423,16 +423,16 @@ it:
 class Counter {
     count: int;
 
-    fn bump() {
+    void bump() {
         self.count += 1;
     }
 
-    fn value(): int {
+    int value() {
         return self.count;
     }
 }
 
-fn main() {
+void main() {
     let c = Counter();
     c.bump();
     c.bump();
@@ -450,11 +450,11 @@ To take values when the object is made, write an `init`:
 class Animal {
     name: string;
 
-    fn init(name: string) {
+    void init(name: string) {
         self.name = name;
     }
 
-    fn speak(): string {
+    string speak() {
         return "{self.name} makes a sound";
     }
 }
@@ -472,11 +472,11 @@ the ones it wants to do differently:
 
 ```cub
 class Dog extends Animal {
-    fn init(name: string) {
+    void init(name: string) {
         super.init(name);         // set up the Animal part
     }
 
-    fn speak(): string {       // Dog's own version
+    string speak() {       // Dog's own version
         return "{self.name} says woof";
     }
 }
@@ -528,7 +528,7 @@ object of it. Mark it `static` and call it through the class name:
 
 ```cub
 class MathKit {
-    static fn double(n: int): int {
+    static int double(n: int) {
         return n * 2;
     }
 }
@@ -546,11 +546,11 @@ Your `main` can live inside a class instead of at the top level:
 class App {
     greeting: string;
 
-    fn init() {
+    void init() {
         self.greeting = "hello";
     }
 
-    fn main() {
+    void main() {
         print(self.greeting);
     }
 }
@@ -568,8 +568,8 @@ class Point {
     x: int;
     y: int;
 
-    fn init(x: int, y: int) { self.x = x; self.y = y; }
-    fn to_string(): string { return "({self.x}, {self.y})"; }
+    void init(x: int, y: int) { self.x = x; self.y = y; }
+    string to_string() { return "({self.x}, {self.y})"; }
 }
 
 print(Point(3, 4));        // (3, 4)
@@ -589,7 +589,7 @@ a module you import:
 import math;
 import fs;
 
-fn main() {
+void main() {
     print(math.sqrt(16.0));        // 4.0
     print(math.round(math.PI));    // 3.0
 
@@ -616,8 +616,8 @@ import them by name:
 // shapes.cb
 class Circle {
     radius: float;
-    fn init(radius: float) { self.radius = radius; }
-    fn area(): float { return 3.14159 * self.radius * self.radius; }
+    void init(radius: float) { self.radius = radius; }
+    float area() { return 3.14159 * self.radius * self.radius; }
 }
 ```
 
@@ -625,7 +625,7 @@ class Circle {
 // main.cb
 import "shapes.cb";
 
-fn main() {
+void main() {
     print(Circle(2.0).area());
 }
 ```
@@ -643,7 +643,7 @@ Three slashes document what comes next:
 /// Works out how much space a circle covers.
 ///
 /// The radius is measured from the middle to the edge.
-fn circle_area(radius: float): float {
+float circle_area(radius: float) {
     return 3.14159 * radius * radius;
 }
 ```
@@ -672,7 +672,7 @@ struct Stats {
     highest: int;
 }
 
-fn summarize(numbers: [int]): Stats {
+Stats summarize(numbers: [int]) {
     if len(numbers) == 0 {
         return Stats { count: 0, total: 0, lowest: 0, highest: 0 };
     }
@@ -692,7 +692,7 @@ fn summarize(numbers: [int]): Stats {
     return stats;
 }
 
-fn parse_all(line: string): [int] {
+[int] parse_all(line: string) {
     var numbers: [int] = [];
     for piece in split(line, " ") {
         let clean = trim(piece);
@@ -703,7 +703,7 @@ fn parse_all(line: string): [int] {
     return numbers;
 }
 
-fn main() {
+void main() {
     let numbers = parse_all("8 3 17 4 9 12");
     let stats = summarize(numbers);
 

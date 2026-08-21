@@ -7,10 +7,12 @@
  *     let b = first_part
  *           + second_part;
  *
- * Declarations all read the same way -- the name first, then what it is:
+ * A function leads with what it gives back, as C does; everything else
+ * names the thing first:
  *
  *     let count: int = 0;
- *     fn add(a: int, b: int): int { ... }
+ *     int add(a: int, b: int) { ... }
+ *     void run() { ... }
  *     struct Point { x: int; y: int; }
  *     class Dog extends Animal { ... }
  *
@@ -88,13 +90,7 @@ static Stmt *mkstmt(P *p, StmtKind k) {
 /* ---------------- types ---------------- */
 
 static Type *parse_type(P *p) {
-    if (at(p, TK_VOID)) {
-        Token *c = cur(p);
-        err_at(c->line, c->col, "Cub has no `void` type");
-        err_help("a function that gives nothing back leaves the return type "
-                 "off: `fn greet(name: string) { ... }`");
-        stop_if_errors();
-    }
+    if (eat(p, TK_VOID)) return ty_void();
     if (eat(p, TK_LBRACK)) {
         Type *el = parse_type(p);
         if (eat(p, TK_COLON)) {                 /* [key: value] is a map */
@@ -122,28 +118,9 @@ static Type *parse_type(P *p) {
     return ty_named(TY_STRUCT, c->lex);
 }
 
-/* Cub used to lead a function with its return type: `int add(a: int)`.
- * Recognising that shape lets the parser name the change instead of
- * pointing at a token that looks perfectly fine on its own. */
-static const char *old_fn_name(P *p) {
-    int j = p->i;
-    if (j < p->n && p->t[j].kind == TK_STATIC) j++;
-
-    if (j < p->n && (p->t[j].kind == TK_VOID || p->t[j].kind == TK_IDENT)) {
-        j++;
-    } else if (j < p->n && p->t[j].kind == TK_LBRACK) {
-        int nest = 0;
-        while (j < p->n) {
-            if (p->t[j].kind == TK_LBRACK) nest++;
-            else if (p->t[j].kind == TK_RBRACK && --nest == 0) { j++; break; }
-            j++;
-        }
-    } else {
-        return NULL;
-    }
-    if (j + 1 < p->n && p->t[j].kind == TK_IDENT && p->t[j + 1].kind == TK_LPAREN)
-        return p->t[j].lex;
-    return NULL;
+/* A function declaration leads with its type, so this is what starts one. */
+static bool starts_type(P *p) {
+    return at(p, TK_VOID) || at(p, TK_LBRACK) || at(p, TK_IDENT);
 }
 
 /* ---------------- expressions ---------------- */
@@ -560,8 +537,9 @@ static Stmt *parse_stmt(P *p) {
     }
 
     if (at(p, TK_FN)) {
-        err_at(t->line, t->col, "a function cannot be declared inside another one");
-        err_help("move `fn` out to the top level of the file");
+        err_at(t->line, t->col, "Cub does not use `fn`");
+        err_help("write what the function gives back first, as in "
+                 "`int add(a: int, b: int)`, and declare it at the top level");
         stop_if_errors();
     }
 
@@ -606,9 +584,8 @@ static void parse_block(P *p, Vec *out) {
 
 /* ---------------- declarations ---------------- */
 
-/* `fn add(a: int, b: int): int { ... }` -- the name first, then what goes
- * in, then what comes back.  Leaving the `: type` off means the function
- * gives nothing back. */
+/* `int add(a: int, b: int) { ... }` -- the return type comes first, and
+ * `void` means it gives nothing back, exactly as in C. */
 static FnDecl *parse_fn(P *p, bool is_static) {
     FnDecl *f = cx_alloc(sizeof(FnDecl));
     f->src = p->src;
@@ -617,7 +594,15 @@ static FnDecl *parse_fn(P *p, bool is_static) {
     f->col = cur(p)->col;
     f->is_static = is_static;
 
-    expect(p, TK_FN, "`fn` to start a function");
+    if (at(p, TK_FN)) {
+        Token *c = cur(p);
+        err_at(c->line, c->col, "Cub does not use `fn`");
+        err_help("write what the function gives back first: "
+                 "`int add(a: int, b: int)`, or `void` when it gives nothing");
+        stop_if_errors();
+    }
+
+    f->ret = parse_type(p);
 
     Token *nm = cur(p);
     expect(p, TK_IDENT, "a name for the function");
@@ -642,14 +627,12 @@ static FnDecl *parse_fn(P *p, bool is_static) {
     }
     expect(p, TK_RPAREN, "`)` to close the parameter list");
 
-    if (at(p, TK_ARROW)) {
+    if (at(p, TK_ARROW) || at(p, TK_COLON)) {
         Token *c = cur(p);
-        err_at(c->line, c->col, "the return type is written with `:`, not `->`");
-        err_help("write `fn %s(...): <type>`", f->name);
+        err_at(c->line, c->col, "the return type goes before the name, not after");
+        err_help("write `%s %s(...)` instead", ty_show(f->ret), f->name);
         stop_if_errors();
     }
-
-    f->ret = eat(p, TK_COLON) ? parse_type(p) : ty_void();
 
     parse_block(p, &f->body);
     return f;
@@ -657,7 +640,7 @@ static FnDecl *parse_fn(P *p, bool is_static) {
 
 /* class Dog extends Animal {
  *     name: string;
- *     fn speak(): string { ... }
+ *     string speak() { ... }
  * }
  */
 static void parse_class(P *p, Program *prog) {
@@ -703,19 +686,12 @@ static void parse_class(P *p, Program *prog) {
 
         char *member_doc = cur(p)->doc;
         bool is_static = eat(p, TK_STATIC);
-        if (!at(p, TK_FN)) {
+        if (!starts_type(p) && !at(p, TK_FN)) {
             Token *c = cur(p);
-            const char *old = old_fn_name(p);
-            if (old) {
-                err_at(c->line, c->col, "a method starts with `fn`");
-                err_help("write `fn %s(...): <type>`, with the return type "
-                         "after the parameters", old);
-            } else {
-                err_at(c->line, c->col, "expected a field or a method, but found `%s`",
-                       tok_name(c->kind));
-                err_help("a class holds `name: type;` fields and methods "
-                         "written `fn area(): float { ... }`");
-            }
+            err_at(c->line, c->col, "expected a field or a method, but found `%s`",
+                   tok_name(c->kind));
+            err_help("a class holds `name: type;` fields and methods "
+                     "written `float area()` or `void run()`");
             stop_if_errors();
         }
         FnDecl *m = parse_fn(p, is_static);
@@ -905,27 +881,24 @@ static void parse_into(Program *prog, Token *toks, int ntoks, Source *src) {
         else if (at(&p, TK_STRUCT))   parse_struct_decl(&p, prog);
         else if (at(&p, TK_ENUM))     parse_enum_decl(&p, prog);
         else if (at(&p, TK_TYPE))     parse_old_type_decl(&p);
-        else if (at(&p, TK_FN))       vec_push(&prog->fns, parse_fn(&p, false));
         else if (at(&p, TK_LET) || at(&p, TK_VAR)) {
             Stmt *g = parse_let(&p, at(&p, TK_VAR));
             expect_semi(&p, "declaration");
             vec_push(&prog->globals, g);
-        } else {
+        }
+        else if (at(&p, TK_FN) || starts_type(&p))
+            vec_push(&prog->fns, parse_fn(&p, false));
+        else {
             Token *c = cur(&p);
-            const char *old = old_fn_name(&p);
-            if (old) {
-                err_at(c->line, c->col, "a function starts with `fn`");
-                err_help("write `fn %s(...): <type>`, or leave the `: <type>` "
-                         "off when it gives nothing back", old);
-            } else if (at(&p, TK_STATIC)) {
+            if (at(&p, TK_STATIC)) {
                 err_at(c->line, c->col, "only a class can hold a `static` function");
                 err_help("drop the `static`, or move the function into a class");
             } else {
                 err_at(c->line, c->col, "expected a declaration, but found `%s`",
                        tok_name(c->kind));
-                err_help("the top level of a file holds `fn`, `class`, `struct`, "
-                         "`enum`, `let`, and `var` declarations; runnable code "
-                         "goes inside `fn main()`");
+                err_help("the top level of a file holds functions, `class`, "
+                         "`struct`, `enum`, `let`, and `var` declarations; "
+                         "runnable code goes inside `void main()`");
             }
             stop_if_errors();
         }

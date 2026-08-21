@@ -1,4 +1,4 @@
-fn main() {
+void main() {
     var scores: [int] = [];
     push(scores, 10);
     push(scores, 25);

@@ -1,7 +1,7 @@
 class Animal {
-    fn speak(): string { return "..."; }
+    string speak() { return "..."; }
 }
 class Dog: Animal {
-    fn speak(): string { return "woof"; }
+    string speak() { return "woof"; }
 }
-fn main() { print(Dog().speak()); }
+void main() { print(Dog().speak()); }

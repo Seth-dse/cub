@@ -1,4 +1,4 @@
-fn main() {
+void main() {
     let total = 5;
     print(totl);
 }

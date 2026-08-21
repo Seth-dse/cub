@@ -1,5 +1,5 @@
 // Classic FizzBuzz, one line per number.
-fn label(n: int): string {
+string label(n: int) {
     if n % 15 == 0 {
         return "FizzBuzz";
     } else if n % 3 == 0 {
@@ -10,7 +10,7 @@ fn label(n: int): string {
     return str(n);
 }
 
-fn main() {
+void main() {
     for n in 1..=20 {
         print(label(n));
     }

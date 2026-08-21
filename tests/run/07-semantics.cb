@@ -4,21 +4,21 @@ var counter = 0;
 
 struct Box { value: int; }
 
-fn bump(): int {
+int bump() {
     counter += 1;
     return counter;
 }
 
 // Arrays are shared; structs are copied.
-fn fill(items: [int]) {
+void fill(items: [int]) {
     push(items, 99);
 }
 
-fn grow(b: Box): Box {
+Box grow(b: Box) {
     return Box { value: b.value + 1 };
 }
 
-fn main() {
+void main() {
     print("version {VERSION}");
     print(bump(), bump(), bump());
 

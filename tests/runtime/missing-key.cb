@@ -1,4 +1,4 @@
-fn main() {
+void main() {
     var m = ["a": 1];
     print(m["zzz"]);
 }

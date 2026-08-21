@@ -12,19 +12,19 @@
 
 import math;
 
-fn mean(values: [int]): float {
+float mean(values: [int]) {
     return 0.0; // TODO
 }
 
-fn median(values: [int]): int {
+int median(values: [int]) {
     return 0; // TODO
 }
 
-fn round2(v: float): float {
+float round2(v: float) {
     return math.round(v * 100.0) / 100.0;
 }
 
-fn main() {
+void main() {
     let values = [8, 3, 17, 4, 9, 12];
 
     // TODO: print sum, then min_of and max_of, then round2(mean), then median

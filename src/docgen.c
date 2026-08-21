@@ -8,19 +8,17 @@
 static Buf out;
 #define D(...) buf_printf(&out, __VA_ARGS__)
 
-/* `fn add(a: int, b: int): int` -- how a reader would write the
- * declaration.  A function that gives nothing back has no `: type`. */
+/* `int add(a: int, b: int)` -- how a reader would write the declaration. */
 static char *signature(FnDecl *f) {
     Buf b;
     buf_init(&b);
     if (f->is_static) buf_puts(&b, "static ");
-    buf_printf(&b, "fn %s(", f->name);
+    buf_printf(&b, "%s %s(", ty_show(f->ret), f->name);
     for (int i = 0; i < f->params.len; i++) {
         VarSym *v = f->params.items[i];
         buf_printf(&b, "%s%s: %s", i ? ", " : "", v->name, ty_show(v->type));
     }
     buf_puts(&b, ")");
-    if (f->ret->kind != TY_VOID) buf_printf(&b, ": %s", ty_show(f->ret));
     return b.data;
 }
 

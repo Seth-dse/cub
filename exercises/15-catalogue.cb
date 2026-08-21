@@ -25,11 +25,11 @@ class Book {
     author: string;
     copies: int;
 
-    fn init(title: string, author: string, copies: int) {
+    void init(title: string, author: string, copies: int) {
         // TODO: keep all three
     }
 
-    fn to_string(): string {
+    string to_string() {
         return "?"; // TODO
     }
 }
@@ -39,25 +39,25 @@ class Catalogue {
     books: [Book];
     by_author: [string: int];
 
-    fn add(book: Book) {
+    void add(book: Book) {
         // TODO: shelve it, and count its copies against its author
     }
 
-    fn total(): int {
+    int total() {
         return 0; // TODO
     }
 
-    fn report() {
+    void report() {
         // TODO
     }
 }
 
 /// Reads "title|author|copies" into a book.
-fn parse(line: string): Book {
+Book parse(line: string) {
     return Book("?", "?", 0); // TODO: split on "|", trim each piece
 }
 
-fn main() {
+void main() {
     let lines = [
         "Dune          | Herbert   | 3",
         "Emma          | Austen    | 2",

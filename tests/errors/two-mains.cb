@@ -1,4 +1,4 @@
 class App {
-    fn main() { print("a"); }
+    void main() { print("a"); }
 }
-fn main() { print("b"); }
+void main() { print("b"); }

@@ -1,4 +1,4 @@
-fn tally(text: string): [string: int] {
+[string: int] tally(text: string) {
     var counts: [string: int] = [:];
     for word in split(lower(text), " ") {
         let clean = trim(word);
@@ -10,7 +10,7 @@ fn tally(text: string): [string: int] {
     return counts;
 }
 
-fn main() {
+void main() {
     let counts = tally("the quick brown fox the lazy dog the end");
 
     print(len(counts));

@@ -1,15 +1,15 @@
 /* A block comment
    /* that nests */
    and keeps going. */
-fn total(
+int total(
     a: int,
     b: int, // trailing comma below is fine
     c: int,
-): int {
+) {
     return a + b + c;
 }
 
-fn main() {
+void main() {
     // Every statement ends with a semicolon.
     let a = 1;
     let b = 2;

@@ -3,15 +3,15 @@ import math;
 class Shape {
     name: string;
 
-    fn init(name: string) {
+    void init(name: string) {
         self.name = name;
     }
 
-    fn area(): float {
+    float area() {
         return 0.0;
     }
 
-    fn to_string(): string {
+    string to_string() {
         return "{pad_end(self.name, 10, ".")} {math.round(self.area() * 100.0) / 100.0}";
     }
 }
@@ -20,19 +20,19 @@ class Rect extends Shape {
     width: float;
     height: float;
 
-    fn init(width: float, height: float) {
+    void init(width: float, height: float) {
         super.init("rectangle");
         self.width = width;
         self.height = height;
     }
 
-    fn area(): float {
+    float area() {
         return self.width * self.height;
     }
 }
 
 class Square extends Rect {
-    fn init(side: float) {
+    void init(side: float) {
         super.init(side, side);
         self.name = "square";
     }
@@ -41,17 +41,17 @@ class Square extends Rect {
 class Circle extends Shape {
     radius: float;
 
-    fn init(radius: float) {
+    void init(radius: float) {
         super.init("circle");
         self.radius = radius;
     }
 
-    fn area(): float {
+    float area() {
         return math.PI * self.radius * self.radius;
     }
 }
 
-fn main() {
+void main() {
     let shapes: [Shape] = [Rect(3.0, 4.0), Square(5.0), Circle(1.0)];
 
     var total = 0.0;

@@ -1,4 +1,4 @@
-fn grade(score: int): string {
+string grade(score: int) {
     if score >= 90 {
         return "A";
     } else if score >= 80 {
@@ -9,7 +9,7 @@ fn grade(score: int): string {
     return "F";
 }
 
-fn main() {
+void main() {
     for score in [95, 83, 71, 40] {
         print("{score}: {grade(score)}");
     }

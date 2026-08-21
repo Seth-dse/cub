@@ -3,7 +3,7 @@
 // this compiling at all is the point of the test.
 import os;
 
-fn main() {
+void main() {
     os.sleep_ms(1);
     print(os.clock_ms() > 0);
     print(os.time_ms() >= 0);

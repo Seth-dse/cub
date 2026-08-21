@@ -11,15 +11,15 @@
 
 enum Light { Red, Green, Amber }
 
-fn next(current: Light): Light {
+Light next(current: Light) {
     return current; // TODO
 }
 
-fn advice(current: Light): string {
+string advice(current: Light) {
     return "?"; // TODO
 }
 
-fn main() {
+void main() {
     var light = Light.Red;
     for i in 0..6 {
         print("{light}: {advice(light)}");

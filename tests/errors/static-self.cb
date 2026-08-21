@@ -1,5 +1,5 @@
 class Kit {
     n: int;
-    static fn bad(): int { return self.n; }
+    static int bad() { return self.n; }
 }
-fn main() { print(Kit.bad()); }
+void main() { print(Kit.bad()); }

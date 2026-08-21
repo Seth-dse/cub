@@ -1,8 +1,8 @@
-fn grade(score: int): string {
+string grade(score: int) {
     return if score >= 90 { "A" } else if score >= 80 { "B" } else { "C" };
 }
 
-fn main() {
+void main() {
     let n = 7;
     let label = if n % 2 == 0 { "even" } else { "odd" };
     print("{n} is {label}");

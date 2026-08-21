@@ -1,4 +1,4 @@
-fn main() {
+void main() {
     let messy = "   the Cub language   ";
     let clean = trim(messy);
 

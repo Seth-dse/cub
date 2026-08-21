@@ -10,19 +10,19 @@
 //
 // Every one needs its stopping case first, or it runs forever.
 
-fn factorial(n: int): int {
+int factorial(n: int) {
     return 1; // TODO
 }
 
-fn fib(n: int): int {
+int fib(n: int) {
     return 0; // TODO
 }
 
-fn digit_sum(n: int): int {
+int digit_sum(n: int) {
     return 0; // TODO
 }
 
-fn main() {
+void main() {
     print(factorial(5));
     print(factorial(10));
 

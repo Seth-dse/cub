@@ -17,15 +17,15 @@ struct Point {
     y: int;
 }
 
-fn distance_squared(a: Point, b: Point): int {
+int distance_squared(a: Point, b: Point) {
     return 0; // TODO
 }
 
-fn shifted(p: Point, dx: int, dy: int): Point {
+Point shifted(p: Point, dx: int, dy: int) {
     return p; // TODO
 }
 
-fn main() {
+void main() {
     let origin = Point { x: 0, y: 0 };
     let target = Point { x: 3, y: 4 };
 

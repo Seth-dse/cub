@@ -17,15 +17,15 @@ import math;
 class Shape {
     name: string;
 
-    fn init(name: string) {
+    void init(name: string) {
         self.name = name;
     }
 
-    fn area(): float {
+    float area() {
         return 0.0;
     }
 
-    fn to_string(): string {
+    string to_string() {
         return "{pad_end(self.name, 10, ".")} {math.round(self.area() * 100.0) / 100.0}";
     }
 }
@@ -34,7 +34,7 @@ class Rect extends Shape {
     width: float;
     height: float;
 
-    fn init(width: float, height: float) {
+    void init(width: float, height: float) {
         super.init("rectangle");
         // TODO: keep width and height
     }
@@ -46,7 +46,7 @@ class Rect extends Shape {
 
 // TODO: class Circle, built on Shape
 
-fn main() {
+void main() {
     let shapes: [Shape] = [Rect(3.0, 4.0)];
     // once Square and Circle exist, use:
     // let shapes: [Shape] = [Rect(3.0, 4.0), Square(5.0), Circle(1.0)]

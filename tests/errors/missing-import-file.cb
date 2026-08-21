@@ -1,2 +1,2 @@
 import "nowhere.cb";
-fn main() { print("x"); }
+void main() { print("x"); }

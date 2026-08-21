@@ -1,4 +1,0 @@
-int add(a: int, b: int) {
-    return a + b;
-}
-fn main() { print(add(1, 2)); }
