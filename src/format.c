@@ -78,7 +78,11 @@ static bool needs_space(const Token *prev, const Token *cur, bool prev_was_prefi
     if (prev->kind == TK_DOT || cur->kind == TK_DOT) return false;        /* a.b   */
     if (prev->kind == TK_RANGE || prev->kind == TK_RANGEEQ) return false; /* 0..10 */
     if (cur->kind == TK_RANGE || cur->kind == TK_RANGEEQ) return false;
-    if (prev->kind == TK_BANG) return false;
+
+    /* `int?`, `int!`, and `parse(x)!` all attach to what comes before them;
+     * a leading `!` is the other thing, and prev_was_prefix has that. */
+    if (cur->kind == TK_QUESTION) return false;
+    if (cur->kind == TK_BANG && !prefix_position(prev)) return false;
 
     /* a call or an index binds tight; a keyword does not */
     if (cur->kind == TK_LPAREN || cur->kind == TK_LBRACK) {

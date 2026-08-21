@@ -1,5 +1,73 @@
 # Changelog
 
+## 0.6.0
+
+Values that may not be there.
+
+Until now a Cub program had no way to say "this might not work". Reading a
+number out of text either produced a number or killed the program, and a
+class field holding an object was quietly empty until something touched it.
+Both are gone.
+
+**`T?` is a `T`, or nothing. `T!` is a `T`, or a failure with a reason.**
+
+    int? first_even(numbers: [int]) {
+        for n in numbers {
+            if n % 2 == 0 { return n; }
+        }
+        return nothing;
+    }
+
+    int! to_number(text: string) {
+        let clean = trim(text);
+        if len(clean) == 0 { return fail("there is nothing here"); }
+        return try int(clean);
+    }
+
+Neither nests, and a plain value goes wherever either is wanted.
+
+**Four ways in, and the compiler names them.** `or` supplies a fallback and
+only works it out if it is needed. `if let` binds the value where it exists,
+and can name the reason in the `else`. `try` hands a failure to the caller.
+`!` insists, and stops the program with the reason if it was wrong.
+
+    let n = to_number(line) or 0;
+
+    if let n = to_number(line) {
+        print(n);
+    } else why {
+        print("no: {why}");
+    }
+
+Using one as a plain value, doing arithmetic on it, or throwing away a `T!`
+returned by a statement are all errors -- the last because discarding it
+discards whether the work happened at all.
+
+**The library now says which calls can fail.** `int(text)` and
+`float(text)` give back `int!` and `float!`; `fs.read` gives `string!`,
+`fs.read_lines` gives `[string]!`, and `fs.write`, `fs.append`, and
+`fs.delete` give `void!` carrying whatever the system said. Converting a
+number to another number cannot fail and has not changed.
+
+**An object field is no longer quietly empty.** Every other type starts from
+an empty value -- `0`, `""`, an empty array -- but an object has none, so a
+class field holding one is now either set by `init` or declared `Engine?`:
+
+    class Car {
+        engine: Engine?;
+        spare: Engine;
+        void init() { self.spare = Engine(); }
+    }
+
+The runtime error "there is no Engine here yet" was the old way of finding
+this out. It is a compile error now.
+
+### Upgrading
+
+Existing code keeps working except where it used one of the calls above.
+Each one is a compile error naming the fix; adding `!` reproduces the old
+behaviour exactly, and `or` or `if let` is usually what you actually wanted.
+
 ## 0.5.1
 
 Two edges that used to be undefined are now checked.

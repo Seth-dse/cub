@@ -13,7 +13,9 @@
 //                book, then "{total} copies of {n} titles", then each author
 //                sorted, as "  {column(author, 12)} {count}"
 //   parse(line)  splits "title|author|copies" and trims each piece;
-//                `int(text)` turns the last one into a number
+//                `int(text)` reads the last one as a number.  Text may not
+//                hold a number at all, so `int` gives back an `int!` --
+//                `try` hands the trouble on, and `if let` deals with it
 //
 // Catalogue has no init, so its array and map start empty on their own.
 

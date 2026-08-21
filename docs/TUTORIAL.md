@@ -579,7 +579,122 @@ Without one you still get something useful: `Point{x: 3, y: 4}`.
 
 ---
 
-## 12. Imports
+## 12. When there might be nothing
+
+Ask a program to read a number out of whatever someone typed, and there are
+two answers: the number, or an explanation. Cub makes you say which one you
+are holding.
+
+```cub
+void main() {
+    let typed = "seven";
+    let n = int(typed);       // this does not compile
+    print(n + 1);
+}
+```
+
+```
+error: `n` expects int, but this is int!
+  help: `int!` may fail: supply a fallback with `or`, take it apart with
+        `if let`, or insist with `!`
+```
+
+`int!` means "an int, or a failure with a reason". The `!` in the type is the
+compiler telling you that this one needs a decision. There are two shapes:
+
+- `T?` — a `T`, or **nothing**
+- `T!` — a `T`, or a **failure**, which carries a reason as text
+
+### Four ways to get the value out
+
+The quickest is `or`, which gives a fallback:
+
+```cub
+void main() {
+    print(int("42") or 0);       // 42
+    print(int("oops") or 0);     // 0
+}
+```
+
+When you want to know *why*, take it apart with `if let`. The name only
+exists in the branch where the value does, and the `else` can name the
+reason:
+
+```cub
+void main() {
+    if let n = int(input()) {
+        print("that is {n * 2} doubled");
+    } else why {
+        print("I could not use that: {why}");
+    }
+}
+```
+
+If your own function can fail too, `try` hands the failure straight up:
+
+```cub
+int! doubled(text: string) {
+    let n = try int(text);       // a failure here returns from doubled
+    return n * 2;
+}
+```
+
+And when you are certain, `!` insists — the program stops with the reason if
+you were wrong:
+
+```cub
+let port = int("8080")!;
+```
+
+### Writing your own
+
+Say so in the return type, and hand back `nothing` or `fail(...)`:
+
+```cub
+int? first_even(numbers: [int]) {
+    for n in numbers {
+        if n % 2 == 0 { return n; }
+    }
+    return nothing;
+}
+
+int! age_of(text: string) {
+    let n = try int(text);
+    if n < 0 { return fail("{n} is not an age"); }
+    return n;
+}
+```
+
+Returning a plain number where `int?` is expected is fine — a value that is
+there is a value that may be there.
+
+### Where else this turns up
+
+Reading files can fail for reasons no program can foresee, so those say so
+too:
+
+```cub
+import fs;
+
+void main() {
+    print(fs.read("notes.txt") or "(no notes yet)");
+
+    if let _ = fs.write("notes.txt", "hello\n") {
+        print("saved");
+    } else why {
+        print(why);
+    }
+}
+```
+
+`_` as the name means "I only want to know whether it worked".
+
+One last thing the compiler insists on: a `T!` that a statement throws away
+is an error, because that discards whether the work happened at all.
+
+---
+
+## 13. Imports
 
 Some of the library is always there — `print`, `len`, `push`, `str`, and the
 text and array functions. Anything that reaches outside your program lives in
@@ -635,7 +750,7 @@ to `cubc` may have a `main`.
 
 ---
 
-## 13. Writing things down
+## 14. Writing things down
 
 Three slashes document what comes next:
 
@@ -659,7 +774,7 @@ You can document classes, methods, fields, structs, and enums the same way.
 
 ---
 
-## 14. Putting it together
+## 15. Putting it together
 
 A program that reads numbers, and reports on them. It uses almost everything
 above.

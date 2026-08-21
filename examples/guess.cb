@@ -15,16 +15,21 @@ void main() {
             return;
         }
 
-        let guess = int(line);
-        tries += 1;
+        // Text typed by a person may not be a number at all, and the
+        // type of `int(...)` says so, so there is nowhere to forget it.
+        if let guess = int(line) {
+            tries += 1;
 
-        if guess < secret {
-            print("Too low.");
-        } else if guess > secret {
-            print("Too high.");
-        } else {
-            print("That is it, in {tries} tries.");
-            return;
+            if guess < secret {
+                print("Too low.");
+            } else if guess > secret {
+                print("Too high.");
+            } else {
+                print("That is it, in {tries} tries.");
+                return;
+            }
+        } else why {
+            print("{why}");
         }
     }
 }

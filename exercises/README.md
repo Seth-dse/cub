@@ -56,7 +56,7 @@ after you have had a real go — the struggle is the part that teaches.
 | 12 | tally | maps, and `get` with a fallback | §10 |
 | 13 | account | a class with state and methods | §11 |
 | 14 | shapes | building on a class, replacing a method | §11 |
-| 15 | catalogue | all of it, across two files | §12–14 |
+| 15 | catalogue | all of it, across two files, and text that may not parse | §12–15 |
 
 Do 1 through 8 in one sitting if you like — they are short. Stop after 8
 and write something of your own before starting 9.

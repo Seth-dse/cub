@@ -1,3 +1,4 @@
 void main() {
-    print(int("twelve"));
+    // `int(text)` may fail, and `!` says "I am sure, stop if I am wrong".
+    print(int("twelve")!);
 }

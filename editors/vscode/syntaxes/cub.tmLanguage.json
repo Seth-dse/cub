@@ -247,7 +247,7 @@
       "patterns": [
         {
           "name": "keyword.control.cub",
-          "match": "\\b(if|else|while|for|in|return|break|continue)\\b"
+          "match": "\\b(if|else|while|for|in|return|break|continue|try)\\b"
         },
         {
           "name": "keyword.declaration.cub",
@@ -263,7 +263,7 @@
         },
         {
           "name": "constant.language.boolean.cub",
-          "match": "\\b(true|false)\\b"
+          "match": "\\b(true|false|nothing)\\b"
         },
         {
           "name": "constant.language.cub",
@@ -295,7 +295,7 @@
         },
         {
           "name": "support.type.primitive.cub",
-          "match": "\\b(int|float|bool|string|void)\\b"
+          "match": "\\b(int|float|bool|string|void)\\b[?!]?"
         },
         {
           "comment": "Color.Red -- a value picked out of an enum",

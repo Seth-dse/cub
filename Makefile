@@ -29,7 +29,7 @@ install: cubc
 	install -m 755 cubc $(PREFIX)/bin/cubc
 
 # Link the editor extension into every VS Code-family editor that is present.
-EXT_NAME := Sethttech.cub-0.5.1
+EXT_NAME := Sethttech.cub-0.6.0
 install-vscode:
 	@found=0; \
 	for dir in $$HOME/.vscode/extensions $$HOME/.vscode-insiders/extensions \

@@ -1,0 +1,4 @@
+void main() {
+    let n: int = int("12");
+    print(n);
+}

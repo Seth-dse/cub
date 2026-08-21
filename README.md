@@ -46,7 +46,7 @@ Nothing to install beyond a C compiler and `make`.
 
 ```bash
 make
-make test          # 63 tests: programs, compile errors, runtime failures
+make test          # 67 tests: programs, compile errors, runtime failures
 make check-linux   # optional: build and test under glibc in a container
 make examples      # run everything in examples/
 sudo make install  # optional: puts cubc in /usr/local/bin
@@ -120,7 +120,9 @@ void main() {
    returns — checked before the program runs, in plain words.
 3. **What the compiler cannot know, the program checks.** Bounds, division,
    overflow, conversions, stack depth. No undefined behavior, and no silent
-   wraparound.
+   wraparound. What *can* fail says so in its type: `int(text)` is an `int!`,
+   and there is no way to use it without deciding what an unreadable number
+   means.
 4. **One way to write things.** Every statement ends with `;`, every body is
    wrapped in braces, and a function says what it gives back before its name,
    the way C does. No headers, no preprocessor, no macros. Declaration order
@@ -191,6 +193,15 @@ print(get(ages, "nobody", 0));   // 0
 // if also works as a value.
 let label = if count > 0 { "some" } else { "none" };
 
+// A value that might not be there says so: `T?` for one that may be
+// nothing, `T!` for one that may fail with a reason.
+let typed = int(input()) or 0;           // a fallback
+if let n = int(input()) {                // or take it apart
+    print(n);
+} else why {
+    print(why);
+}
+
 // Classes: data with behaviour, and one parent at most.
 class Animal {
     name: string;
@@ -240,6 +251,7 @@ compiler.
 | `src/lexer.c` | text to tokens, including `{interpolation}` splitting |
 | `src/parser.c` | recursive descent; statements end at `;` |
 | `src/check.c` | types, names, mutability, return paths, and the messages |
+| | including where a `T?` or `T!` must be dealt with |
 | `src/codegen.c` | standalone C99 |
 | `src/format.c` | `cubc fmt`, the canonical formatter |
 | `src/docgen.c` | `cubc doc`, a reference built from `///` comments |
@@ -274,9 +286,8 @@ server meant to run for weeks. Reference counting is the next step.
 
 ## Status
 
-Version 0.5.1. The language described here works, and the test suite covers
-it. Not yet built: optional values, generics, closures, interfaces, and private
-declarations.
+Version 0.6.0. The language described here works, and the test suite covers
+it. Not yet built: generics, closures, interfaces, and private declarations.
 [The reference](docs/LANGUAGE.md#20-what-cub-leaves-out-for-now) lists them
 with what is planned.
 

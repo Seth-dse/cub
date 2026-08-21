@@ -190,5 +190,26 @@
       "/// $0"
     ],
     "description": "Document what comes next"
+  },
+  "if let": {
+    "prefix": "iflet",
+    "body": [
+      "if let ${1:value} = ${2:maybe} {",
+      "\t$0",
+      "} else ${3:why} {",
+      "\tprint(${3:why});",
+      "}"
+    ],
+    "description": "Take apart a value that may be missing"
+  },
+  "fallible function": {
+    "prefix": "fnf",
+    "body": [
+      "${1:int}! ${2:name}(${3:arg}: ${4:string}) {",
+      "\tif ${5:condition} { return fail(\"${6:reason}\"); }",
+      "\t$0",
+      "}"
+    ],
+    "description": "A function that can fail with a reason"
   }
 }

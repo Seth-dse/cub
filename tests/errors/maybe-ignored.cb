@@ -1,0 +1,4 @@
+import fs;
+void main() {
+    fs.write("/tmp/x.txt", "hello");
+}

@@ -49,10 +49,14 @@ class Catalogue {
     }
 }
 
-/// Reads "title|author|copies" into a book.
-Book parse(line: string) {
+/// Reads "title|author|copies" into a book, or says what went wrong.
+Book! parse(line: string) {
     let parts = split(line, "|");
-    return Book(trim(parts[0]), trim(parts[1]), int(trim(parts[2])));
+    if len(parts) != 3 {
+        return fail("`{trim(line)}` is not title|author|copies");
+    }
+    let copies = try int(trim(parts[2]));
+    return Book(trim(parts[0]), trim(parts[1]), copies);
 }
 
 void main() {
@@ -65,7 +69,11 @@ void main() {
 
     let shelf = Catalogue();
     for line in lines {
-        shelf.add(parse(line));
+        if let book = parse(line) {
+            shelf.add(book);
+        } else why {
+            print("skipped: {why}");
+        }
     }
 
     shelf.report();

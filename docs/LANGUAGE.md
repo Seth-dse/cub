@@ -1,6 +1,6 @@
 # The Cub Language Reference
 
-Version 0.5.1
+Version 0.6.0
 
 Cub is a small statically typed language in the C family. It compiles to
 standalone C99, so a Cub program runs anywhere a C compiler runs and starts
@@ -174,6 +174,10 @@ Cub has six kinds of type.
 | `[K: V]` | a map from `K` to `V` | `["ada": 36]`, `[:]` |
 | `struct` / `enum` | data you declare | `Point { x: 1, y: 2 }`, `Color.Red` |
 | `class` | an object with methods | `Dog("Rex")` |
+| `T?` | a `T`, or nothing | `nothing`, `3` |
+| `T!` | a `T`, or a failure with a reason | `fail("no")`, `3` |
+
+`T?` and `T!` are covered in [section 17](#17-values-that-may-not-be-there).
 
 Underscores may be used to group digits: `1_000_000`. Hexadecimal literals
 are written `0xff`.
@@ -764,7 +768,140 @@ for a `class` when the thing has behaviour, or when sharing it is the point.
 
 ---
 
-## 17. Errors
+## 17. Values that may not be there
+
+Some questions have no answer, and some work does not succeed. Cub says so
+in the type, so that the empty case is impossible to walk past.
+
+`T?` is a `T` **or nothing**. `T!` is a `T` **or a failure with a reason**.
+
+```cub
+int? first_even(numbers: [int]) {
+    for n in numbers {
+        if n % 2 == 0 { return n; }
+    }
+    return nothing;
+}
+
+int! to_number(text: string) {
+    let clean = trim(text);
+    if len(clean) == 0 { return fail("there is nothing here"); }
+    return try int(clean);
+}
+```
+
+`nothing` is the empty `T?`. `fail(reason)` is the failure side of a `T!`,
+and the reason is text. Returning a plain value is always allowed where
+either is expected — a `T` is a `T?` that happens to be there.
+
+Neither nests. There is no `T??` and no `T?!`: a value is either missing, or
+it is not.
+
+### Getting at the value
+
+A `T?` is not a `T`, and Cub will not let you use one as the other. There are
+four ways in, and the compiler names them whenever you need one.
+
+**`or` supplies a fallback.**
+
+```cub
+let n = to_number(input()) or 0;
+```
+
+The fallback is only worked out when it is needed, so `parse(x) or slow()`
+does not call `slow()` when `parse` succeeds. Note that `or` binds loosest of
+all the operators: `a or b > c` reads as `a or (b > c)`, so bracket it when
+you mean otherwise.
+
+**`if let` takes it apart.** The name exists only in the branch where the
+value does; with a `T!`, the `else` can name the reason.
+
+```cub
+if let n = to_number(line) {
+    print("got {n}");
+} else why {
+    print("no: {why}");
+}
+```
+
+Use `_` for the name when you only want to know whether it worked, which is
+the only way to check a `void!`:
+
+```cub
+if let _ = fs.write("notes.txt", body) {
+    print("saved");
+} else why {
+    print(why);
+}
+```
+
+**`try` hands a failure to the caller.** It only works on a `T!`, and only
+inside a function that can itself fail — the failure has to go somewhere.
+
+```cub
+string! greeting(path: string) {
+    let body = try fs.read(path);      // a failure here returns from greeting
+    return trim(body);
+}
+```
+
+**`!` insists.** It says "I know this one is there", and stops the program
+with the reason if it is wrong.
+
+```cub
+let port = int("8080")!;
+```
+
+### What the compiler will not let you do
+
+- use a `T?` or `T!` where a `T` is expected
+- do arithmetic on one, index it, or reach a field through it
+- throw away a `T!` returned by a statement, because that discards whether
+  the work happened at all
+- write `fail` or `nothing` where the type they stand for is unclear
+
+Each of these is an error that names which of the four ways in to use.
+
+### Objects that may be missing
+
+Every type has an empty value to start from — `0`, `""`, an empty array — but
+an object does not. So a class field holding another object either gets set
+when the object is made, or says in its type that it may be missing:
+
+```cub
+class Car {
+    engine: Engine?;        // may be missing, and everyone can see that
+    spare: Engine;          // always there, because init sets it
+
+    void init() { self.spare = Engine(); }
+
+    string describe() {
+        if let e = self.engine {
+            return "engine of {e.power}";
+        } else {
+            return "no engine fitted";
+        }
+    }
+}
+```
+
+### What in the library can fail
+
+| Call | Gives back |
+|---|---|
+| `int(text)` / `float(text)` | `int!` / `float!` — text may hold anything |
+| `int(f)` / `float(n)` / `int(b)` | plain: a number always converts |
+| `fs.read(path)` | `string!` |
+| `fs.read_lines(path)` | `[string]!` |
+| `fs.write` / `fs.append` / `fs.delete` | `void!` |
+
+Everything else that can go wrong — an index out of range, division by zero,
+`pop` on an empty array — is a mistake in the program rather than a
+condition to handle, and stops it with a message.
+
+---
+
+## 18. Errors
 
 **Compile-time errors** point at the exact spot, explain the problem in
 words, and suggest a fix:
@@ -801,7 +938,7 @@ panic("this should be unreachable");
 
 ---
 
-## 18. The standard library
+## 19. The standard library
 
 Ninety-seven built-ins. The everyday ones are always in scope; the rest live
 in a module you `import` (see [section 14](#14-imports)) and are marked here
@@ -887,8 +1024,8 @@ Constants: `INT_MAX` and `INT_MIN` are always there. `math.PI`, `math.TAU`,
 | Call | Result |
 |---|---|
 | `str(value)` | `string`, for any type |
-| `int(value)` | `int`, from `float`, `string`, or `bool` |
-| `float(value)` | `float`, from `int` or `string` |
+| `int(value)` | `int` from a `float` or `bool`; `int!` from text |
+| `float(value)` | `float` from an `int`; `float!` from text |
 
 ### Files
 
@@ -896,11 +1033,15 @@ All of these need `import fs`.
 
 | Call | Result |
 |---|---|
-| `fs.read(path)` | `string` |
-| `fs.read_lines(path)` | `[string]` |
-| `fs.write(path, text)` / `fs.append(path, text)` | nothing |
+| `fs.read(path)` | `string!` |
+| `fs.read_lines(path)` | `[string]!` |
+| `fs.write(path, text)` / `fs.append(path, text)` | `void!` |
 | `fs.exists(path)` | `bool` |
-| `fs.delete(path)` | nothing |
+| `fs.delete(path)` | `void!` |
+
+Anything that touches the file system can fail for reasons a program cannot
+foresee, so each one hands back a `T!` carrying what the system said. See
+[section 17](#17-values-that-may-not-be-there).
 
 ### The world outside
 
@@ -928,7 +1069,7 @@ rather than silently shadowing it.
 
 ---
 
-## 19. How memory works
+## 20. How memory works
 
 Cub has no manual memory management and no pointers. Text and arrays live on
 the heap; the runtime records every allocation and releases all of it when
@@ -943,7 +1084,7 @@ allocation registry is already the hook for it.
 
 ---
 
-## 20. What Cub leaves out, for now
+## 21. What Cub leaves out, for now
 
 Left out deliberately, and not missed: pointers, pointer arithmetic, manual
 `malloc`/`free`, header files, the preprocessor, `goto`, implicit
@@ -953,8 +1094,6 @@ Genuinely missing, and planned:
 
 - **Private declarations** — an imported file shares everything it declares.
 - **Renaming on import** — no `import os as system` yet.
-- **Optional values** — no way yet to express "a `Point`, or nothing". Class
-  fields fill the gap awkwardly, by starting empty and being checked on use.
 - **Generics** — arrays and maps are the only generic types.
 - **Closures and function values** — functions cannot yet be passed around,
   so there is no `map`/`filter`/`sort_by`.
@@ -963,12 +1102,12 @@ Genuinely missing, and planned:
 - **Asking an object what it is** — no `is` test and no downcast, so once a
   `Dog` is held as an `Animal` you can call it but not narrow it back.
 - **Private fields** — every field is readable and writable from anywhere.
-- **Reference counting** — see section 19.
+- **Reference counting** — see section 20.
 - **`==` on structs, arrays, and maps** — compare the parts for now.
 
 ---
 
-## 21. Grammar
+## 22. Grammar
 
 ```ebnf
 program     = { import | declaration } ;
@@ -988,30 +1127,33 @@ enumdecl    = "enum" IDENT "{" [ IDENT { "," IDENT } [ "," ] ] "}" ;
 
 binding     = ( "let" | "var" ) IDENT [ ":" type ] "=" expr ;
 
-type        = "void" | "int" | "float" | "bool" | "string"
+type        = base [ "?" | "!" ] ;
+base        = "void" | "int" | "float" | "bool" | "string"
             | "[" type "]" | "[" type ":" type "]" | IDENT ;
 
 block       = "{" { statement } "}" ;
 statement   = binding ";" | assignment ";" | expr ";"
-            | ifstmt | whilestmt | forstmt
+            | ifstmt | ifletstmt | whilestmt | forstmt
             | "return" [ expr ] ";" | "break" ";" | "continue" ";"
             | block ;
 
 assignment  = expr ( "=" | "+=" | "-=" | "*=" | "/=" | "%=" ) expr ;
 ifstmt      = "if" expr block [ "else" ( ifstmt | block ) ] ;
+ifletstmt   = "if" "let" IDENT "=" expr block
+              [ "else" [ IDENT ] block ] ;
 whilestmt   = "while" expr block ;
 forstmt     = "for" IDENT "in" ( expr ( ".." | "..=" ) expr | expr ) block ;
 
 expr        = or ;
-or          = and { ( "or" | "||" ) and } ;
+or          = and { ( "or" | "||" ) and } ;   (* also the fallback for T? and T! *)
 and         = equality { ( "and" | "&&" ) equality } ;
 equality    = comparison { ( "==" | "!=" ) comparison } ;
 comparison  = sum { ( "<" | "<=" | ">" | ">=" ) sum } ;
 sum         = product { ( "+" | "-" ) product } ;
 product     = unary { ( "*" | "/" | "%" ) unary } ;
-unary       = [ "-" | "not" | "!" ] postfix ;
-postfix     = primary { "(" [ args ] ")" | "[" expr "]" | "." IDENT } ;
-primary     = INT | FLOAT | STRING | "true" | "false" | IDENT
+unary       = "try" unary | [ "-" | "not" | "!" ] postfix ;
+postfix     = primary { "(" [ args ] ")" | "[" expr "]" | "." IDENT | "!" } ;
+primary     = INT | FLOAT | STRING | "true" | "false" | "nothing" | IDENT
             | "self" | "super" | ifexpr
             | "(" expr ")" | "[" [ args ] "]" | maplit
             | IDENT "{" [ inits ] "}" ;
@@ -1025,7 +1167,7 @@ is.
 
 ---
 
-## 22. The compiler
+## 23. The compiler
 
 ```
 cubc program.cb              compile to ./program

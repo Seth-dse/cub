@@ -49,6 +49,27 @@ Type *ty_map(Type *key, Type *val) {
     return t;
 }
 
+/* `T?` and `T!` share a shape -- a value that may not be there -- and
+ * differ in whether a failure carries a reason.  Neither nests: the parser
+ * refuses `T??`, so `elem` is always a plain type. */
+static Vec maybe_cache;
+
+static Type *mk_maybe(TypeKind kind, Type *inner) {
+    for (int i = 0; i < maybe_cache.len; i++) {
+        Type *t = maybe_cache.items[i];
+        if (t->kind == kind && t->elem == inner) return t;
+    }
+    Type *t = mk(kind);
+    t->elem = inner;
+    vec_push(&maybe_cache, t);
+    return t;
+}
+
+Type *ty_opt(Type *inner)  { return mk_maybe(TY_OPT, inner); }
+Type *ty_fail(Type *inner) { return mk_maybe(TY_FAIL, inner); }
+
+bool ty_is_maybe(Type *t) { return t && (t->kind == TY_OPT || t->kind == TY_FAIL); }
+
 Type *ty_named(TypeKind k, char *name) {
     Type *t = mk(k);
     t->name = name;
@@ -59,7 +80,8 @@ bool ty_same(Type *a, Type *b) {
     if (!a || !b) return false;
     if (a == b) return true;
     if (a->kind != b->kind) return false;
-    if (a->kind == TY_ARRAY) return ty_same(a->elem, b->elem);
+    if (a->kind == TY_ARRAY || a->kind == TY_OPT || a->kind == TY_FAIL)
+        return ty_same(a->elem, b->elem);
     if (a->kind == TY_MAP)   return ty_same(a->key, b->key) && ty_same(a->elem, b->elem);
     if (a->kind == TY_STRUCT || a->kind == TY_ENUM || a->kind == TY_CLASS)
         return strcmp(a->name, b->name) == 0;
@@ -74,6 +96,11 @@ bool ty_assignable(Type *from, Type *to) {
         for (ClassDef *c = from->cdef; c; c = c->base)
             if (c == to->cdef) return true;
     }
+    /* A plain value goes where a `T?` or `T!` is wanted -- widening, never
+     * the other way, so a value that may be missing is never mistaken for
+     * one that is there. */
+    if (ty_is_maybe(to) && !ty_is_maybe(from))
+        return ty_assignable(from, to->elem);
     return false;
 }
 
@@ -90,6 +117,8 @@ const char *ty_show(Type *t) {
     case TY_STR:    return "string";
     case TY_ARRAY:  return cx_fmt("[%s]", ty_show(t->elem));
     case TY_MAP:    return cx_fmt("[%s: %s]", ty_show(t->key), ty_show(t->elem));
+    case TY_OPT:    return cx_fmt("%s?", ty_show(t->elem));
+    case TY_FAIL:   return cx_fmt("%s!", ty_show(t->elem));
     case TY_STRUCT:
     case TY_ENUM:
     case TY_CLASS:  return t->name;
@@ -109,6 +138,8 @@ const char *ty_mangle(Type *t) {
     case TY_STRUCT: return cx_fmt("s_%s", t->name);
     case TY_ENUM:   return cx_fmt("e_%s", t->name);
     case TY_CLASS:  return cx_fmt("c_%s", t->name);
+    case TY_OPT:    return cx_fmt("opt_%s", ty_mangle(t->elem));
+    case TY_FAIL:   return cx_fmt("fail_%s", ty_mangle(t->elem));
     default:        return "err";
     }
 }

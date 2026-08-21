@@ -23,4 +23,6 @@ truetruetrue
 ["alpha", "beta", "gamma"]
 true
 false
+(missing)
+true
 true

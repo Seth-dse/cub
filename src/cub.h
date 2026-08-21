@@ -17,7 +17,7 @@
 #include <stdbool.h>
 #include <stdarg.h>
 
-#define CUB_VERSION "0.5.1"
+#define CUB_VERSION "0.6.0"
 
 /* ------------------------------------------------------------------ */
 /* small utilities                                                     */
@@ -73,9 +73,11 @@ typedef enum {
     TK_RETURN, TK_BREAK, TK_CONTINUE, TK_TYPE, TK_STRUCT, TK_ENUM,
     TK_TRUE, TK_FALSE, TK_AND, TK_OR, TK_NOT,
     TK_CLASS, TK_EXTENDS, TK_SELF, TK_SUPER, TK_VOID, TK_STATIC, TK_IMPORT,
+    TK_NOTHING, TK_TRY,
     /* punctuation */
     TK_LPAREN, TK_RPAREN, TK_LBRACE, TK_RBRACE, TK_LBRACK, TK_RBRACK,
     TK_COMMA, TK_DOT, TK_RANGE, TK_RANGEEQ, TK_COLON, TK_SEMI, TK_ARROW,
+    TK_QUESTION,
     /* operators */
     TK_PLUS, TK_MINUS, TK_STAR, TK_SLASH, TK_PERCENT,
     TK_ASSIGN, TK_PLUSEQ, TK_MINUSEQ, TK_STAREQ, TK_SLASHEQ, TK_PERCENTEQ,
@@ -121,7 +123,9 @@ char *format_source(Source *src);
 
 typedef enum {
     TY_ERR, TY_VOID, TY_INT, TY_FLOAT, TY_BOOL, TY_STR,
-    TY_ARRAY, TY_STRUCT, TY_ENUM, TY_CLASS, TY_MAP
+    TY_ARRAY, TY_STRUCT, TY_ENUM, TY_CLASS, TY_MAP,
+    TY_OPT,    /* `T?` -- a T, or nothing              */
+    TY_FAIL    /* `T!` -- a T, or a failure with a message */
 } TypeKind;
 
 typedef struct Type      Type;
@@ -147,6 +151,9 @@ Type *ty_bool(void);
 Type *ty_str(void);
 Type *ty_array(Type *elem);          /* interned: same elem -> same Type* */
 Type *ty_map(Type *key, Type *val);  /* interned the same way            */
+Type *ty_opt(Type *inner);           /* `T?`, interned                   */
+Type *ty_fail(Type *inner);          /* `T!`, interned                   */
+bool  ty_is_maybe(Type *t);          /* either of the two above          */
 Type *ty_named(TypeKind k, char *name);
 bool  ty_same(Type *a, Type *b);
 const char *ty_show(Type *t);        /* human readable, e.g. "[string]"   */
@@ -178,7 +185,12 @@ typedef enum {
     EX_INT, EX_FLOAT, EX_BOOL, EX_STR, EX_INTERP, EX_IDENT,
     EX_UNARY, EX_BINARY, EX_CALL, EX_INDEX, EX_FIELD,
     EX_ARRAYLIT, EX_MAPLIT, EX_STRUCTLIT, EX_ENUMVAL, EX_IFEXPR,
-    EX_SELF, EX_SUPER, EX_NEW, EX_METHOD
+    EX_SELF, EX_SUPER, EX_NEW, EX_METHOD,
+    EX_NOTHING,   /* the empty `T?`                                    */
+    EX_ORELSE,    /* `maybe or fallback`; the checker retypes `or`      */
+    EX_TRY,       /* `try maybe`, which hands a failure to the caller   */
+    EX_INSIST,    /* `maybe!`, which stops the program if it is missing */
+    EX_WRAP       /* a plain value on its way into a `T?` or `T!` slot   */
 } ExprKind;
 
 struct Expr {
@@ -208,7 +220,8 @@ struct Expr {
 
 typedef enum {
     ST_LET, ST_ASSIGN, ST_EXPR, ST_IF, ST_WHILE,
-    ST_FORRANGE, ST_FORIN, ST_RETURN, ST_BREAK, ST_CONTINUE, ST_BLOCK
+    ST_FORRANGE, ST_FORIN, ST_RETURN, ST_BREAK, ST_CONTINUE, ST_BLOCK,
+    ST_IFLET      /* `if let name = maybe { } else why { }` */
 } StmtKind;
 
 struct Stmt {
@@ -219,6 +232,10 @@ struct Stmt {
     bool     is_mut;      /* `var` rather than `let`     */
     Type    *decl_type;   /* annotation, else inferred   */
     VarSym  *var;
+
+    /* ST_IFLET: the name the reason is bound to in the `else`, if any */
+    char    *err_name;
+    VarSym  *err_var;
 
     Source  *src;
     Expr    *lhs, *rhs, *cond, *from, *to;
@@ -326,7 +343,8 @@ typedef enum {
     BI_IS_SPACE, BI_IS_UPPER, BI_IS_LOWER, BI_SUM, BI_COPY, BI_CONCAT,
     BI_SHUFFLE, BI_SWAP, BI_MIN_OF, BI_MAX_OF, BI_EPRINT, BI_EXIT, BI_ARGS,
     BI_ENV, BI_SLEEP_MS, BI_CLOCK_MS, BI_FILE_EXISTS, BI_APPEND_FILE,
-    BI_DELETE_FILE, BI_READ_LINES, BI_PLATFORM
+    BI_DELETE_FILE, BI_READ_LINES, BI_PLATFORM,
+    BI_FAIL          /* `fail(reason)` -- the failure side of a `T!` */
 } Builtin;
 
 int  builtin_lookup(const char *name);   /* -1 when not a builtin */

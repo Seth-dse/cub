@@ -137,7 +137,7 @@ const char *builtin_names[] = {
     "is_upper", "is_lower", "sum", "copy", "concat", "shuffle", "swap",
     "min_of", "max_of", "eprint", "exit", "args", "env", "sleep_ms",
     "clock_ms", "file_exists", "append_file", "delete_file", "read_lines",
-    "platform",
+    "platform", "fail",
     NULL
 };
 
@@ -236,6 +236,8 @@ static Type *resolve_type(Type *t, int line, int col) {
     if (t->kind == TY_ARRAY) return ty_array(resolve_type(t->elem, line, col));
     if (t->kind == TY_MAP)
         return ty_map(resolve_type(t->key, line, col), resolve_type(t->elem, line, col));
+    if (t->kind == TY_OPT)  return ty_opt(resolve_type(t->elem, line, col));
+    if (t->kind == TY_FAIL) return ty_fail(resolve_type(t->elem, line, col));
     if (t->kind == TY_STRUCT && t->sdef == NULL && t->name) {
         Type *found = find_named(t->name);
         if (found) return found;
@@ -309,11 +311,70 @@ static void  check_stmts(Vec *body);
 
 static bool is_err(Type *t) { return !t || t->kind == TY_ERR; }
 
+/* One piece of advice, worded once: how to get at a value that may not be
+ * there.  `try` is only mentioned where it would actually be allowed. */
+static void maybe_help(Type *t) {
+    if (!ty_is_maybe(t)) return;
+    bool can_try = t->kind == TY_FAIL && cur_fn && cur_fn->ret &&
+                   cur_fn->ret->kind == TY_FAIL;
+    if (t->kind == TY_OPT)
+        err_help("`%s` may be nothing: supply a fallback with `or`, take it "
+                 "apart with `if let`, or insist with `!`", ty_show(t));
+    else if (can_try)
+        err_help("`%s` may fail: supply a fallback with `or`, take it apart "
+                 "with `if let`, hand the failure up with `try`, or insist "
+                 "with `!`", ty_show(t));
+    else
+        err_help("`%s` may fail: supply a fallback with `or`, take it apart "
+                 "with `if let`, or insist with `!`", ty_show(t));
+}
+
+/* A plain `T` used where a `T?` or `T!` is wanted is widened here, rather
+ * than left for the generator to notice at every site it could happen. */
+static void wrap_into(Expr *e, Type *got, Type *target) {
+    if (!ty_is_maybe(target) || ty_is_maybe(got) || is_err(got)) return;
+    Expr *inner = cx_alloc(sizeof(Expr));
+    *inner = *e;
+    e->kind = EX_WRAP;
+    e->builtin = BI_NONE;
+    e->a = inner;
+    e->b = NULL;
+    e->args = (Vec){0};
+    e->fnames = (Vec){0};
+    e->type = target;
+}
+
+/* Does `init` set this field on the way through, whatever happens?  Only
+ * the statements it always reaches count, so a field set in one arm of an
+ * `if` is not settled. */
+static bool init_assigns(FnDecl *init, const char *field) {
+    if (!init) return false;
+    for (int i = 0; i < init->body.len; i++) {
+        Stmt *st = init->body.items[i];
+        if (st->kind != ST_ASSIGN || st->op != TK_ASSIGN) continue;
+        Expr *lhs = st->lhs;
+        if (lhs && lhs->kind == EX_FIELD && lhs->a && lhs->a->kind == EX_SELF &&
+            lhs->name && strcmp(lhs->name, field) == 0)
+            return true;
+    }
+    return false;
+}
+
+/* `void!` gives nothing back, so like `void` it needs no `return`. */
+static bool ty_is_void_fail(Type *t) {
+    return t && t->kind == TY_FAIL && t->elem && t->elem->kind == TY_VOID;
+}
+
 static void want(Expr *e, Type *got, Type *expect_, const char *ctx) {
     if (is_err(got) || is_err(expect_)) return;
-    if (ty_assignable(got, expect_)) return;
+    if (ty_assignable(got, expect_)) { wrap_into(e, got, expect_); return; }
     err_at(e->line, e->col, "%s expects %s, but this is %s",
            ctx, ty_show(expect_), ty_show(got));
+    if (ty_is_maybe(got) && !ty_is_maybe(expect_) &&
+        ty_assignable(got->elem, expect_)) {
+        maybe_help(got);
+        return;
+    }
     if (expect_->kind == TY_FLOAT && got->kind == TY_INT)
         err_help("turn the int into a float with `float(x)`, or write it as `%s.0`",
                  e->kind == EX_INT ? "1" : "x");
@@ -358,7 +419,7 @@ static bool primitive_elem(Type *t) {
            t->kind == TY_BOOL || t->kind == TY_ENUM;
 }
 
-static Type *check_builtin(Expr *e, int bi) {
+static Type *check_builtin(Expr *e, int bi, Type *hint) {
     const char *name = builtin_names[bi];
     for (int i = 0; i < e->args.len; i++) {
         Type *at_ = check_expr(arg(e, i), NULL);
@@ -433,6 +494,20 @@ static Type *check_builtin(Expr *e, int bi) {
         return ty_void();
     }
 
+    case BI_FAIL: {
+        if (!arity(e, 1, 1, name)) return ty_fail(ty_err());
+        Type *m = arg_type(e, 0);
+        if (!is_err(m) && m->kind != TY_STR)
+            want(arg(e, 0), m, ty_str(), "the reason a `fail`");
+        /* `fail("...")` says nothing about what would have been produced,
+         * so the type comes from where the value is going. */
+        if (hint && hint->kind == TY_FAIL) return hint;
+        err_at(e->line, e->col, "it is not clear what this `fail` is failing to produce");
+        err_help("`fail` belongs in a function whose return type ends in `!`, "
+                 "as in `int! parse(text: string)`");
+        return ty_fail(ty_err());
+    }
+
     case BI_STR:
         if (!arity(e, 1, 1, name)) return ty_str();
         return ty_str();
@@ -443,6 +518,9 @@ static Type *check_builtin(Expr *e, int bi) {
         if (!is_err(a) && a->kind != TY_FLOAT && a->kind != TY_STR &&
             a->kind != TY_BOOL && a->kind != TY_INT)
             err_at(e->line, e->col, "`int` cannot convert %s", ty_show(a));
+        /* text may hold anything at all, so reading a number out of it is
+         * the one conversion that can fail */
+        if (!is_err(a) && a->kind == TY_STR) return ty_fail(ty_int());
         return ty_int();
     }
 
@@ -451,6 +529,7 @@ static Type *check_builtin(Expr *e, int bi) {
         Type *a = arg_type(e, 0);
         if (!is_err(a) && a->kind != TY_INT && a->kind != TY_STR && a->kind != TY_FLOAT)
             err_at(e->line, e->col, "`float` cannot convert %s", ty_show(a));
+        if (!is_err(a) && a->kind == TY_STR) return ty_fail(ty_float());
         return ty_float();
     }
 
@@ -611,15 +690,15 @@ static Type *check_builtin(Expr *e, int bi) {
     }
 
     case BI_READ_FILE:
-        if (!arity(e, 1, 1, name)) return ty_str();
+        if (!arity(e, 1, 1, name)) return ty_fail(ty_str());
         want(arg(e, 0), arg_type(e, 0), ty_str(), "`read_file`");
-        return ty_str();
+        return ty_fail(ty_str());
 
     case BI_WRITE_FILE:
-        if (!arity(e, 2, 2, name)) return ty_void();
+        if (!arity(e, 2, 2, name)) return ty_fail(ty_void());
         want(arg(e, 0), arg_type(e, 0), ty_str(), "`write_file`");
         want(arg(e, 1), arg_type(e, 1), ty_str(), "`write_file`");
-        return ty_void();
+        return ty_fail(ty_void());
 
     case BI_PANIC:
         if (!arity(e, 1, 1, name)) return ty_void();
@@ -864,16 +943,16 @@ static Type *check_builtin(Expr *e, int bi) {
     case BI_DELETE_FILE:
         if (!arity(e, 1, 1, name)) return ty_void();
         want(arg(e, 0), arg_type(e, 0), ty_str(), "`delete_file`");
-        return ty_void();
+        return ty_fail(ty_void());
     case BI_APPEND_FILE:
         if (!arity(e, 2, 2, name)) return ty_void();
         want(arg(e, 0), arg_type(e, 0), ty_str(), "`append_file`");
         want(arg(e, 1), arg_type(e, 1), ty_str(), "`append_file`");
-        return ty_void();
+        return ty_fail(ty_void());
     case BI_READ_LINES:
-        if (!arity(e, 1, 1, name)) return ty_array(ty_str());
+        if (!arity(e, 1, 1, name)) return ty_fail(ty_array(ty_str()));
         want(arg(e, 0), arg_type(e, 0), ty_str(), "`read_lines`");
-        return ty_array(ty_str());
+        return ty_fail(ty_array(ty_str()));
     }
     return ty_err();
 }
@@ -893,7 +972,7 @@ static void check_args(Expr *e, FnDecl *f, const char *what) {
 }
 
 /* obj.method(args) and super.method(args) */
-static Type *check_method_call(Expr *e) {
+static Type *check_method_call(Expr *e, Type *hint) {
     Expr *target = e->a;                 /* the EX_FIELD node */
     const char *name = target->name;
     bool via_super = target->a->kind == EX_SUPER;
@@ -921,7 +1000,7 @@ static Type *check_method_call(Expr *e) {
             if (m) err_help("did you mean `%s.%s`?", mod, m);
             return ty_err();
         }
-        return check_builtin(e, bi);      /* stays an EX_CALL, now a built-in */
+        return check_builtin(e, bi, hint); /* stays an EX_CALL, now a built-in */
     }
 
     /* `Math.double(21)` -- a method reached through the class name */
@@ -1011,8 +1090,8 @@ static Type *check_method_call(Expr *e) {
     return m->ret;
 }
 
-static Type *check_call(Expr *e) {
-    if (e->a && e->a->kind == EX_FIELD) return check_method_call(e);
+static Type *check_call(Expr *e, Type *hint) {
+    if (e->a && e->a->kind == EX_FIELD) return check_method_call(e, hint);
 
     if (!e->a || e->a->kind != EX_IDENT) {
         err_at(e->line, e->col, "only named functions can be called");
@@ -1069,7 +1148,7 @@ static Type *check_call(Expr *e) {
                      mod, mod, module_member_name(bi));
             return ty_err();
         }
-        return check_builtin(e, bi);
+        return check_builtin(e, bi, hint);
     }
 
     for (int i = 0; i < e->args.len; i++) check_expr(arg(e, i), NULL);
@@ -1089,10 +1168,48 @@ static Type *check_call(Expr *e) {
     return ty_err();
 }
 
-static Type *check_binary(Expr *e) {
-    Type *a = check_expr(e->a, NULL);
+static Type *check_binary(Expr *e, Type *hint) {
+    /* `maybe or fallback` -- the same word as the boolean `or`, told apart
+     * by what is on its left, and rewritten into its own node so codegen
+     * never has to ask again. */
+    Type *a = NULL;
+    if (e->op == TK_OROR || e->kind == EX_ORELSE) {
+        a = check_expr(e->a, NULL);
+        Type *lhs = a;
+        if (ty_is_maybe(lhs)) {
+            e->kind = EX_ORELSE;
+            Type *rhs = check_expr(e->b, lhs->elem);
+            if (lhs->elem->kind == TY_VOID) {
+                err_at(e->line, e->col,
+                       "`%s` produces no value, so there is nothing to fall back to",
+                       ty_show(lhs));
+                err_help("take it apart with `if let`, or insist with `!`");
+                return ty_err();
+            }
+            if (!is_err(rhs) && !ty_assignable(rhs, lhs->elem)) {
+                err_at(e->b->line, e->b->col,
+                       "the fallback for %s must be %s, but this is %s",
+                       ty_show(lhs), ty_show(lhs->elem), ty_show(rhs));
+                if (rhs->kind == TY_BOOL)
+                    err_help("`or` binds loosest of all, so `a or b > c` reads "
+                             "as `a or (b > c)`; add brackets");
+                return lhs->elem;
+            }
+            return lhs->elem;
+        }
+    }
+
+    if (!a) a = check_expr(e->a, NULL);
     Type *b = check_expr(e->b, a && a->kind != TY_ERR ? a : NULL);
     if (is_err(a) || is_err(b)) return ty_err();
+
+    if (ty_is_maybe(a) || ty_is_maybe(b)) {
+        Type *m = ty_is_maybe(a) ? a : b;
+        err_at(e->line, e->col, "`%s` cannot be used on %s",
+               tok_name(e->op), ty_show(m));
+        maybe_help(m);
+        return ty_err();
+    }
 
     switch (e->op) {
     case TK_ANDAND: case TK_OROR:
@@ -1314,6 +1431,53 @@ static Type *check_expr(Expr *e, Type *hint) {
     Type *t = ty_err();
 
     switch (e->kind) {
+    case EX_NOTHING:
+        if (hint && hint->kind == TY_OPT) { t = hint; break; }
+        err_at(e->line, e->col, "it is not clear what this `nothing` stands in for");
+        err_help("`nothing` belongs where a `T?` is expected, as in a "
+                 "function returning `int?` or a field declared `Engine?`");
+        break;
+
+    case EX_TRY: {
+        Type *inner = check_expr(e->a, NULL);
+        if (is_err(inner)) break;
+        if (inner->kind != TY_FAIL) {
+            err_at(e->line, e->col, "`try` needs something that can fail, "
+                   "but this is %s", ty_show(inner));
+            if (inner->kind == TY_OPT)
+                err_help("`%s` has no reason to pass on; use `or`, `if let`, "
+                         "or `!` instead", ty_show(inner));
+            else
+                err_help("only a `T!` can be handed up with `try`");
+            break;
+        }
+        if (!cur_fn || !cur_fn->ret || cur_fn->ret->kind != TY_FAIL) {
+            err_at(e->line, e->col, "`try` hands a failure to the caller, so "
+                   "it needs a function that can fail");
+            err_help("declare `%s` as `%s! %s(...)`, or handle it here with "
+                     "`or`, `if let`, or `!`",
+                     cur_fn ? cur_fn->name : "this function",
+                     cur_fn && cur_fn->ret ? ty_show(cur_fn->ret) : "T",
+                     cur_fn ? cur_fn->name : "f");
+            break;
+        }
+        t = inner->elem;
+        break;
+    }
+
+    case EX_INSIST: {
+        Type *inner = check_expr(e->a, NULL);
+        if (is_err(inner)) break;
+        if (!ty_is_maybe(inner)) {
+            err_at(e->line, e->col, "`!` insists on a value that might be "
+                   "missing, but %s is always there", ty_show(inner));
+            err_help("drop the `!`");
+            break;
+        }
+        t = inner->elem;
+        break;
+    }
+
     case EX_INT:   t = ty_int();   break;
     case EX_FLOAT: t = ty_float(); break;
     case EX_BOOL:  t = ty_bool();  break;
@@ -1455,8 +1619,11 @@ static Type *check_expr(Expr *e, Type *hint) {
         t = find_named(cur_class->base->name);
         break;
 
-    case EX_BINARY: t = check_binary(e); break;
-    case EX_CALL:   t = check_call(e);   break;
+    case EX_BINARY:
+    case EX_ORELSE: t = check_binary(e, hint); break;
+
+    case EX_WRAP:   t = e->type; break;   /* already typed when it was made */
+    case EX_CALL:   t = check_call(e, hint); break;
 
     case EX_INDEX: {
         Type *a = check_expr(e->a, NULL);
@@ -1497,7 +1664,9 @@ static Type *check_expr(Expr *e, Type *hint) {
         else want(arg(e, 0), first, elem, "this array");
         for (int i = 1; i < e->args.len; i++) {
             Type *it = check_expr(arg(e, i), elem);
-            if (!is_err(it) && !is_err(elem) && !ty_assignable(it, elem)) {
+            if (!is_err(it) && !is_err(elem) && ty_assignable(it, elem)) {
+                wrap_into(arg(e, i), it, elem);
+            } else if (!is_err(it) && !is_err(elem)) {
                 err_at(arg(e, i)->line, arg(e, i)->col,
                        "this array holds %s, but item %d is %s", ty_show(elem), i + 1, ty_show(it));
                 err_help("every item in an array has the same type");
@@ -1526,6 +1695,16 @@ static Type *check_expr(Expr *e, Type *hint) {
             err_at(e->line, e->col, "an `if` used as a value must produce something "
                    "in both branches");
             break;
+        }
+        /* one branch may produce a plain value and the other `nothing` */
+        if (!ty_same(then_t, else_t)) {
+            if (ty_is_maybe(then_t) && ty_assignable(else_t, then_t)) {
+                wrap_into(arg(e, 0), else_t, then_t);
+                else_t = then_t;
+            } else if (ty_is_maybe(else_t) && ty_assignable(then_t, else_t)) {
+                wrap_into(e->b, then_t, else_t);
+                then_t = else_t;
+            }
         }
         if (!ty_same(then_t, else_t)) {
             err_at(arg(e, 0)->line, arg(e, 0)->col,
@@ -1662,13 +1841,66 @@ static void check_stmt(Stmt *s) {
 
     case ST_EXPR: {
         Type *t = check_expr(s->rhs, NULL);
-        if (s->rhs->kind != EX_CALL && s->rhs->kind != EX_METHOD &&
-            s->rhs->kind != EX_NEW) {
+        /* `save()!;` and `try save();` are still calls, wrapped in what to
+         * do about a failure. */
+        Expr *doing = s->rhs;
+        while (doing && (doing->kind == EX_INSIST || doing->kind == EX_TRY))
+            doing = doing->a;
+        if (doing->kind != EX_CALL && doing->kind != EX_METHOD &&
+            doing->kind != EX_NEW) {
             err_at(s->line, s->col, "this value is computed and then thrown away");
             err_help("did you mean to assign it, or to call a function?");
+        } else if (t && t->kind == TY_FAIL) {
+            /* Throwing away a value is one thing; throwing away whether the
+             * work happened at all is another. */
+            err_at(s->line, s->col,
+                   "this can fail, and nothing here says what to do if it does");
+            maybe_help(t);
         } else if (t && t->kind != TY_VOID && s->rhs->fn) {
             /* calling a value-returning function and ignoring it is fine */
         }
+        break;
+    }
+
+    /* `if let v = maybe { } else why { }` -- `v` exists only where the
+     * value does, and `why` only where it does not. */
+    case ST_IFLET: {
+        Type *m = check_expr(s->rhs, NULL);
+        if (!is_err(m) && !ty_is_maybe(m)) {
+            err_at(s->rhs->line, s->rhs->col,
+                   "`if let` looks inside a value that may be missing, "
+                   "but %s is always there", ty_show(m));
+            err_help("write a plain `let %s = ...;`", s->name);
+        }
+        bool discard = strcmp(s->name, "_") == 0;
+        if (!is_err(m) && ty_is_maybe(m) && m->elem->kind == TY_VOID && !discard) {
+            err_at(s->line, s->col,
+                   "`%s` produces no value, so `%s` would have nothing to hold",
+                   ty_show(m), s->name);
+            err_help("write `if let _ = ...` to ask only whether it worked");
+        }
+        push_scope();
+        /* `_` throws the value away and asks only whether it is there */
+        if (!discard)
+            s->var = declare(s->name,
+                             (!is_err(m) && ty_is_maybe(m)) ? m->elem : ty_err(),
+                             false, false, s->line, s->col);
+        check_stmts(&s->body);
+        pop_scope();
+
+        push_scope();
+        if (s->err_name) {
+            if (!is_err(m) && m->kind != TY_FAIL) {
+                err_at(s->line, s->col,
+                       "`%s` has no reason to name, because nothing is all "
+                       "it can be", ty_show(m));
+                err_help("drop `%s`, or make the value a `%s!`",
+                         s->err_name, ty_show(m->elem));
+            }
+            s->err_var = declare(s->err_name, ty_str(), false, false, s->line, s->col);
+        }
+        check_stmts(&s->els);
+        pop_scope();
         break;
     }
 
@@ -1805,7 +2037,7 @@ static bool always_returns(Vec *body) {
         Stmt *s = body->items[i];
         if (s->kind == ST_RETURN) return true;
         if (s->kind == ST_BLOCK && always_returns(&s->body)) return true;
-        if (s->kind == ST_IF && s->els.len > 0 &&
+        if ((s->kind == ST_IF || s->kind == ST_IFLET) && s->els.len > 0 &&
             always_returns(&s->body) && always_returns(&s->els)) return true;
         if (s->kind == ST_EXPR && s->rhs && s->rhs->kind == EX_CALL &&
             s->rhs->builtin == BI_PANIC) return true;
@@ -1957,6 +2189,23 @@ void check_program(Program *p, bool require_main) {
                        (char *)cd->fnames.items[j], cd->base->name);
                 err_help("give this one a different name");
             }
+            /* Every other type has an empty value to start from -- 0, "",
+             * an empty array.  An object does not, so a field holding one
+             * either gets set when the object is made, or says in its type
+             * that it may be missing. */
+            Type *ft = cd->ftypes.items[j];
+            const char *fname = cd->fnames.items[j];
+            if (ft && ft->kind == TY_CLASS && !init_assigns(cd->init, fname)) {
+                err_at(cd->line, cd->col,
+                       "`%s.%s` would have no %s when a `%s` is made",
+                       cd->name, fname, ft->name, cd->name);
+                if (cd->init)
+                    err_help("set `self.%s` in `init`, or declare the field "
+                             "`%s?` for one that may be missing", fname, ft->name);
+                else
+                    err_help("give `%s` an `init` that sets `self.%s`, or "
+                             "declare the field `%s?`", cd->name, fname, ft->name);
+            }
         }
     }
     /* methods that belong to the class itself */
@@ -2095,7 +2344,8 @@ void check_program(Program *p, bool require_main) {
         }
         check_stmts(&f->body);
         pop_scope();
-        if (f->ret->kind != TY_VOID && !always_returns(&f->body)) {
+        if (f->ret->kind != TY_VOID && !ty_is_void_fail(f->ret) &&
+            !always_returns(&f->body)) {
             err_at(f->line, f->col, "`%s` must return %s on every path",
                    f->name, ty_show(f->ret));
             err_help("add a `return` at the end, or an `else` branch that returns");
@@ -2137,7 +2387,8 @@ void check_program(Program *p, bool require_main) {
             check_stmts(&m->body);
             pop_scope();
 
-            if (m->ret->kind != TY_VOID && !always_returns(&m->body)) {
+            if (m->ret->kind != TY_VOID && !ty_is_void_fail(m->ret) &&
+                !always_returns(&m->body)) {
                 err_at(m->line, m->col, "`%s.%s` must return %s on every path",
                        cd->name, m->name, ty_show(m->ret));
                 err_help("add a `return` at the end, or an `else` branch that returns");

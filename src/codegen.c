@@ -32,6 +32,33 @@ static Buf *dst;                            /* current destination */
 
 static void indent(int n) { for (int i = 0; i < n; i++) buf_puts(dst, "    "); }
 
+/* ------------------------------------------------------------------ */
+/* statements hoisted out of an expression                             */
+/* ------------------------------------------------------------------ */
+
+/* `or` and `try` cannot be written as C expressions: one must not
+ * evaluate its fallback unless it is needed, and the other returns from
+ * the function it sits in.  Both put their working out here, and the
+ * expression they leave behind is just the name of a temporary. */
+static Buf  *prelude;        /* the statements to emit before this one  */
+static int   prelude_lvl;
+static Type *cur_ret;        /* the enclosing function's return type    */
+
+static void hoist(const char *fmt, ...) {
+    char line[4096];
+    va_list ap;
+    va_start(ap, fmt);
+    vsnprintf(line, sizeof line, fmt, ap);
+    va_end(ap);
+
+    Buf *saved = dst;
+    dst = prelude;
+    indent(prelude_lvl);
+    buf_puts(dst, line);
+    dst = saved;
+}
+
+
 /* Render text as a C string literal.  Non-printable bytes become octal
  * escapes so embedded zeros and UTF-8 both survive the trip. */
 static char *c_string(const char *s, size_t n) {
@@ -68,8 +95,24 @@ static void in_unit(Source *src) { if (src) unit = src->path; }
 /* C type names                                                        */
 /* ------------------------------------------------------------------ */
 
+/* `T?` and `T!` share one C shape: a flag, the value, and the reason it is
+ * missing (empty for a `T?`, which has no reason to give).  One struct is
+ * generated per inner type and both spellings use it. */
+static Vec maybe_types;
+
+static const char *maybe_ctype(Type *t) {
+    Type *inner = t->elem;
+    for (int i = 0; i < maybe_types.len; i++)
+        if (ty_same(((Type *)maybe_types.items[i])->elem, inner))
+            return cx_fmt("CubMaybe_%s", ty_mangle(inner));
+    vec_push(&maybe_types, t);
+    return cx_fmt("CubMaybe_%s", ty_mangle(inner));
+}
+
 static const char *ctype(Type *t) {
     switch (t->kind) {
+    case TY_OPT:
+    case TY_FAIL:   return maybe_ctype(t);
     case TY_INT:    return "int64_t";
     case TY_FLOAT:  return "double";
     case TY_BOOL:   return "bool";
@@ -270,6 +313,9 @@ static char *default_value(Type *t) {
                                  ctype(t->elem), t->key->kind == TY_STR ? 1 : 0);
     case TY_CLASS: return cx_fmt("NULL");
     case TY_ENUM:  return cx_fmt("(CubE_%s)0", t->name);
+    /* a field that may be missing starts out missing */
+    case TY_OPT:
+    case TY_FAIL:  return cx_fmt("(%s){ .ok = false }", ctype(t));
     case TY_STRUCT: {
         StructDef *sd = t->sdef;
         Buf b;
@@ -416,12 +462,16 @@ static void gen_builtin(Expr *e) {
           ctype(a0->type->elem), expr_str(a2), loc(e->line));
         return;
 
+    case BI_FAIL:
+        E("(%s){ .ok = false, .err = %s }", ctype(e->type), expr_str(a0));
+        return;
+
     case BI_STR: E("%s", str_of_expr(a0, false)); return;
 
     case BI_INT:
         switch (a0->type->kind) {
         case TY_FLOAT: E("cub_int_of_float(%s, %s)", expr_str(a0), loc(e->line)); break;
-        case TY_STR:   E("cub_int_of_str(%s, %s)", expr_str(a0), loc(e->line)); break;
+        case TY_STR:   E("cub_int_of_str(%s)", expr_str(a0)); break;
         case TY_BOOL:  E("((int64_t)(%s))", expr_str(a0)); break;
         default:       E("(%s)", expr_str(a0)); break;
         }
@@ -430,7 +480,7 @@ static void gen_builtin(Expr *e) {
     case BI_FLOAT:
         switch (a0->type->kind) {
         case TY_INT: E("((double)(%s))", expr_str(a0)); break;
-        case TY_STR: E("cub_float_of_str(%s, %s)", expr_str(a0), loc(e->line)); break;
+        case TY_STR: E("cub_float_of_str(%s)", expr_str(a0)); break;
         default:     E("(%s)", expr_str(a0)); break;
         }
         return;
@@ -501,8 +551,8 @@ static void gen_builtin(Expr *e) {
     }
     case BI_REVERSE: E("cub_arr_reverse(%s)", expr_str(a0)); return;
 
-    case BI_READ_FILE:  E("cub_read_file(%s, %s)", expr_str(a0), loc(e->line)); return;
-    case BI_WRITE_FILE: E("cub_write_file(%s, %s, %s)", expr_str(a0), expr_str(a1), loc(e->line)); return;
+    case BI_READ_FILE:  E("cub_read_file(%s)", expr_str(a0)); return;
+    case BI_WRITE_FILE: E("cub_write_file(%s, %s)", expr_str(a0), expr_str(a1)); return;
 
     case BI_PANIC: E("cub_panic_at(%s, \"%%s\", (%s).data)", loc(e->line), expr_str(a0)); return;
 
@@ -615,17 +665,58 @@ static void gen_builtin(Expr *e) {
     case BI_SLEEP_MS: E("cub_sleep_ms(%s)", expr_str(a0)); return;
 
     case BI_FILE_EXISTS: E("cub_file_exists(%s)", expr_str(a0)); return;
-    case BI_DELETE_FILE: E("cub_delete_file(%s, %s)", expr_str(a0), loc(e->line)); return;
+    case BI_DELETE_FILE: E("cub_delete_file(%s)", expr_str(a0)); return;
     case BI_APPEND_FILE:
-        E("cub_append_file(%s, %s, %s)", expr_str(a0), expr_str(a1), loc(e->line)); return;
+        E("cub_append_file(%s, %s)", expr_str(a0), expr_str(a1)); return;
     case BI_READ_LINES:
-        E("cub_str_lines(cub_read_file(%s, %s))", expr_str(a0), loc(e->line)); return;
+        E("cub_read_lines(%s)", expr_str(a0)); return;
     }
     E("/* unhandled builtin */ 0");
 }
 
 static void gen_expr(Expr *e) {
     switch (e->kind) {
+    case EX_NOTHING:
+        E("(%s){ .ok = false }", ctype(e->type));
+        break;
+
+    case EX_WRAP:
+        if (e->type->elem->kind == TY_VOID) E("(%s){ .ok = true }", ctype(e->type));
+        else E("(%s){ .ok = true, .value = %s }", ctype(e->type), expr_str(e->a));
+        break;
+
+    case EX_INSIST:
+        /* the type being looked into may appear nowhere else, so make sure
+         * its definition and helper get written out */
+        (void)ctype(e->a->type);
+        E("cub_insist_%s(%s, %s)", ty_mangle(e->type),
+          expr_str(e->a), loc(e->line));
+        break;
+
+    case EX_ORELSE: {
+        int id = ++tmp_id;
+        Type *mt = e->a->type;
+        char *m = expr_str(e->a);
+        hoist("%s cub_m%d = %s;\n", ctype(mt), id, m);
+        hoist("%s cub_v%d;\n", ctype(mt->elem), id);
+        hoist("if (cub_m%d.ok) cub_v%d = cub_m%d.value;\n", id, id, id);
+        char *fb = expr_str(e->b);
+        hoist("else cub_v%d = %s;\n", id, fb);
+        E("cub_v%d", id);
+        break;
+    }
+
+    case EX_TRY: {
+        int id = ++tmp_id;
+        Type *mt = e->a->type;
+        char *m = expr_str(e->a);
+        hoist("%s cub_m%d = %s;\n", ctype(mt), id, m);
+        hoist("if (!cub_m%d.ok) return (%s){ .ok = false, .err = cub_m%d.err };\n",
+              id, ctype(cur_ret), id);
+        E("cub_m%d.value", id);
+        break;
+    }
+
     case EX_INT:   E("INT64_C(%lld)", (long long)e->ival); break;
     case EX_FLOAT:
         if (e->fval != e->fval)                E("(0.0 / 0.0)");
@@ -809,6 +900,8 @@ static void gen_expr(Expr *e) {
 
 static void gen_stmts(Vec *body, int lvl);
 
+/* ------------------------------------------------------------------ */
+
 static void gen_assign_target(Expr *lhs) {
     /* `m[key] = value` puts the key there if it is new, so it cannot go
      * through the read path, which insists the key already exists. */
@@ -824,7 +917,61 @@ static void gen_assign_target(Expr *lhs) {
     gen_expr(lhs);
 }
 
+static void gen_stmt_inner(Stmt *s, int lvl);
+
+/* Emit one statement, with whatever `or` and `try` needed in front of it. */
 static void gen_stmt(Stmt *s, int lvl) {
+    Buf pre, body;
+    buf_init(&pre);
+    buf_init(&body);
+
+    Buf *saved_dst = dst, *saved_pre = prelude;
+    int saved_lvl = prelude_lvl;
+    prelude = &pre;
+    prelude_lvl = lvl;
+    dst = &body;
+
+    /* A `while` tests its condition again on every pass, so work hoisted
+     * out of it belongs inside the loop rather than before it. */
+    if (s->kind == ST_WHILE) {
+        Buf cond;
+        buf_init(&cond);
+        Buf *d = dst;
+        dst = &cond;
+        gen_expr(s->cond);
+        dst = d;
+        if (pre.len > 0) {
+            indent(lvl);
+            E("for (;;) {\n");
+            buf_puts(dst, pre.data);
+            pre.len = 0;
+            if (pre.data) pre.data[0] = 0;
+            indent(lvl + 1);
+            E("if (!(%s)) break;\n", cond.data);
+            gen_stmts(&s->body, lvl + 1);
+            indent(lvl);
+            E("}\n");
+            goto done;
+        }
+        indent(lvl);
+        E("while (%s) {\n", cond.data);
+        gen_stmts(&s->body, lvl + 1);
+        indent(lvl);
+        E("}\n");
+        goto done;
+    }
+
+    gen_stmt_inner(s, lvl);
+
+done:
+    dst = saved_dst;
+    prelude = saved_pre;
+    prelude_lvl = saved_lvl;
+    buf_puts(dst, pre.data);
+    buf_puts(dst, body.data);
+}
+
+static void gen_stmt_inner(Stmt *s, int lvl) {
     switch (s->kind) {
     case ST_LET:
         indent(lvl);
@@ -900,14 +1047,41 @@ static void gen_stmt(Stmt *s, int lvl) {
         E("\n");
         break;
 
-    case ST_WHILE:
+    case ST_IFLET: {
+        int id = ++tmp_id;
+        Type *mt = s->rhs->type;
         indent(lvl);
-        E("while (");
-        gen_expr(s->cond);
-        E(") {\n");
-        gen_stmts(&s->body, lvl + 1);
+        E("{\n");
+        indent(lvl + 1);
+        E("%s cub_m%d = ", ctype(mt), id);
+        gen_expr(s->rhs);
+        E(";\n");
+        indent(lvl + 1);
+        E("if (cub_m%d.ok) {\n", id);
+        if (s->var && mt->elem->kind != TY_VOID) {
+            indent(lvl + 2);
+            E("%s %s = cub_m%d.value;\n", ctype(mt->elem), s->var->cname, id);
+            indent(lvl + 2);
+            E("(void)%s;\n", s->var->cname);
+        }
+        gen_stmts(&s->body, lvl + 2);
+        indent(lvl + 1);
+        E("} else {\n");
+        if (s->err_var) {
+            indent(lvl + 2);
+            E("CubStr %s = cub_m%d.err;\n", s->err_var->cname, id);
+            indent(lvl + 2);
+            E("(void)%s;\n", s->err_var->cname);
+        }
+        gen_stmts(&s->els, lvl + 2);
+        indent(lvl + 1);
+        E("}\n");
         indent(lvl);
         E("}\n");
+        break;
+    }
+
+    case ST_WHILE:      /* handled in gen_stmt, which can rewrite the loop */
         break;
 
     case ST_FORRANGE: {
@@ -948,6 +1122,11 @@ static void gen_stmt(Stmt *s, int lvl) {
     }
 
     case ST_RETURN:
+        if (!s->rhs && cur_ret && cur_ret->kind == TY_FAIL) {
+            indent(lvl);
+            E("return (%s){ .ok = true };\n", ctype(cur_ret));
+            break;
+        }
         indent(lvl);
         if (s->rhs) { E("return "); gen_expr(s->rhs); E(";\n"); }
         else E("return;\n");
@@ -974,14 +1153,65 @@ static void gen_stmts(Vec *body, int lvl) {
 /* declarations                                                        */
 /* ------------------------------------------------------------------ */
 
+/* One definition per inner type, emitted the first time something needs
+ * it -- a field may hold a `Point?`, and `Point` has to exist first. */
+static Vec maybe_emitted;
+
+/* The runtime declares the shapes it hands back itself. */
+static bool maybe_predefined(Type *m) {
+    const char *n = ty_mangle(m->elem);
+    return strcmp(n, "int") == 0 || strcmp(n, "float") == 0 ||
+           strcmp(n, "string") == 0 || strcmp(n, "arr_string") == 0 ||
+           strcmp(n, "void") == 0;
+}
+
+static void emit_maybe_type(Type *m) {
+    for (int i = 0; i < maybe_emitted.len; i++)
+        if (ty_same(((Type *)maybe_emitted.items[i])->elem, m->elem)) return;
+    vec_push(&maybe_emitted, m);
+
+    const char *nm = ctype(m);
+    if (maybe_predefined(m)) {                 /* only the helper is ours */
+        E("static %s cub_insist_%s(%s m, const char *f, int l) {\n",
+          m->elem->kind == TY_VOID ? "void" : ctype(m->elem), ty_mangle(m->elem), nm);
+        E("    if (!m.ok) cub_panic_at(f, l, \"%%s\", m.err.len\n"
+          "        ? (const char *)m.err.data\n"
+          "        : \"there is nothing here\");\n");
+        if (m->elem->kind != TY_VOID) E("    return m.value;\n");
+        E("}\n\n");
+        return;
+    }
+    E("typedef struct {\n    bool ok;\n");
+    if (m->elem->kind != TY_VOID) E("    %s value;\n", ctype(m->elem));
+    E("    CubStr err;\n} %s;\n\n", nm);
+
+    E("static %s cub_insist_%s(%s m, const char *f, int l) {\n",
+      m->elem->kind == TY_VOID ? "void" : ctype(m->elem), ty_mangle(m->elem), nm);
+    E("    if (!m.ok) cub_panic_at(f, l, \"%%s\", m.err.len\n"
+      "        ? (const char *)m.err.data\n"
+      "        : \"there is nothing here\");\n");
+    if (m->elem->kind != TY_VOID) E("    return m.value;\n");
+    E("}\n\n");
+}
+
+/* Whatever this type is built out of has to be defined before it is. */
+static void emit_struct(StructDef *sd, Vec *done);
+
+static void ensure_type(Type *t, Vec *done) {
+    if (!t) return;
+    if (t->kind == TY_STRUCT && t->sdef) emit_struct(t->sdef, done);
+    else if (t->kind == TY_OPT || t->kind == TY_FAIL) {
+        ensure_type(t->elem, done);
+        emit_maybe_type(t);
+    }
+}
+
 static void emit_struct(StructDef *sd, Vec *done) {
     for (int i = 0; i < done->len; i++)
         if (done->items[i] == sd) return;
-    /* a struct held by value must be defined first */
-    for (int i = 0; i < sd->ftypes.len; i++) {
-        Type *ft = sd->ftypes.items[i];
-        if (ft->kind == TY_STRUCT) emit_struct(ft->sdef, done);
-    }
+    /* whatever a field is built out of must be defined first */
+    for (int i = 0; i < sd->ftypes.len; i++)
+        ensure_type(sd->ftypes.items[i], done);
     for (int i = 0; i < done->len; i++)
         if (done->items[i] == sd) return;
     vec_push(done, sd);
@@ -1000,7 +1230,9 @@ static int class_order(const void *a, const void *b) {
     return x->depth - y->depth;
 }
 
-static void emit_class_struct(ClassDef *cd) {
+static void emit_class_struct(ClassDef *cd, Vec *done) {
+    for (int i = 0; i < cd->ftypes.len; i++)
+        ensure_type(cd->ftypes.items[i], done);
     E("struct CubC_%s {\n", cd->name);
     if (cd->base) E("    CubC_%s base;\n", cd->base->name);
     else          E("    const void *vt;\n");
@@ -1137,7 +1369,7 @@ char *codegen_program(Program *p, const char *unit_name) {
         E("typedef struct CubC_%s CubC_%s;\n", ((ClassDef *)ordered.items[i])->name,
           ((ClassDef *)ordered.items[i])->name);
     if (ordered.len) E("\n");
-    for (int i = 0; i < ordered.len; i++) emit_class_struct(ordered.items[i]);
+    for (int i = 0; i < ordered.len; i++) emit_class_struct(ordered.items[i], &done);
     for (int i = 0; i < ordered.len; i++) emit_vt_struct(ordered.items[i]);
 
     /* quoted text helper, used when printing containers */
@@ -1155,6 +1387,7 @@ char *codegen_program(Program *p, const char *unit_name) {
             FnDecl *m = is_static ? cd->statics.items[j - cd->methods.len]
                                   : cd->methods.items[j];
             method_signature(m);
+            cur_ret = m->ret;
             E(" {\n");
             E("    cub_stack_check(%s, %s);\n",
               lit(cx_fmt("%s.%s", cd->name, m->name)), loc(m->line));
@@ -1164,6 +1397,12 @@ char *codegen_program(Program *p, const char *unit_name) {
             }
             gen_stmts(&m->body, 1);
             if (m->ret->kind == TY_VOID) { indent(1); E("return;\n"); }
+            else if (m->ret->kind == TY_FAIL && m->ret->elem->kind == TY_VOID) {
+                indent(1); E("return (%s){ .ok = true };\n", ctype(m->ret));
+            }
+        else if (m->ret->kind == TY_FAIL && m->ret->elem->kind == TY_VOID) {
+            indent(1); E("return (%s){ .ok = true };\n", ctype(m->ret));
+        }
             else if (m->ret->kind == TY_STR) { indent(1); E("return cub_str_lit(\"\", 0);\n"); }
             else if (m->ret->kind == TY_ARRAY) { indent(1); E("return cub_arr_new(1, 0);\n"); }
             else if (m->ret->kind == TY_CLASS) { indent(1); E("return NULL;\n"); }
@@ -1179,10 +1418,14 @@ char *codegen_program(Program *p, const char *unit_name) {
         FnDecl *f = p->fns.items[i];
         in_unit(f->src);
         fn_signature(f);
+        cur_ret = f->ret;
         E(" {\n");
         E("    cub_stack_check(%s, %s);\n", lit(f->name), loc(f->line));
         gen_stmts(&f->body, 1);
         if (f->ret->kind == TY_VOID) { indent(1); E("return;\n"); }
+        else if (f->ret->kind == TY_FAIL && f->ret->elem->kind == TY_VOID) {
+            indent(1); E("return (%s){ .ok = true };\n", ctype(f->ret));
+        }
         else if (f->ret->kind == TY_STR) { indent(1); E("return cub_str_lit(\"\", 0);\n"); }
         else if (f->ret->kind == TY_ARRAY) { indent(1); E("return cub_arr_new(1, 0);\n"); }
         else { indent(1); E("{ %s cub_unreachable = {0}; return cub_unreachable; }\n", ctype(f->ret)); }
@@ -1208,6 +1451,12 @@ char *codegen_program(Program *p, const char *unit_name) {
 
     /* ---- assemble ---- */
     dst = &out;
+    /* Anything that turned up while the bodies were written: a local
+     * `int?`, or the `int!` behind an `int(text)!`, need not appear in any
+     * field.  This runs after the bodies for that reason. */
+    for (int i = 0; i < maybe_types.len; i++)
+        emit_maybe_type(maybe_types.items[i]);
+
     E("/* ---- globals ---- */\n\n");
     for (int i = 0; i < p->globals.len; i++) {
         Stmt *s = p->globals.items[i];

@@ -36,12 +36,20 @@ void main() {
 
     print(len(os.args()) >= 1, os.clock_ms() > 0, len(os.env("PATH")) > 0);
 
-    fs.write("tests/tmp/std.txt", "alpha\nbeta\n");
-    fs.append("tests/tmp/std.txt", "gamma\n");
-    print(fs.read_lines("tests/tmp/std.txt"));
+    fs.write("tests/tmp/std.txt", "alpha\nbeta\n")!;
+    fs.append("tests/tmp/std.txt", "gamma\n")!;
+    print(fs.read_lines("tests/tmp/std.txt")!);
     print(fs.exists("tests/tmp/std.txt"));
-    fs.delete("tests/tmp/std.txt");
+    fs.delete("tests/tmp/std.txt")!;
     print(fs.exists("tests/tmp/std.txt"));
+
+    // a file that is not there explains itself rather than stopping
+    print(fs.read("tests/tmp/not-here.txt") or "(missing)");
+    if let _ = fs.delete("tests/tmp/not-here.txt") {
+        print("deleted");
+    } else why {
+        print(len(why) > 0);
+    }
 
     rand.seed(1);
     let r = rand.float();

@@ -63,8 +63,8 @@ void main() {
     print(len([1, 2, 3]) == 3);
 
     // files
-    fs.write("tests/tmp/scratch.txt", "line one\nline two\n");
-    let back = fs.read("tests/tmp/scratch.txt");
+    fs.write("tests/tmp/scratch.txt", "line one\nline two\n")!;
+    let back = fs.read("tests/tmp/scratch.txt")!;
     print(len(split(trim(back), "\n")));
     print(trim(split(back, "\n")[1]));
 }

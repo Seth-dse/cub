@@ -1,0 +1,1 @@
+try` hands a failure to the caller, so it needs a function that can fail

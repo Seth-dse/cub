@@ -38,6 +38,7 @@
 #include <math.h>
 #include <time.h>
 #include <ctype.h>
+#include <errno.h>
 
 #if defined(_WIN32)
 #  include <windows.h>
@@ -259,6 +260,22 @@ static void cub_stack_check(const char *name, const char *f, int l) {
         cub_panic_at(f, l, "`%s` ran out of stack space, so the calls were "
                            "nested too deeply to finish", name);
 }
+
+/* ---------------- values that may not be there ---------------- */
+
+/* `T?` and `T!` become a struct per inner type.  The ones the library
+ * itself hands back are declared here so a runtime function can return
+ * one directly; cubc generates the rest. */
+#define CUB_MAYBE(name, T)                              \
+    typedef struct { bool ok; T value; CubStr err; } name
+
+static CubStr cub_str_lit(const char *s, int64_t n);
+
+CUB_MAYBE(CubMaybe_int, int64_t);
+CUB_MAYBE(CubMaybe_float, double);
+CUB_MAYBE(CubMaybe_string, CubStr);
+CUB_MAYBE(CubMaybe_arr_string, struct CubArrRec *);
+typedef struct { bool ok; CubStr err; } CubMaybe_void;
 
 /* ---------------- text ---------------- */
 
@@ -772,24 +789,59 @@ static int64_t cub_int_of_float(double v, const char *f, int l) {
     return (int64_t)v;
 }
 
-static int64_t cub_int_of_str(CubStr s, const char *f, int l) {
-    char *end = NULL;
+static CubMaybe_int cub_int_of_str(CubStr s) {
+    CubMaybe_int r;
+    r.ok = false;
+    r.value = 0;
+    r.err = cub_str_lit("", 0);
+
     CubStr t = cub_str_trim(s);
-    if (t.len == 0) cub_panic_at(f, l, "cannot read a whole number from empty text");
+    if (t.len == 0) {
+        r.err = cub_str_lit("there is no whole number in empty text", 38);
+        return r;
+    }
+    errno = 0;
+    char *end = NULL;
     long long v = strtoll(t.data, &end, 10);
-    if (end != t.data + t.len)
-        cub_panic_at(f, l, "cannot read a whole number from \"%s\"", t.data);
-    return (int64_t)v;
+    if (end != t.data + t.len) {
+        r.err = cub_str_concat(cub_str_concat(
+                    cub_str_lit("cannot read a whole number from \"", 33), t),
+                    cub_str_lit("\"", 1));
+        return r;
+    }
+    if (errno == ERANGE) {
+        r.err = cub_str_concat(cub_str_concat(
+                    cub_str_lit("\"", 1), t),
+                    cub_str_lit("\" does not fit in an int", 24));
+        return r;
+    }
+    r.ok = true;
+    r.value = (int64_t)v;
+    return r;
 }
 
-static double cub_float_of_str(CubStr s, const char *f, int l) {
-    char *end = NULL;
+static CubMaybe_float cub_float_of_str(CubStr s) {
+    CubMaybe_float r;
+    r.ok = false;
+    r.value = 0.0;
+    r.err = cub_str_lit("", 0);
+
     CubStr t = cub_str_trim(s);
-    if (t.len == 0) cub_panic_at(f, l, "cannot read a number from empty text");
+    if (t.len == 0) {
+        r.err = cub_str_lit("there is no number in empty text", 32);
+        return r;
+    }
+    char *end = NULL;
     double v = strtod(t.data, &end);
-    if (end != t.data + t.len)
-        cub_panic_at(f, l, "cannot read a number from \"%s\"", t.data);
-    return v;
+    if (end != t.data + t.len) {
+        r.err = cub_str_concat(cub_str_concat(
+                    cub_str_lit("cannot read a number from \"", 27), t),
+                    cub_str_lit("\"", 1));
+        return r;
+    }
+    r.ok = true;
+    r.value = v;
+    return r;
 }
 
 /* ---------------- numbers ---------------- */
@@ -818,26 +870,49 @@ static int64_t cub_mod_int(int64_t a, int64_t b, const char *f, int l) {
 
 /* ---------------- files, input, misc ---------------- */
 
-static CubStr cub_read_file(CubStr path, const char *f, int l) {
+/* Why a file could not be used, in the same words a person would. */
+static CubStr cub_file_trouble(const char *what, CubStr path) {
+    CubStr r = cub_str_concat(cub_str_lit(what, (int64_t)strlen(what)),
+                              cub_str_lit(" \"", 2));
+    r = cub_str_concat(cub_str_concat(r, path), cub_str_lit("\": ", 3));
+    const char *why = strerror(errno);
+    return cub_str_concat(r, cub_str_lit(why, (int64_t)strlen(why)));
+}
+
+static CubMaybe_string cub_read_file(CubStr path) {
+    CubMaybe_string r;
+    r.ok = false;
+    r.value = cub_str_lit("", 0);
+    r.err = cub_str_lit("", 0);
+
+    errno = 0;
     FILE *fp = fopen(path.data, "rb");
-    if (!fp) cub_panic_at(f, l, "cannot open the file \"%s\"", path.data);
+    if (!fp) { r.err = cub_file_trouble("cannot open", path); return r; }
     fseek(fp, 0, SEEK_END);
     long n = ftell(fp);
     fseek(fp, 0, SEEK_SET);
-    if (n < 0) { fclose(fp); cub_panic_at(f, l, "cannot read the file \"%s\"", path.data); }
+    if (n < 0) { fclose(fp); r.err = cub_file_trouble("cannot read", path); return r; }
     char *p = (char *)cub_alloc((size_t)n + 1);
     size_t got = fread(p, 1, (size_t)n, fp);
     fclose(fp);
     p[got] = 0;
-    CubStr r; r.data = p; r.len = (int64_t)got;
+    r.ok = true;
+    r.value.data = p;
+    r.value.len = (int64_t)got;
     return r;
 }
 
-static void cub_write_file(CubStr path, CubStr body, const char *f, int l) {
+static CubMaybe_void cub_write_file(CubStr path, CubStr body) {
+    CubMaybe_void r;
+    r.ok = false;
+    r.err = cub_str_lit("", 0);
+    errno = 0;
     FILE *fp = fopen(path.data, "wb");
-    if (!fp) cub_panic_at(f, l, "cannot write the file \"%s\"", path.data);
+    if (!fp) { r.err = cub_file_trouble("cannot write", path); return r; }
     fwrite(body.data, 1, (size_t)body.len, fp);
     fclose(fp);
+    r.ok = true;
+    return r;
 }
 
 static CubStr cub_input(void) {
@@ -1165,16 +1240,45 @@ static bool cub_file_exists(CubStr path) {
     return true;
 }
 
-static void cub_append_file(CubStr path, CubStr body, const char *f, int l) {
+static CubMaybe_void cub_append_file(CubStr path, CubStr body) {
+    CubMaybe_void r;
+    r.ok = false;
+    r.err = cub_str_lit("", 0);
+    errno = 0;
     FILE *fp = fopen(path.data, "ab");
-    if (!fp) cub_panic_at(f, l, "cannot add to the file \"%s\"", path.data);
+    if (!fp) { r.err = cub_file_trouble("cannot add to", path); return r; }
     fwrite(body.data, 1, (size_t)body.len, fp);
     fclose(fp);
+    r.ok = true;
+    return r;
 }
 
-static void cub_delete_file(CubStr path, const char *f, int l) {
-    if (remove(path.data) != 0)
-        cub_panic_at(f, l, "cannot delete the file \"%s\"", path.data);
+static CubArr cub_str_lines(CubStr s);
+
+static CubMaybe_arr_string cub_read_lines(CubStr path) {
+    CubMaybe_arr_string r;
+    r.ok = false;
+    r.value = NULL;
+    r.err = cub_str_lit("", 0);
+
+    CubMaybe_string body = cub_read_file(path);
+    if (!body.ok) { r.err = body.err; return r; }
+    r.ok = true;
+    r.value = cub_str_lines(body.value);
+    return r;
+}
+
+static CubMaybe_void cub_delete_file(CubStr path) {
+    CubMaybe_void r;
+    r.ok = false;
+    r.err = cub_str_lit("", 0);
+    errno = 0;
+    if (remove(path.data) != 0) {
+        r.err = cub_file_trouble("cannot delete", path);
+        return r;
+    }
+    r.ok = true;
+    return r;
 }
 
 static void cub_rt_init(int argc, char **argv) {

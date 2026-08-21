@@ -24,8 +24,9 @@ static const char *tok_names[TK__COUNT] = {
     "return", "break", "continue", "type", "struct", "enum",
     "true", "false", "and", "or", "not",
     "class", "extends", "self", "super", "void", "static", "import",
+    "nothing", "try",
     "(", ")", "{", "}", "[", "]",
-    ",", ".", "..", "..=", ":", ";", "->",
+    ",", ".", "..", "..=", ":", ";", "->", "?",
     "+", "-", "*", "/", "%",
     "=", "+=", "-=", "*=", "/=", "%=",
     "==", "!=", "<", "<=", ">", ">=",
@@ -46,6 +47,7 @@ static const struct { const char *word; TokKind kind; } keywords[] = {
     {"class", TK_CLASS}, {"extends", TK_EXTENDS},
     {"self", TK_SELF}, {"super", TK_SUPER},
     {"void", TK_VOID}, {"static", TK_STATIC}, {"import", TK_IMPORT},
+    {"nothing", TK_NOTHING}, {"try", TK_TRY},
     {NULL, TK_EOF}
 };
 
@@ -310,6 +312,7 @@ Token *lex_all(Source *src, int first_line, int *out_count) {
         case ',': t->kind = TK_COMMA;  break;
         case ':': t->kind = TK_COLON;  break;
         case ';': t->kind = TK_SEMI;   break;
+        case '?': t->kind = TK_QUESTION; break;
         case '.':
             if (d == '.') {
                 advance(&L);

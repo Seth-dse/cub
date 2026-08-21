@@ -89,8 +89,34 @@ static Stmt *mkstmt(P *p, StmtKind k) {
 
 /* ---------------- types ---------------- */
 
+/* `int`, `int?`, `int!` -- the suffix says the value may be missing, and
+ * with `!` a failure brings a reason along.  They do not nest: a value is
+ * either there, or missing once. */
+static Type *parse_suffix(P *p, Type *base) {
+    if (!at(p, TK_QUESTION) && !at(p, TK_BANG)) return base;
+    Token *c = cur(p);
+    bool optional = at(p, TK_QUESTION);
+    p->i++;
+    if (at(p, TK_QUESTION) || at(p, TK_BANG)) {
+        err_at(c->line, c->col, "`%s%s%s` is not a type Cub has",
+               ty_show(base), optional ? "?" : "!",
+               at(p, TK_QUESTION) ? "?" : "!");
+        err_help("a value is either missing or it is not; write `%s?` for one "
+                 "that may be absent, or `%s!` for one that may fail",
+                 ty_show(base), ty_show(base));
+        stop_if_errors();
+    }
+    if (base->kind == TY_VOID && optional) {
+        err_at(c->line, c->col, "`void?` says nothing that `void` does not");
+        err_help("write `void` for a function that gives nothing back, or "
+                 "`void!` for one that can fail");
+        stop_if_errors();
+    }
+    return optional ? ty_opt(base) : ty_fail(base);
+}
+
 static Type *parse_type(P *p) {
-    if (eat(p, TK_VOID)) return ty_void();
+    if (eat(p, TK_VOID)) return parse_suffix(p, ty_void());
     if (eat(p, TK_LBRACK)) {
         Type *el = parse_type(p);
         if (eat(p, TK_COLON)) {                 /* [key: value] is a map */
@@ -99,7 +125,7 @@ static Type *parse_type(P *p) {
             return ty_map(el, val);
         }
         expect(p, TK_RBRACK, "`]` to close the array type");
-        return ty_array(el);
+        return parse_suffix(p, ty_array(el));
     }
     Token *c = cur(p);
     if (!at(p, TK_IDENT)) {
@@ -109,13 +135,13 @@ static Type *parse_type(P *p) {
     }
     p->i++;
     const char *n = c->lex;
-    if (strcmp(n, "int") == 0)    return ty_int();
-    if (strcmp(n, "float") == 0)  return ty_float();
-    if (strcmp(n, "bool") == 0)   return ty_bool();
-    if (strcmp(n, "string") == 0) return ty_str();
+    if (strcmp(n, "int") == 0)    return parse_suffix(p, ty_int());
+    if (strcmp(n, "float") == 0)  return parse_suffix(p, ty_float());
+    if (strcmp(n, "bool") == 0)   return parse_suffix(p, ty_bool());
+    if (strcmp(n, "string") == 0) return parse_suffix(p, ty_str());
     /* A user type; the checker decides later whether it is a struct or
      * an enum and swaps in the canonical Type. */
-    return ty_named(TY_STRUCT, c->lex);
+    return parse_suffix(p, ty_named(TY_STRUCT, c->lex));
 }
 
 /* A function declaration leads with its type, so this is what starts one. */
@@ -202,6 +228,7 @@ static Expr *parse_primary(P *p) {
 
     if (at(p, TK_IF)) return parse_if_expr(p);
 
+    if (eat(p, TK_NOTHING)) { Expr *e = mkexpr(p, EX_NOTHING); return e; }
     if (eat(p, TK_SELF))  { Expr *e = mkexpr(p, EX_SELF);  return e; }
     if (eat(p, TK_SUPER)) { Expr *e = mkexpr(p, EX_SUPER); return e; }
 
@@ -322,6 +349,18 @@ static Expr *parse_postfix(P *p) {
             continue;
         }
 
+        if (at(p, TK_BANG)) {
+            Token *b = cur(p);
+            p->i++;
+            Expr *ins = cx_alloc(sizeof(Expr));
+            ins->kind = EX_INSIST;
+            ins->builtin = BI_NONE;
+            ins->line = b->line; ins->col = b->col;
+            ins->a = e;
+            e = ins;
+            continue;
+        }
+
         if (at(p, TK_DOT)) {
             p->i++;
             Token *f = cur(p);
@@ -341,6 +380,16 @@ static Expr *parse_postfix(P *p) {
 }
 
 static Expr *parse_unary(P *p) {
+    if (at(p, TK_TRY)) {
+        Token *t = cur(p);
+        p->i++;
+        Expr *e = cx_alloc(sizeof(Expr));
+        e->kind = EX_TRY;
+        e->builtin = BI_NONE;
+        e->line = t->line; e->col = t->col;
+        e->a = parse_unary(p);
+        return e;
+    }
     if (at(p, TK_MINUS) || at(p, TK_BANG) || at(p, TK_NOT)) {
         Token *t = cur(p);
         p->i++;
@@ -452,6 +501,31 @@ static Stmt *parse_stmt(P *p) {
     if (at(p, TK_LET) || at(p, TK_VAR)) {
         Stmt *s = parse_let(p, at(p, TK_VAR));
         expect_semi(p, "declaration");
+        return s;
+    }
+
+    /* `if let name = maybe { } else why { }` -- the only way into a value
+     * that might not be there, so the empty case is never forgotten. */
+    if (at(p, TK_IF) && at_next(p, TK_LET)) {
+        Stmt *s = mkstmt(p, ST_IFLET);
+        p->i += 2;
+        Token *nm = cur(p);
+        expect(p, TK_IDENT, "a name to give the value");
+        s->name = nm->lex;
+        expect(p, TK_ASSIGN, "`=` and the value to look inside");
+        p->no_struct_lit = true;
+        s->rhs = parse_expr(p);
+        p->no_struct_lit = false;
+        parse_block(p, &s->body);
+        if (at(p, TK_ELSE)) {
+            p->i++;
+            if (at(p, TK_IDENT)) {              /* `else why { }` */
+                s->err_name = cur(p)->lex;
+                p->i++;
+            }
+            if (at(p, TK_IF) && !s->err_name) vec_push(&s->els, parse_stmt(p));
+            else                              parse_block(p, &s->els);
+        }
         return s;
     }
 

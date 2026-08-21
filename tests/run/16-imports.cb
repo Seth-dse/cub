@@ -14,11 +14,11 @@ void main() {
     print(math.sqrt(16.0), math.pow(2.0, 8.0));
     print(math.is_nan(math.NAN), math.is_inf(math.INF));
 
-    fs.write("tests/tmp/imp.txt", "a\nb\n");
-    fs.append("tests/tmp/imp.txt", "c\n");
-    print(fs.read_lines("tests/tmp/imp.txt"));
+    fs.write("tests/tmp/imp.txt", "a\nb\n")!;
+    fs.append("tests/tmp/imp.txt", "c\n")!;
+    print(fs.read_lines("tests/tmp/imp.txt")!);
     print(fs.exists("tests/tmp/imp.txt"));
-    fs.delete("tests/tmp/imp.txt");
+    fs.delete("tests/tmp/imp.txt")!;
     print(fs.exists("tests/tmp/imp.txt"));
 
     rand.seed(3);
