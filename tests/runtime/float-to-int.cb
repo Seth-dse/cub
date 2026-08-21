@@ -1,0 +1,4 @@
+void main() {
+    let huge = 1e300;
+    print(int(huge));
+}

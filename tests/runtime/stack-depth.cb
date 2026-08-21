@@ -1,0 +1,8 @@
+// Recursion with no base case: the stack runs out, and Cub says so
+// instead of letting the process die on a segmentation fault.
+[int] deeper(n: int) {
+    var rest = deeper(n + 1);
+    push(rest, n);
+    return rest;
+}
+void main() { print(len(deeper(0))); }

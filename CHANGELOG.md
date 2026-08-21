@@ -1,5 +1,43 @@
 # Changelog
 
+## 0.5.1
+
+Two edges that used to be undefined are now checked.
+
+**Integer overflow stops the program.** `+`, `-`, `*`, and negation on an
+`int` were emitted as plain C operators, where signed overflow is undefined
+behaviour -- so a program could wrap silently, and an optimiser was entitled
+to delete an overflow check written in Cub. Every one of them is now checked,
+the same way division by zero already was:
+
+    Runtime error: 9223372036854775807 + 1 does not fit in an int;
+    an int runs from -9223372036854775808 to 9223372036854775807
+      at counter.cb:3
+
+`int(1e300)` and other out-of-range float conversions are checked too, and
+cubc passes `-fwrapv` to the C compiler so the generated code cannot be
+optimised on the assumption that overflow never happens.
+
+On GCC and Clang the checks compile to the add-and-check-the-flag pair the
+hardware already provides. An arithmetic-saturated loop runs about 40%
+slower; anything that also touches text, arrays, or files is far less
+affected.
+
+**Running out of stack says so.** Recursion that went too deep used to kill
+the process with a segmentation fault and no message at all. Each function
+now checks on entry that there is room beneath it:
+
+    Runtime error: `deeper` ran out of stack space, so the calls were nested
+    too deeply to finish
+      at walk.cb:4
+
+The floor comes from `getrlimit` at startup, with enough headroom left for
+the message itself. The check is one comparison and measures as free.
+
+One consequence worth knowing: a deeply recursive program that only fitted
+because the optimiser flattened it will now stop instead. It was never
+guaranteed to fit -- at `-O0` it would have crashed.
+
 ## 0.5.0
 
 Statements end with a semicolon, and types declare themselves.

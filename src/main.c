@@ -217,7 +217,11 @@ int main(int argc, char **argv) {
 
     const char *cc = getenv("CC");
     if (!cc || !*cc) cc = "cc";
-    char *cmd = cx_fmt("%s -std=c99 -O2 -w -o '%s' '%s' -lm", cc, exe, cpath);
+    /* -fwrapv: the runtime checks every int operator it emits, but the
+     * generated C does arithmetic of its own, and defined wraparound is
+     * cheaper to reason about than a compiler free to assume it away. */
+    char *cmd = cx_fmt("%s -std=c99 -O2 -fwrapv -w -o '%s' '%s' -lm",
+                       cc, exe, cpath);
     if (verbose) fprintf(stderr, "cubc: %s\n", cmd);
 
     int rc = system(cmd);

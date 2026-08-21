@@ -46,7 +46,7 @@ Nothing to install beyond a C compiler and `make`.
 
 ```bash
 make
-make test          # 58 tests: programs, compile errors, runtime failures
+make test          # 63 tests: programs, compile errors, runtime failures
 make check-linux   # optional: build and test under glibc in a container
 make examples      # run everything in examples/
 sudo make install  # optional: puts cubc in /usr/local/bin
@@ -95,9 +95,10 @@ Runtime error: position 5 is outside the array, whose positions are 0 to 2
   at scores.cb:4
 ```
 
-Array bounds, integer division by zero, and failed conversions are all
-checked. Cub has no undefined behavior at these edges — programs stop with an
-explanation instead of corrupting memory.
+Array bounds, division by zero, arithmetic that overflows, conversions that
+cannot fit, and a stack that runs out are all checked. Cub has no undefined
+behavior at these edges — programs stop with an explanation instead of
+corrupting memory or dying on a signal.
 
 **No ceremony.**
 
@@ -118,7 +119,8 @@ void main() {
 2. **Mistakes are caught early, and explained.** Types, names, missing
    returns — checked before the program runs, in plain words.
 3. **What the compiler cannot know, the program checks.** Bounds, division,
-   parsing. No undefined behavior.
+   overflow, conversions, stack depth. No undefined behavior, and no silent
+   wraparound.
 4. **One way to write things.** Every statement ends with `;`, every body is
    wrapped in braces, and a function says what it gives back before its name,
    the way C does. No headers, no preprocessor, no macros. Declaration order
@@ -272,7 +274,7 @@ server meant to run for weeks. Reference counting is the next step.
 
 ## Status
 
-Version 0.5.0. The language described here works, and the test suite covers
+Version 0.5.1. The language described here works, and the test suite covers
 it. Not yet built: optional values, generics, closures, interfaces, and private
 declarations.
 [The reference](docs/LANGUAGE.md#20-what-cub-leaves-out-for-now) lists them

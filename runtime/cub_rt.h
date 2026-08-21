@@ -41,6 +41,8 @@
 
 #if defined(_WIN32)
 #  include <windows.h>
+#else
+#  include <sys/resource.h>
 #endif
 
 typedef struct { const char *data; int64_t len; } CubStr;
@@ -134,6 +136,128 @@ static void cub_panic_at(const char *file, int line, const char *fmt, ...) {
     else      fprintf(stderr, "\n");
     cub_rt_shutdown();
     exit(70);
+}
+
+/* ---------------- arithmetic ---------------- */
+
+/* Signed overflow is undefined behaviour in C, and an optimiser is allowed
+ * to assume it never happens -- which would quietly delete an overflow
+ * check written in Cub.  So every int `+`, `-`, and `*` comes through here
+ * and stops the program with a message, exactly as division by zero does.
+ *
+ * On GCC and Clang the builtins compile to the add-and-check-the-flag pair
+ * the hardware already provides, so the guard costs a branch that is never
+ * taken. */
+#define CUB_INT_RANGE "an int runs from -9223372036854775808 to 9223372036854775807"
+
+#if defined(__GNUC__) || defined(__clang__)
+#  define CUB_OVERFLOW(op, a, b, out) __builtin_##op##_overflow((a), (b), (out))
+#endif
+
+static int64_t cub_add_int(int64_t a, int64_t b, const char *f, int l) {
+#ifdef CUB_OVERFLOW
+    int64_t r;
+    if (!CUB_OVERFLOW(add, a, b, &r)) return r;
+#else
+    if (!((b > 0 && a > INT64_MAX - b) || (b < 0 && a < INT64_MIN - b)))
+        return a + b;
+#endif
+    cub_panic_at(f, l, "%lld + %lld does not fit in an int; " CUB_INT_RANGE,
+                 (long long)a, (long long)b);
+    return 0;
+}
+
+static int64_t cub_sub_int(int64_t a, int64_t b, const char *f, int l) {
+#ifdef CUB_OVERFLOW
+    int64_t r;
+    if (!CUB_OVERFLOW(sub, a, b, &r)) return r;
+#else
+    if (!((b < 0 && a > INT64_MAX + b) || (b > 0 && a < INT64_MIN + b)))
+        return a - b;
+#endif
+    cub_panic_at(f, l, "%lld - %lld does not fit in an int; " CUB_INT_RANGE,
+                 (long long)a, (long long)b);
+    return 0;
+}
+
+static int64_t cub_mul_int(int64_t a, int64_t b, const char *f, int l) {
+#ifdef CUB_OVERFLOW
+    int64_t r;
+    if (!CUB_OVERFLOW(mul, a, b, &r)) return r;
+#else
+    if (a == 0 || b == 0) return 0;
+    if (!(a > INT64_MAX / b || a < INT64_MIN / b ||
+          (a == -1 && b == INT64_MIN) || (b == -1 && a == INT64_MIN)))
+        return a * b;
+#endif
+    cub_panic_at(f, l, "%lld * %lld does not fit in an int; " CUB_INT_RANGE,
+                 (long long)a, (long long)b);
+    return 0;
+}
+
+static int64_t cub_neg_int(int64_t a, const char *f, int l) {
+    if (a == INT64_MIN)
+        cub_panic_at(f, l, "negating %lld does not fit in an int; " CUB_INT_RANGE,
+                     (long long)a);
+    return -a;
+}
+
+/* ---------------- the stack ---------------- */
+
+/* C gives a program no way to recover from running out of stack: the
+ * hardware faults and the process dies without a word.  So each Cub
+ * function checks, on the way in, that there is still room beneath it --
+ * one comparison against a floor worked out at startup, leaving enough
+ * headroom for this message to be printed. */
+static uintptr_t cub_stack_floor = 0;      /* 0 disables the check */
+static volatile char *cub_stack_probe_at;
+
+#if defined(__GNUC__) || defined(__clang__)
+#  define CUB_NOINLINE __attribute__((noinline))
+#elif defined(_MSC_VER)
+#  define CUB_NOINLINE __declspec(noinline)
+#else
+#  define CUB_NOINLINE
+#endif
+
+/* Inlined, this would share a frame with its caller and report the wrong
+ * direction, so it is deliberately kept as a real call. */
+CUB_NOINLINE static void cub_stack_probe(void) {
+    char here;
+    cub_stack_probe_at = &here;
+}
+
+static void cub_stack_init(void) {
+    char base;
+    size_t limit = 0;
+
+#if defined(_WIN32)
+    limit = 1u << 20;                       /* the usual 1 MB default */
+#else
+    struct rlimit rl;
+    if (getrlimit(RLIMIT_STACK, &rl) == 0 && rl.rlim_cur != RLIM_INFINITY &&
+        rl.rlim_cur > 0 && rl.rlim_cur < (rlim_t)SIZE_MAX)
+        limit = (size_t)rl.rlim_cur;
+    else
+        limit = 8u << 20;
+#endif
+
+    /* Everything here assumes the stack grows downward.  Check rather than
+     * assume: where it grows upward, leave the guard switched off instead
+     * of stopping perfectly good programs. */
+    cub_stack_probe();
+    if ((uintptr_t)cub_stack_probe_at >= (uintptr_t)&base) return;
+
+    size_t margin = 64u * 1024;
+    if (limit <= margin * 2) return;        /* too small to guard usefully */
+    cub_stack_floor = (uintptr_t)&base - (uintptr_t)(limit - margin);
+}
+
+static void cub_stack_check(const char *name, const char *f, int l) {
+    char here;
+    if (cub_stack_floor && (uintptr_t)&here < cub_stack_floor)
+        cub_panic_at(f, l, "`%s` ran out of stack space, so the calls were "
+                           "nested too deeply to finish", name);
 }
 
 /* ---------------- text ---------------- */
@@ -637,7 +761,16 @@ static CubArr cub_map_values(CubMap m) {
 
 /* ---------------- conversion ---------------- */
 
-static int64_t cub_int_of_float(double v) { return (int64_t)v; }
+/* Casting a double that will not fit into an int64_t is undefined, so the
+ * range is checked first.  The bound is written as a power of two because
+ * INT64_MAX itself is not representable as a double. */
+static int64_t cub_int_of_float(double v, const char *f, int l) {
+    if (v != v)
+        cub_panic_at(f, l, "`nan` cannot be turned into an int");
+    if (!(v >= -9223372036854775808.0 && v < 9223372036854775808.0))
+        cub_panic_at(f, l, "%g does not fit in an int; " CUB_INT_RANGE, v);
+    return (int64_t)v;
+}
 
 static int64_t cub_int_of_str(CubStr s, const char *f, int l) {
     char *end = NULL;

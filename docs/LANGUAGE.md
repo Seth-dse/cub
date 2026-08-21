@@ -1,6 +1,6 @@
 # The Cub Language Reference
 
-Version 0.5.0
+Version 0.5.1
 
 Cub is a small statically typed language in the C family. It compiles to
 standalone C99, so a Cub program runs anywhere a C compiler runs and starts
@@ -23,8 +23,10 @@ know, it checks: types, names, missing returns, unreachable fields. Every
 error names the problem in plain words and suggests a fix.
 
 **3. What the compiler cannot know, the program checks.** Array indexes are
-bounds-checked. Integer division by zero stops the program with a message
-naming the file and line. Cub has no undefined behavior at these edges.
+bounds-checked. Division by zero, arithmetic that overflows an `int`, a
+conversion that cannot fit, and a stack that runs out all stop the program
+with a message naming the file and line. Cub has no undefined behavior at
+these edges, and no silent wraparound.
 
 **4. There is one way to write things.** No header files, no forward
 declarations, no macros, no preprocessor. Functions see each other regardless
@@ -786,7 +788,9 @@ status 70. These are the failures no compiler can predict:
 - indexing outside an array or past the end of text
 - `pop` on an empty array
 - integer division or remainder by zero
-- `int("twelve")` and other failed conversions
+- `+`, `-`, `*`, or negation whose result will not fit in an `int`
+- `int("twelve")`, `int(1e300)`, and other failed conversions
+- calls nested so deeply that the stack runs out
 - a file that cannot be opened
 - `panic(message)` and a failed `assert`
 

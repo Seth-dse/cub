@@ -335,10 +335,22 @@ static void gen_binary(Expr *e) {
         }
     }
 
-    if (t->kind == TY_INT && (e->op == TK_SLASH || e->op == TK_PERCENT)) {
-        E("%s(%s, %s, %s)", e->op == TK_SLASH ? "cub_div_int" : "cub_mod_int",
-          expr_str(e->a), expr_str(e->b), loc(e->line));
-        return;
+    /* Every int arithmetic operator is checked: `/` and `%` for a zero on
+     * the right, the rest for a result too large to hold. */
+    if (t->kind == TY_INT) {
+        const char *fn = NULL;
+        switch (e->op) {
+        case TK_SLASH:   fn = "cub_div_int"; break;
+        case TK_PERCENT: fn = "cub_mod_int"; break;
+        case TK_PLUS:    fn = "cub_add_int"; break;
+        case TK_MINUS:   fn = "cub_sub_int"; break;
+        case TK_STAR:    fn = "cub_mul_int"; break;
+        default: break;
+        }
+        if (fn) {
+            E("%s(%s, %s, %s)", fn, expr_str(e->a), expr_str(e->b), loc(e->line));
+            return;
+        }
     }
 
     E("(");
@@ -408,7 +420,7 @@ static void gen_builtin(Expr *e) {
 
     case BI_INT:
         switch (a0->type->kind) {
-        case TY_FLOAT: E("cub_int_of_float(%s)", expr_str(a0)); break;
+        case TY_FLOAT: E("cub_int_of_float(%s, %s)", expr_str(a0), loc(e->line)); break;
         case TY_STR:   E("cub_int_of_str(%s, %s)", expr_str(a0), loc(e->line)); break;
         case TY_BOOL:  E("((int64_t)(%s))", expr_str(a0)); break;
         default:       E("(%s)", expr_str(a0)); break;
@@ -629,6 +641,10 @@ static void gen_expr(Expr *e) {
     case EX_IDENT: E("%s", e->var ? e->var->cname : e->name); break;
 
     case EX_UNARY:
+        if (e->op == TK_MINUS && e->type && e->type->kind == TY_INT) {
+            E("cub_neg_int(%s, %s)", expr_str(e->a), loc(e->line));
+            return;
+        }
         E("(%s", e->op == TK_MINUS ? "-" : "!");
         gen_expr(e->a);
         E(")");
@@ -826,12 +842,14 @@ static void gen_stmt(Stmt *s, int lvl) {
         } else if (s->lhs->type->kind == TY_STR) {
             char *t = expr_str(s->lhs);
             E("%s = cub_str_concat(%s, %s)", t, t, expr_str(s->rhs));
-        } else if (s->lhs->type->kind == TY_INT &&
-                   (s->op == TK_SLASHEQ || s->op == TK_PERCENTEQ)) {
+        } else if (s->lhs->type->kind == TY_INT) {
+            const char *fn = s->op == TK_SLASHEQ   ? "cub_div_int"
+                           : s->op == TK_PERCENTEQ ? "cub_mod_int"
+                           : s->op == TK_PLUSEQ    ? "cub_add_int"
+                           : s->op == TK_MINUSEQ   ? "cub_sub_int"
+                                                   : "cub_mul_int";
             char *t = expr_str(s->lhs);
-            E("%s = %s(%s, %s, %s)", t,
-              s->op == TK_SLASHEQ ? "cub_div_int" : "cub_mod_int",
-              t, expr_str(s->rhs), loc(s->line));
+            E("%s = %s(%s, %s, %s)", t, fn, t, expr_str(s->rhs), loc(s->line));
         } else {
             const char *o = s->op == TK_PLUSEQ ? "+=" : s->op == TK_MINUSEQ ? "-="
                           : s->op == TK_STAREQ ? "*=" : s->op == TK_SLASHEQ ? "/=" : "%=";
@@ -1138,6 +1156,8 @@ char *codegen_program(Program *p, const char *unit_name) {
                                   : cd->methods.items[j];
             method_signature(m);
             E(" {\n");
+            E("    cub_stack_check(%s, %s);\n",
+              lit(cx_fmt("%s.%s", cd->name, m->name)), loc(m->line));
             if (!is_static) {
                 E("    CubC_%s *self = (CubC_%s *)cub_self;\n", cd->name, cd->name);
                 E("    (void)self;\n");
@@ -1160,6 +1180,7 @@ char *codegen_program(Program *p, const char *unit_name) {
         in_unit(f->src);
         fn_signature(f);
         E(" {\n");
+        E("    cub_stack_check(%s, %s);\n", lit(f->name), loc(f->line));
         gen_stmts(&f->body, 1);
         if (f->ret->kind == TY_VOID) { indent(1); E("return;\n"); }
         else if (f->ret->kind == TY_STR) { indent(1); E("return cub_str_lit(\"\", 0);\n"); }
@@ -1240,6 +1261,7 @@ char *codegen_program(Program *p, const char *unit_name) {
 
     E("int main(int argc, char **argv) {\n");
     E("    cub_rt_init(argc, argv);\n");
+    E("    cub_stack_init();\n");
     E("    cub_init_globals();\n");
 
     /* The starting point is a plain function, a static method, or an

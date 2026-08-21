@@ -1,0 +1,6 @@
+int lowest() {
+    var n = -9223372036854775807;
+    n -= 1;
+    return n;
+}
+void main() { print(-lowest()); }
