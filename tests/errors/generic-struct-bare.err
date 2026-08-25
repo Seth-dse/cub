@@ -1,0 +1,2 @@
+`Pair` has to be told what it holds
+write `Pair<A, B>` with real types in place of A, B

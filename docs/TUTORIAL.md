@@ -613,8 +613,46 @@ rather than at some call:
 error: two `T` values cannot be compared, because `T` could be anything
 ```
 
-Each set of types you call it with gets its own copy of the function, with
-the real types filled in, so it is as fast as one you wrote by hand.
+### A struct can do it too
+
+```cub
+struct Stack<T> {
+    items: [T];
+}
+
+void push_on<T>(s: Stack<T>, item: T) {
+    push(s.items, item);
+}
+
+void main() {
+    var numbers: Stack<int> = Stack { items: [] };
+    push_on(numbers, 1);
+    push_on(numbers, 2);
+    print(numbers);
+
+    var words: Stack<string> = Stack { items: [] };
+    push_on(words, "hi");
+    print(words);
+}
+```
+
+When the values say what it holds, you can leave the type off:
+
+```cub
+struct Pair<A, B> {
+    first: A;
+    second: B;
+}
+
+void main() {
+    let p = Pair { first: 1, second: "x" };   // a Pair<int, string>
+    print(p.first);
+}
+```
+
+Each set of types you use gets its own copy — of the function, and of the
+struct — with the real types filled in, so it is as fast as one you wrote by
+hand. A `class` cannot name types yet; a `struct` can.
 
 ---
 

@@ -272,8 +272,44 @@ static bool is_tparam(const char *name) {
     return false;
 }
 
+static StructDef *find_template(const char *name);
+static Type *make_struct(StructDef *tpl, Vec *types, int line, int col);
+
 static Type *resolve_type(Type *t, int line, int col) {
     if (!t) return ty_err();
+
+    /* `Pair<int, string>` -- a struct made from a generic one */
+    if (t->kind == TY_STRUCT && t->sdef == NULL && t->name && t->targs.len) {
+        StructDef *tpl = find_template(t->name);
+        if (!tpl) {
+            err_at(line, col, "there is no generic type named `%s`", t->name);
+            return ty_err();
+        }
+        if (tpl->tparams.len != t->targs.len) {
+            err_at(line, col, "`%s` is made with %d type%s, but got %d",
+                   t->name, tpl->tparams.len, tpl->tparams.len == 1 ? "" : "s",
+                   t->targs.len);
+            return ty_err();
+        }
+        Vec real = {0};
+        for (int i = 0; i < t->targs.len; i++)
+            vec_push(&real, resolve_type(t->targs.items[i], line, col));
+        return make_struct(tpl, &real, line, col);
+    }
+    /* a generic struct named with nothing to make it out of */
+    if (t->kind == TY_STRUCT && t->sdef == NULL && t->name && !t->targs.len) {
+        StructDef *tpl = find_template(t->name);
+        if (tpl) {
+            Buf b;
+            buf_init(&b);
+            for (int i = 0; i < tpl->tparams.len; i++)
+                buf_printf(&b, "%s%s", i ? ", " : "", (char *)tpl->tparams.items[i]);
+            err_at(line, col, "`%s` has to be told what it holds", t->name);
+            err_help("write `%s<%s>` with real types in place of %s",
+                     t->name, b.data, b.data);
+            return ty_err();
+        }
+    }
     if (t->kind == TY_STRUCT && t->sdef == NULL && t->name && is_tparam(t->name))
         return ty_var(t->name);
     if (t->kind == TY_ARRAY) return ty_array(resolve_type(t->elem, line, col));
@@ -444,6 +480,79 @@ static void check_extern_types(FnDecl *f) {
 }
 
 /* ------------------------------------------------------------------ */
+/* structs made from a generic one                                     */
+/* ------------------------------------------------------------------ */
+
+static Type *subst(Type *t, Vec *names, Vec *types);
+static bool has_var(Type *t);
+
+static StructDef *find_template(const char *name) {
+    for (int i = 0; i < prog->templates.len; i++) {
+        StructDef *sd = prog->templates.items[i];
+        if (strcmp(sd->name, name) == 0) return sd;
+    }
+    return NULL;
+}
+
+/* Making one is filling in the names: the result is an ordinary struct
+ * with ordinary fields, which everything after this point can treat like
+ * any other. */
+static Type *make_struct(StructDef *tpl, Vec *types, int line, int col) {
+    Buf cname, show;
+    buf_init(&cname);
+    buf_init(&show);
+    buf_printf(&cname, "%s", tpl->name);
+    buf_printf(&show, "%s<", tpl->name);
+    for (int i = 0; i < types->len; i++) {
+        buf_printf(&cname, "_%s", ty_mangle(types->items[i]));
+        buf_printf(&show, "%s%s", i ? ", " : "", ty_show(types->items[i]));
+    }
+    buf_puts(&show, ">");
+
+    /* one of these per set of types, however often it is named */
+    for (int i = 0; i < tpl->insts.len; i++) {
+        StructDef *made = tpl->insts.items[i];
+        if (strcmp(made->name, cname.data) != 0) continue;
+        for (int j = 0; j < named_types.len; j++) {
+            Type *cand = named_types.items[j];
+            if (cand->sdef == made) return cand;
+        }
+    }
+
+    StructDef *made = cx_alloc(sizeof(StructDef));
+    made->doc = tpl->doc;
+    made->src = tpl->src;
+    made->name = cname.data;
+    made->show = show.data;
+    made->print_name = tpl->print_name;
+    made->line = tpl->line;
+    made->col = tpl->col;
+    for (int i = 0; i < tpl->fnames.len; i++) {
+        vec_push(&made->fnames, tpl->fnames.items[i]);
+        vec_push(&made->fdocs, i < tpl->fdocs.len ? tpl->fdocs.items[i] : NULL);
+        vec_push(&made->ftypes,
+                 subst(tpl->ftypes.items[i], &tpl->tparams, types));
+    }
+
+    Type *t = ty_named(TY_STRUCT, made->show);
+    t->sdef = made;
+    for (int i = 0; i < types->len; i++) vec_push(&t->targs, types->items[i]);
+
+    bool abstract_ = false;
+    for (int i = 0; i < types->len; i++)
+        if (has_var(types->items[i])) abstract_ = true;
+
+    vec_push(&named_types, t);
+    vec_push(&tpl->insts, made);
+    if (!abstract_) vec_push(&prog->structs, made);   /* else nothing to emit */
+
+    /* a field could name another one that has not been made yet */
+    for (int i = 0; i < made->ftypes.len; i++)
+        made->ftypes.items[i] = resolve_type(made->ftypes.items[i], line, col);
+    return t;
+}
+
+/* ------------------------------------------------------------------ */
 /* working out what a generic call stands for                          */
 /* ------------------------------------------------------------------ */
 
@@ -456,6 +565,20 @@ static Type *subst(Type *t, Vec *names, Vec *types) {
             if (strcmp((char *)names->items[i], t->name) == 0)
                 return i < types->len && types->items[i] ? types->items[i] : t;
         return t;
+    case TY_STRUCT: {
+        if (!t->targs.len) return t;
+        bool changed = false;
+        Vec real = {0};
+        for (int i = 0; i < t->targs.len; i++) {
+            Type *sub = subst(t->targs.items[i], names, types);
+            if (sub != t->targs.items[i]) changed = true;
+            vec_push(&real, sub);
+        }
+        if (!changed) return t;
+        StructDef *tpl = find_template(t->sdef ? t->sdef->print_name : t->name);
+        if (!tpl) return t;
+        return make_struct(tpl, &real, tpl->line, tpl->col);
+    }
     case TY_ARRAY: return ty_array(subst(t->elem, names, types));
     case TY_OPT:   return ty_opt(subst(t->elem, names, types));
     case TY_FAIL:  return ty_fail(subst(t->elem, names, types));
@@ -491,6 +614,14 @@ static bool unify(Type *pattern, Type *actual, Vec *names, Vec *types) {
         return false;
     }
     if (pattern->kind != actual->kind) return true;   /* left to `want` to report */
+    if (pattern->kind == TY_STRUCT) {
+        if (pattern->targs.len != actual->targs.len) return true;
+        for (int i = 0; i < pattern->targs.len; i++)
+            if (!unify(pattern->targs.items[i], actual->targs.items[i],
+                       names, types))
+                return false;
+        return true;
+    }
     switch (pattern->kind) {
     case TY_ARRAY: case TY_OPT: case TY_FAIL:
         return unify(pattern->elem, actual->elem, names, types);
@@ -514,6 +645,11 @@ static bool unify(Type *pattern, Type *actual, Vec *names, Vec *types) {
 static bool has_var(Type *t) {
     if (!t) return false;
     if (t->kind == TY_VAR) return true;
+    if (t->kind == TY_STRUCT) {
+        for (int i = 0; i < t->targs.len; i++)
+            if (has_var(t->targs.items[i])) return true;
+        return false;
+    }
     if (t->kind == TY_ARRAY || t->kind == TY_OPT || t->kind == TY_FAIL)
         return has_var(t->elem);
     if (t->kind == TY_MAP) return has_var(t->key) || has_var(t->elem);
@@ -523,6 +659,49 @@ static bool has_var(Type *t) {
         return has_var(t->elem);
     }
     return false;
+}
+
+/* Everything this copy of the function will need, made now: the generator
+ * only looks things up, so anything it will ask for has to exist first. */
+static void materialize(Type *t, Vec *names, Vec *types) {
+    if (t) (void)subst(t, names, types);
+}
+
+static void materialize_stmts(Vec *body, Vec *names, Vec *types);
+
+static void materialize_expr(Expr *e, Vec *names, Vec *types) {
+    if (!e) return;
+    materialize(e->type, names, types);
+    materialize_expr(e->a, names, types);
+    materialize_expr(e->b, names, types);
+    for (int i = 0; i < e->args.len; i++)
+        materialize_expr(e->args.items[i], names, types);
+    for (int i = 0; i < e->arms.len; i++) {
+        MatchArm *arm = e->arms.items[i];
+        materialize_expr(arm->value, names, types);
+        materialize_stmts(&arm->body, names, types);
+    }
+    if (e->lambda) {
+        materialize(e->lambda->ret, names, types);
+        materialize_stmts(&e->lambda->body, names, types);
+    }
+}
+
+static void materialize_stmts(Vec *body, Vec *names, Vec *types) {
+    for (int i = 0; i < body->len; i++) {
+        Stmt *st = body->items[i];
+        materialize(st->decl_type, names, types);
+        if (st->var) materialize(st->var->type, names, types);
+        materialize_expr(st->lhs, names, types);
+        materialize_expr(st->rhs, names, types);
+        materialize_expr(st->cond, names, types);
+        materialize_expr(st->from, names, types);
+        materialize_expr(st->to, names, types);
+        materialize_stmts(&st->body, names, types);
+        materialize_stmts(&st->els, names, types);
+        for (int j = 0; j < st->arms.len; j++)
+            materialize_stmts(&((MatchArm *)st->arms.items[j])->body, names, types);
+    }
 }
 
 /* A generic function that calls itself, or another generic one, settles
@@ -549,6 +728,11 @@ static FnInst *instantiate(FnDecl *f, Vec *types) {
         buf_printf(&b, "_%s", ty_mangle(types->items[j]));
     inst->cname = b.data;
     vec_push(&f->insts, inst);
+
+    for (int i = 0; i < f->params.len; i++)
+        materialize(((VarSym *)f->params.items[i])->type, &f->tparams, types);
+    materialize(f->ret, &f->tparams, types);
+    materialize_stmts(&f->body, &f->tparams, types);
     return inst;
 }
 
@@ -556,6 +740,11 @@ static FnInst *instantiate(FnDecl *f, Vec *types) {
 static bool type_mentions(Type *t, const char *tn) {
     if (!t) return false;
     if (t->kind == TY_VAR) return strcmp(t->name, tn) == 0;
+    if (t->kind == TY_STRUCT) {
+        for (int i = 0; i < t->targs.len; i++)
+            if (type_mentions(t->targs.items[i], tn)) return true;
+        return false;
+    }
     if (t->kind == TY_ARRAY || t->kind == TY_OPT || t->kind == TY_FAIL)
         return type_mentions(t->elem, tn);
     if (t->kind == TY_MAP)
@@ -1855,8 +2044,55 @@ static Type *check_field(Expr *e) {
     return ty_err();
 }
 
-static Type *check_structlit(Expr *e) {
+static Type *check_structlit(Expr *e, Type *hint) {
     Type *t = find_named(e->name);
+
+    /* `Pair { first: 1, second: "x" }` -- which `Pair` is settled either by
+     * where the value is going, or by what the fields turn out to be. */
+    if (!t) {
+        StructDef *tpl = find_template(e->name);
+        if (tpl) {
+            if (hint && hint->kind == TY_STRUCT && hint->sdef &&
+                hint->targs.len == tpl->tparams.len &&
+                strncmp(hint->sdef->name, tpl->name, strlen(tpl->name)) == 0) {
+                t = hint;
+            } else {
+                Vec types = {0};
+                for (int i = 0; i < tpl->tparams.len; i++) vec_push(&types, NULL);
+                for (int i = 0; i < e->args.len; i++) {
+                    const char *fname = e->fnames.items[i];
+                    int idx = -1;
+                    for (int j = 0; j < tpl->fnames.len; j++)
+                        if (strcmp((char *)tpl->fnames.items[j], fname) == 0)
+                            { idx = j; break; }
+                    if (idx < 0) continue;
+                    Type *vt = check_expr(arg(e, i), NULL);
+                    if (is_err(vt)) return ty_err();
+                    unify_clash_name = NULL;
+                    if (!unify(tpl->ftypes.items[idx], vt, &tpl->tparams, &types)) {
+                        err_at(arg(e, i)->line, arg(e, i)->col,
+                               "`%s` is %s here, and %s in another field",
+                               unify_clash_name ? unify_clash_name : "a type",
+                               ty_show(vt), ty_show(unify_clash_bound));
+                        return ty_err();
+                    }
+                }
+                for (int i = 0; i < types.len; i++)
+                    if (!types.items[i]) {
+                        err_at(e->line, e->col,
+                               "nothing here says what `%s` in `%s` is",
+                               (char *)tpl->tparams.items[i], tpl->name);
+                        err_help("give the variable a type, as in "
+                                 "`let x: %s<...> = ...;`", tpl->name);
+                        return ty_err();
+                    }
+                t = make_struct(tpl, &types, e->line, e->col);
+            }
+            /* the name a second look will find it under */
+            e->name = t->name;
+        }
+    }
+
     if (!t) {
         err_at(e->line, e->col, "there is no type named `%s`", e->name);
         for (int i = 0; i < e->args.len; i++) check_expr(arg(e, i), NULL);
@@ -2290,7 +2526,7 @@ static Type *check_expr(Expr *e, Type *hint) {
         break;
     }
 
-    case EX_STRUCTLIT: t = check_structlit(e); break;
+    case EX_STRUCTLIT: t = check_structlit(e, hint); break;
     case EX_ENUMVAL:   t = find_named(e->sval); break;
 
     case EX_NEW:    /* rewritten from EX_CALL while checking; already typed */
@@ -2774,6 +3010,18 @@ void check_program(Program *p, bool require_main) {
     push_scope();
 
     /* 1. register named types */
+    for (int i = 0; i < p->templates.len; i++) {
+        StructDef *tpl = p->templates.items[i];
+        in_file(tpl->src);
+        if (find_named(tpl->name))
+            err_at(tpl->line, tpl->col, "a type named `%s` already exists", tpl->name);
+        active_tparams = tpl->tparams;
+        for (int j = 0; j < tpl->ftypes.len; j++)
+            tpl->ftypes.items[j] = resolve_type(tpl->ftypes.items[j],
+                                                tpl->line, tpl->col);
+        active_tparams = (Vec){0};
+    }
+
     for (int i = 0; i < p->structs.len; i++) {
         StructDef *sd = p->structs.items[i];
         in_file(sd->src);

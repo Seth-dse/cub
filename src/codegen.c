@@ -105,6 +105,32 @@ static Vec cg_types;      /* Type*  */
 static Type *cg(Type *t) {
     if (!t || cg_names.len == 0) return t;
     switch (t->kind) {
+    case TY_STRUCT: {
+        /* `Pair<A, B>` inside a generic function: the one made with the
+         * real types was worked out by the checker, and is found here by
+         * the name it was given. */
+        if (!t->targs.len) return t;
+        Buf name;
+        buf_init(&name);
+        buf_printf(&name, "%s", t->sdef ? t->sdef->print_name : t->name);
+        bool changed = false;
+        for (int i = 0; i < t->targs.len; i++) {
+            Type *sub = cg(t->targs.items[i]);
+            if (sub != t->targs.items[i]) changed = true;
+            buf_printf(&name, "_%s", ty_mangle(sub));
+        }
+        if (!changed) return t;
+        for (int i = 0; i < prog->structs.len; i++) {
+            StructDef *sd = prog->structs.items[i];
+            if (strcmp(sd->name, name.data) != 0) continue;
+            Type *found = cx_alloc(sizeof(Type));
+            found->kind = TY_STRUCT;
+            found->name = sd->show;
+            found->sdef = sd;
+            return found;
+        }
+        return t;
+    }
     case TY_VAR:
         for (int i = 0; i < cg_names.len; i++)
             if (strcmp((char *)cg_names.items[i], t->name) == 0)
@@ -152,7 +178,7 @@ static const char *ctype(Type *t) {
     case TY_STR:    return "CubStr";
     case TY_ARRAY:  return "CubArr";
     case TY_MAP:    return "CubMap";
-    case TY_STRUCT: return cx_fmt("CubS_%s", t->name);
+    case TY_STRUCT: return cx_fmt("CubS_%s", t->sdef ? t->sdef->name : t->name);
     case TY_ENUM:   return cx_fmt("CubE_%s", t->name);
     case TY_CLASS:  return "void *";     /* every object is a tracked pointer */
     case TY_VOID:   return "void";
@@ -320,9 +346,10 @@ static void emit_helper(Type *t) {
         E("    }\n    return cub_str_lit(\"?\", 1);\n}\n\n");
     } else if (t->kind == TY_STRUCT) {
         StructDef *sd = t->sdef;
-        E("static CubStr %s(CubS_%s v) {\n", helper_name(t), t->name);
+        E("static CubStr %s(%s v) {\n", helper_name(t), ctype(t));
+        const char *label = sd->print_name ? sd->print_name : sd->name;
         E("    CubStr r = cub_str_lit(%s, %d);\n",
-          lit(cx_fmt("%s{", sd->name)), (int)strlen(sd->name) + 1);
+          lit(cx_fmt("%s{", label)), (int)strlen(label) + 1);
         for (int i = 0; i < sd->fnames.len; i++) {
             char *fn = sd->fnames.items[i];
             Type *ft = sd->ftypes.items[i];
@@ -1067,8 +1094,8 @@ static void gen_expr(Expr *e) {
     }
 
     case EX_STRUCTLIT: {
-        StructDef *sd = e->type->sdef;
-        E("((CubS_%s){", sd->name);
+        StructDef *sd = cg(e->type)->sdef;
+        E("((%s){", ctype(e->type));
         for (int i = 0; i < sd->fnames.len; i++) {
             char *fname = sd->fnames.items[i];
             if (i) E(", ");

@@ -119,17 +119,32 @@ static bool is_closer(TokKind k) { return k == TK_RBRACE || is_close(k); }
  * word.  Everywhere else `<` and `>` are comparisons and want space around
  * them, so the two are told apart by shape: a name, then only names and
  * commas between the brackets, then a `(`. */
-static bool *type_param_tokens(Token *toks, int n) {
+static bool *type_param_tokens(Token *toks, int n, bool *closes) {
     bool *tight = cx_alloc(sizeof(bool) * (size_t)(n + 1));
     for (int i = 1; i < n; i++) {
         if (toks[i].kind != TK_LT || toks[i - 1].kind != TK_IDENT) continue;
         int j = i + 1;
         bool ok = j < n && toks[j].kind == TK_IDENT;
-        while (j < n && (toks[j].kind == TK_IDENT || toks[j].kind == TK_COMMA)) j++;
-        if (!ok || j + 1 >= n || toks[j].kind != TK_GT ||
-            toks[j + 1].kind != TK_LPAREN)
+        while (j < n) {
+            TokKind k = toks[j].kind;
+            if (k == TK_IDENT || k == TK_COMMA || k == TK_LBRACK ||
+                k == TK_RBRACK || k == TK_COLON || k == TK_QUESTION ||
+                k == TK_BANG)
+                j++;
+            else
+                break;
+        }
+        if (!ok || j + 1 >= n || toks[j].kind != TK_GT) continue;
+        /* what may follow the `>` of a type list, and nothing else */
+        switch (toks[j + 1].kind) {
+        case TK_LPAREN: case TK_LBRACE: case TK_SEMI: case TK_COMMA:
+        case TK_RPAREN: case TK_ASSIGN: case TK_RBRACK: case TK_IDENT:
+            break;
+        default:
             continue;
+        }
         for (int k = i; k <= j; k++) tight[k] = true;
+        closes[j] = true;
         i = j;
     }
     return tight;
@@ -138,7 +153,8 @@ static bool *type_param_tokens(Token *toks, int n) {
 static char *render(Token *toks, int n) {
     Buf out;
     buf_init(&out);
-    bool *tight = type_param_tokens(toks, n);
+    bool *closes = cx_alloc(sizeof(bool) * (size_t)(n + 1));
+    bool *tight = type_param_tokens(toks, n, closes);
 
     enum { MAX_NEST = 256 };
     int open_level[MAX_NEST];      /* indent of the line each bracket opened on */
@@ -167,9 +183,12 @@ static char *render(Token *toks, int n) {
             if (carried_on) cur_level++;
 
             for (int k = 0; k < cur_level; k++) buf_puts(&out, INDENT);
-        } else if ((tight[i] || (i > 0 && tight[i - 1])) &&
+        } else if ((tight[i] ||
+                    (i > 0 && closes[i - 1] && t->kind == TK_LPAREN)) &&
                    !(i > 0 && toks[i - 1].kind == TK_COMMA)) {
-            /* `first<T>(` is one word, but a comma still breathes */
+            /* `first<T>(` is one word, but a comma still breathes.  After
+             * the closing `>` only a `(` may follow without a space: `>=`
+             * would be a different token altogether. */
         } else if (t->kind == TK_COMMENT || needs_space(prev, t, prev_prefix)) {
             buf_putc(&out, ' ');
         }

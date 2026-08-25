@@ -1,0 +1,4 @@
+class Box<T> {
+    item: T;
+}
+void main() { print(1); }

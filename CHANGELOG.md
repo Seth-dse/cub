@@ -2,7 +2,7 @@
 
 ## 0.10.0
 
-A function can work for any type.
+Functions and structs can work for any type.
 
     T first<T>(items: [T]) {
         return items[0];
@@ -33,8 +33,21 @@ so a generic function is as direct as one written by hand. Nothing is boxed
 and nothing is looked up at runtime. A generic function may call itself, and
 types you declared work as well as the built-in ones.
 
-Structs and classes cannot name types yet, so there is no `Stack<T>` you
-could write. That is the next step.
+**A struct can name types too**, and what it holds is settled either by the
+values or by where it is going:
+
+    struct Stack<T> { items: [T]; }
+    struct Pair<A, B> { first: A; second: B; }
+
+    let p = Pair { first: 1, second: "x" };     // a Pair<int, string>
+    var s: Stack<int> = Stack { items: [] };    // the values say nothing,
+                                                // so the type does
+
+Each set of types becomes its own C struct, so `Pair<int, string>` is an
+`int64_t` and a `CubStr` with nothing wrapped around them. Generic functions
+and generic structs work together, and a function may give one back.
+
+A `class` cannot name types yet, and says so rather than failing to parse.
 
 ## 0.9.0
 

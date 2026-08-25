@@ -164,8 +164,22 @@ static Type *parse_type(P *p) {
     if (strcmp(n, "bool") == 0)   return parse_suffix(p, ty_bool());
     if (strcmp(n, "string") == 0) return parse_suffix(p, ty_str());
     /* A user type; the checker decides later whether it is a struct or
-     * an enum and swaps in the canonical Type. */
-    return parse_suffix(p, ty_named(TY_STRUCT, c->lex));
+     * an enum and swaps in the canonical Type.  `Pair<int, string>` names
+     * one made from a generic struct. */
+    Type *named = ty_named(TY_STRUCT, c->lex);
+    if (at(p, TK_LT)) {
+        p->i++;
+        while (!at(p, TK_GT) && !at(p, TK_EOF)) {
+            vec_push(&named->targs, parse_type(p));
+            if (!eat(p, TK_COMMA)) break;
+        }
+        expect(p, TK_GT, "`>` after the types");
+        if (named->targs.len == 0) {
+            err_at(c->line, c->col, "`%s<>` names no types", c->lex);
+            stop_if_errors();
+        }
+    }
+    return parse_suffix(p, named);
 }
 
 /* A function declaration leads with its type, so this is what starts one. */
@@ -957,6 +971,13 @@ static void parse_class(P *p, Program *prog) {
         err_help("write `class %s extends %s { ... }`", cd->name, base);
         stop_if_errors();
     }
+    if (at(p, TK_LT)) {
+        Token *c = cur(p);
+        err_at(c->line, c->col, "a class cannot name the types it works for yet");
+        err_help("a `struct` can: write `struct %s<T> { ... }`, or hold the "
+                 "type you need", cd->name);
+        stop_if_errors();
+    }
     if (eat(p, TK_EXTENDS)) {
         Token *bn = cur(p);
         expect(p, TK_IDENT, "the name of the class to build on");
@@ -1021,6 +1042,24 @@ static void parse_struct_decl(P *p, Program *prog) {
     Token *nm = cur(p);
     expect(p, TK_IDENT, "a name for the struct");
     sd->name = nm->lex;
+    sd->show = nm->lex;
+    sd->print_name = nm->lex;
+
+    /* `struct Pair<A, B>` -- names standing in for whatever it is made with */
+    if (eat(p, TK_LT)) {
+        while (!at(p, TK_GT) && !at(p, TK_EOF)) {
+            Token *tn = cur(p);
+            expect(p, TK_IDENT, "a name to stand in for a type");
+            vec_push(&sd->tparams, tn->lex);
+            if (!eat(p, TK_COMMA)) break;
+        }
+        expect(p, TK_GT, "`>` after the type names");
+        if (sd->tparams.len == 0) {
+            err_at(nm->line, nm->col, "`%s` names no types between `<` and `>`",
+                   sd->name);
+            stop_if_errors();
+        }
+    }
 
     expect(p, TK_LBRACE, "`{` to start the field list");
     skip_semis(p);
@@ -1040,7 +1079,10 @@ static void parse_struct_decl(P *p, Program *prog) {
         skip_semis(p);
     }
     expect(p, TK_RBRACE, "`}` to close the field list");
-    vec_push(&prog->structs, sd);
+    /* a generic one becomes nothing on its own; the C comes from what it
+     * is made into */
+    if (sd->tparams.len) vec_push(&prog->templates, sd);
+    else                 vec_push(&prog->structs, sd);
 }
 
 /* `enum Colour { Red, Green, Blue }` -- a fixed list of named values. */

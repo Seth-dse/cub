@@ -865,10 +865,55 @@ surprises at some call:
 error: two `T` values cannot be compared, because `T` could be anything
 ```
 
+### Structs that work for any type
+
+A `struct` can name types the same way, and what it holds is worked out
+either from the values or from where it is going:
+
+```cub
+struct Pair<A, B> {
+    first: A;
+    second: B;
+}
+
+struct Stack<T> {
+    items: [T];
+}
+
+void main() {
+    let p = Pair { first: 1, second: "x" };   // Pair<int, string>
+    print(p.first);
+
+    var s: Stack<int> = Stack { items: [] };  // the values say nothing,
+    push(s.items, 1);                         // so the type does
+}
+```
+
+Where a type is written out, it is written with what it holds:
+`Pair<int, string>`, `Stack<int>`. A generic struct named on its own is an
+error, because there would be no telling what it holds.
+
+Generic functions and generic structs work together, and a function may
+give one back:
+
+```cub
+Pair<B, A> flipped<A, B>(p: Pair<A, B>) {
+    return Pair { first: p.second, second: p.first };
+}
+
+T? top_of<T>(s: Stack<T>) {
+    if len(s.items) == 0 { return nothing; }
+    return s.items[len(s.items) - 1];
+}
+```
+
+A `class` cannot name types yet, and says so.
+
 ### What it compiles to
 
-One copy of the function per set of types it is called with, with the real
-types in place — so `first([1, 2, 3])` and `first(["a"])` become two C
+One copy per set of types, with the real types in place: a function called
+with two different types becomes two C functions, and `Pair<int, string>`
+becomes a C struct of an `int64_t` and a `CubStr` — so `first([1, 2, 3])` and `first(["a"])` become two C
 functions, each as direct as one you wrote by hand. Nothing is boxed and
 nothing is looked up at runtime.
 
@@ -1440,9 +1485,8 @@ Genuinely missing, and planned:
 - **Structs and arrays across `extern`** — only the types in
   [section 21](#21-reaching-into-c) can cross into C.
 - **Renaming on import** — no `import os as system` yet.
-- **Generic types of your own** — a function can work for any type
-  ([section 18](#18-working-for-any-type)), but a `struct` or a `class`
-  cannot yet, so there is no `Stack<T>` you could write.
+- **Generic classes** — a `struct` can name the types it holds, a `class`
+  cannot yet.
 - **Saying what a type must be able to do** — there is no way to ask for
   "any type that can be added", so a generic function is limited to what
   works for every type.
@@ -1476,7 +1520,7 @@ classdecl   = "class" IDENT [ "extends" IDENT ] "{" { member } "}" ;
 member      = function | field ;
 field       = IDENT ":" type ";" ;
 
-structdecl  = "struct" IDENT "{" { field } "}" ;
+structdecl  = "struct" IDENT [ tparams ] "{" { field } "}" ;
 enumdecl    = "enum" IDENT "{" [ evalue { "," evalue } [ "," ] ] "}" ;
 evalue      = IDENT [ "(" params [ "," ] ")" ] ;
 
@@ -1484,7 +1528,8 @@ binding     = ( "let" | "var" ) IDENT [ ":" type ] "=" expr ;
 
 type        = base [ "?" | "!" ] ;
 base        = "void" | "int" | "float" | "bool" | "string"
-            | "[" type "]" | "[" type ":" type "]" | IDENT
+            | "[" type "]" | "[" type ":" type "]"
+            | IDENT [ "<" type { "," type } ">" ]
             | "(" [ type { "," type } ] ")" "->" type ;
 
 block       = "{" { statement } "}" ;

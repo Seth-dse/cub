@@ -1,0 +1,53 @@
+// A struct can name the types it holds.
+struct Pair<A, B> {
+    first: A;
+    second: B;
+}
+
+struct Stack<T> {
+    items: [T];
+}
+
+Pair<B, A> flipped<A, B>(p: Pair<A, B>) {
+    return Pair { first: p.second, second: p.first };
+}
+
+void push_on<T>(s: Stack<T>, item: T) {
+    push(s.items, item);
+}
+
+T? top_of<T>(s: Stack<T>) {
+    if len(s.items) == 0 { return nothing; }
+    return s.items[len(s.items) - 1];
+}
+
+int depth_of<T>(s: Stack<T>) { return len(s.items); }
+
+void main() {
+    // what it holds is worked out from the values
+    let p = Pair { first: 1, second: "x" };
+    print(p);
+    print(p.first);
+    print(flipped(p));
+
+    // or from where it is going, when the values do not settle it
+    let empty: Pair<int, [string]> = Pair { first: 0, second: [] };
+    print(empty);
+
+    var s: Stack<int> = Stack { items: [] };
+    push_on(s, 1);
+    push_on(s, 2);
+    print(s);
+    print(top_of(s) or -1);
+    print(depth_of(s));
+
+    var words: Stack<string> = Stack { items: [] };
+    push_on(words, "hi");
+    print(top_of(words) or "(none)");
+    print(top_of(Stack { items: [1.5] }) or 0.0);
+
+    // one inside another
+    let nested = Pair { first: Pair { first: 1, second: 2 }, second: "outer" };
+    print(nested);
+    print(nested.first.second);
+}

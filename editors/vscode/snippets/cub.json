@@ -256,5 +256,14 @@
       "}"
     ],
     "description": "A function that works for any type"
+  },
+  "generic struct": {
+    "prefix": "structg",
+    "body": [
+      "struct ${1:Name}<${2:T}> {",
+      "\t${3:field}: ${2:T};",
+      "}"
+    ],
+    "description": "A struct that works for any type"
   }
 }

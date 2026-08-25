@@ -1,0 +1,11 @@
+Pair{first: 1, second: "x"}
+1
+Pair{first: "x", second: 1}
+Pair{first: 0, second: []}
+Stack{items: [1, 2]}
+2
+2
+hi
+1.5
+Pair{first: Pair{first: 1, second: 2}, second: "outer"}
+2

@@ -139,6 +139,7 @@ struct Type {
     TypeKind   kind;
     Type      *elem;   /* TY_ARRAY element, TY_MAP value, TY_FN result */
     Vec        fparams;/* TY_FN: Type* for each parameter */
+    Vec        targs;  /* TY_STRUCT: the types it was made with, if any */
     Type      *key;    /* TY_MAP key */
     char      *name;   /* TY_STRUCT / TY_ENUM / TY_CLASS */
     StructDef *sdef;
@@ -339,7 +340,11 @@ struct ClassDef {
 struct StructDef {
     char *doc;
     Source *src;
-    char *name;
+    char *name;           /* the C-safe name: `Pair_int_string` for one made */
+    char *show;           /* how a person writes it: `Pair<int, string>`     */
+    char *print_name;     /* what a printed value calls itself: `Pair`       */
+    Vec   tparams;        /* char* -- the names it works for, if any         */
+    Vec   insts;          /* StructDef* -- one per set of real types         */
     Vec   fnames;         /* char* */
     Vec   ftypes;         /* Type* */
     Vec   fdocs;          /* char* -- one per field, may be NULL */
@@ -369,7 +374,10 @@ struct EnumDef {
 
 typedef struct {
     Vec fns;              /* FnDecl*    */
-    Vec structs;          /* StructDef* */
+    Vec structs;          /* StructDef* -- including the ones made from a
+                             generic one; the generic ones live in
+                             `templates` and become no C at all */
+    Vec templates;        /* StructDef* */
     Vec enums;            /* EnumDef*   */
     Vec classes;          /* ClassDef*  */
     Vec globals;          /* Stmt* (ST_LET) */

@@ -46,7 +46,7 @@ Nothing to install beyond a C compiler and `make`.
 
 ```bash
 make
-make test          # 87 tests: programs, compile errors, runtime failures
+make test          # 91 tests: programs, compile errors, runtime failures
 make check-linux   # optional: build and test under glibc in a container
 make examples      # run everything in examples/
 sudo make install  # optional: puts cubc in /usr/local/bin
@@ -191,9 +191,12 @@ import fs;
 print(math.sqrt(16.0));
 print(fs.exists("notes.txt"));
 
-// A function can work for any type; a call settles what T is.
+// Functions and structs can work for any type; a call settles what T is.
 T first<T>(items: [T]) { return items[0]; }
+struct Pair<A, B> { first: A; second: B; }
+
 print(first(["a", "b"]));        // a
+print(Pair { first: 1, second: "x" });
 
 // A function is a value: hold one, pass one, write one where it is used.
 let double = int(x: int) { return x * 2; };
@@ -314,8 +317,7 @@ server meant to run for weeks. Reference counting is the next step.
 ## Status
 
 Version 0.10.0. The language described here works, and the test suite covers
-it. Not yet built: generic types of your own, interfaces, and private
-declarations.
+it. Not yet built: generic classes, interfaces, and private declarations.
 [The reference](docs/LANGUAGE.md#20-what-cub-leaves-out-for-now) lists them
 with what is planned.
 

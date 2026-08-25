@@ -1,0 +1,5 @@
+struct Holder<T> { items: [T]; }
+void main() {
+    let h = Holder { items: [] };
+    print(h);
+}

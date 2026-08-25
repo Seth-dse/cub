@@ -186,7 +186,7 @@ const char *ty_mangle(Type *t) {
     case TY_STR:    return "string";
     case TY_ARRAY:  return cx_fmt("arr_%s", ty_mangle(t->elem));
     case TY_MAP:    return cx_fmt("map_%s_%s", ty_mangle(t->key), ty_mangle(t->elem));
-    case TY_STRUCT: return cx_fmt("s_%s", t->name);
+    case TY_STRUCT: return cx_fmt("s_%s", t->sdef ? t->sdef->name : t->name);
     case TY_ENUM:   return cx_fmt("e_%s", t->name);
     case TY_CLASS:  return cx_fmt("c_%s", t->name);
     case TY_FN: {
