@@ -32,6 +32,30 @@ static void push_scope(void) {
     scope = s;
 }
 
+/* The function being checked, and the one it is written inside.  A name
+ * found past `fn_barrier` belongs to the enclosing function, which is what
+ * makes it a capture rather than a local. */
+static Scope  *fn_barrier;
+static FnDecl *cur_lambda;
+
+/* Names a closure uses from around it are copied in when it is made, so
+ * the copy is what the body sees. */
+static VarSym *capture(VarSym *outer) {
+    for (int i = 0; i < cur_lambda->captures.len; i++)
+        if (cur_lambda->cap_outer.items[i] == outer)
+            return cur_lambda->captures.items[i];
+
+    VarSym *inner = cx_alloc(sizeof(VarSym));
+    inner->name = outer->name;
+    inner->type = outer->type;
+    inner->is_mut = false;              /* a copy: changing it would mislead */
+    inner->is_capture = true;
+    inner->cname = cx_fmt("env->c_%s_%d", outer->name, ++uid);
+    vec_push(&cur_lambda->captures, inner);
+    vec_push(&cur_lambda->cap_outer, outer);
+    return inner;
+}
+
 static void pop_scope(void) { scope = scope->parent; }
 
 static VarSym *lookup_local(const char *name) {
@@ -43,11 +67,17 @@ static VarSym *lookup_local(const char *name) {
 }
 
 static VarSym *lookup(const char *name) {
-    for (Scope *s = scope; s; s = s->parent)
+    bool crossed = false;
+    for (Scope *s = scope; s; s = s->parent) {
         for (int i = 0; i < s->syms.len; i++) {
             VarSym *v = s->syms.items[i];
-            if (strcmp(v->name, name) == 0) return v;
+            if (strcmp(v->name, name) != 0) continue;
+            if (crossed && cur_lambda && !v->is_global) return capture(v);
+            return v;
         }
+        /* everything further out belongs to the function around this one */
+        if (s == fn_barrier) crossed = true;
+    }
     return NULL;
 }
 
@@ -138,6 +168,7 @@ const char *builtin_names[] = {
     "min_of", "max_of", "eprint", "exit", "args", "env", "sleep_ms",
     "clock_ms", "file_exists", "append_file", "delete_file", "read_lines",
     "platform", "fail",
+    "map", "filter", "any", "all", "find_by", "sort_by",
     NULL
 };
 
@@ -307,6 +338,7 @@ static void collect_members(ClassDef *c, Vec *fields, Vec *methods) {
 /* ------------------------------------------------------------------ */
 
 static Type *check_expr(Expr *e, Type *hint);
+static bool always_returns(Vec *body);
 static Type *check_match(Expr *subject, Vec *arms, bool as_value, Type *hint,
                          int line, int col);
 static void  check_stmts(Vec *body);
@@ -525,6 +557,76 @@ static Type *check_builtin(Expr *e, int bi, Type *hint) {
         want(arg(e, 1), arg_type(e, 1), ty_int(), "the position");
         want(arg(e, 2), arg_type(e, 2), a->elem, "this array");
         return ty_void();
+    }
+
+    /* Each of these walks an array with a function of yours. */
+    case BI_MAP: case BI_FILTER: case BI_ANY: case BI_ALL:
+    case BI_FIND_BY: case BI_SORT_BY: {
+        int want_args = 2;
+        if (!arity(e, want_args, want_args, name)) return ty_err();
+        Type *a = arg_type(e, 0);
+        if (is_err(a)) return ty_err();
+        if (a->kind != TY_ARRAY) {
+            err_at(e->line, e->col, "`%s` walks an array, but this is %s",
+                   name, ty_show(a));
+            return ty_err();
+        }
+        Type *elem = a->elem;
+
+        /* what the function has to look like, so that writing it inline
+         * needs no types of its own to be worked out */
+        Vec ptypes = {0};
+        vec_push(&ptypes, elem);
+        Type *want_ret = ty_bool();
+        if (bi == BI_MAP)          want_ret = NULL;      /* anything */
+        else if (bi == BI_SORT_BY) { vec_push(&ptypes, elem); want_ret = ty_int(); }
+
+        Type *fhint = want_ret ? ty_fn(&ptypes, want_ret) : NULL;
+        Type *f = check_expr(arg(e, 1), fhint);
+        if (is_err(f)) return ty_err();
+        if (f->kind != TY_FN) {
+            err_at(arg(e, 1)->line, arg(e, 1)->col,
+                   "`%s` needs a function here, but this is %s", name, ty_show(f));
+            err_help("write one inline, as in `%s(items, bool(x: %s) { ... })`",
+                     name, ty_show(elem));
+            return ty_err();
+        }
+        if (f->fparams.len != ptypes.len) {
+            err_at(arg(e, 1)->line, arg(e, 1)->col,
+                   "`%s` calls this with %d argument%s, but it takes %d",
+                   name, ptypes.len, ptypes.len == 1 ? "" : "s", f->fparams.len);
+            return ty_err();
+        }
+        for (int i = 0; i < ptypes.len; i++)
+            if (!ty_assignable(elem, f->fparams.items[i])) {
+                err_at(arg(e, 1)->line, arg(e, 1)->col,
+                       "`%s` calls this with %s, but it takes %s",
+                       name, ty_show(elem), ty_show(f->fparams.items[i]));
+                return ty_err();
+            }
+        if (want_ret && !ty_same(f->elem, want_ret)) {
+            err_at(arg(e, 1)->line, arg(e, 1)->col,
+                   "`%s` needs a function that gives back %s, but this gives %s",
+                   name, ty_show(want_ret), ty_show(f->elem));
+            if (bi == BI_SORT_BY)
+                err_help("give a negative number when the first comes first, "
+                         "a positive one when it comes second, and 0 when "
+                         "they are the same");
+            return ty_err();
+        }
+        if (bi == BI_MAP) {
+            if (f->elem->kind == TY_VOID) {
+                err_at(arg(e, 1)->line, arg(e, 1)->col,
+                       "`map` builds an array out of what this gives back, "
+                       "and it gives back nothing");
+                return ty_err();
+            }
+            return ty_array(f->elem);
+        }
+        if (bi == BI_FILTER)  return a;
+        if (bi == BI_FIND_BY) return ty_opt(elem);
+        if (bi == BI_SORT_BY) return ty_void();
+        return ty_bool();
     }
 
     case BI_FAIL: {
@@ -1170,6 +1272,34 @@ static Type *check_method_call(Expr *e, Type *hint) {
 static Type *check_call(Expr *e, Type *hint) {
     if (e->a && e->a->kind == EX_FIELD) return check_method_call(e, hint);
 
+    /* `ops["double"](7)` -- whatever is on the left holds a function */
+    if (e->a && e->a->kind != EX_IDENT) {
+        Type *ft = check_expr(e->a, NULL);
+        if (!is_err(ft) && ft->kind == TY_FN) {
+            if (e->args.len != ft->fparams.len) {
+                for (int i = 0; i < e->args.len; i++) check_expr(arg(e, i), NULL);
+                err_at(e->line, e->col, "this function takes %d argument%s, "
+                       "but got %d", ft->fparams.len,
+                       ft->fparams.len == 1 ? "" : "s", e->args.len);
+                return ft->elem;
+            }
+            for (int i = 0; i < e->args.len; i++) {
+                Type *at_ = check_expr(arg(e, i), ft->fparams.items[i]);
+                want(arg(e, i), at_, ft->fparams.items[i],
+                     cx_fmt("argument %d", i + 1));
+            }
+            e->kind = EX_CALLVAL;
+            e->type = ft->elem;
+            return ft->elem;
+        }
+        if (!is_err(ft)) {
+            for (int i = 0; i < e->args.len; i++) check_expr(arg(e, i), NULL);
+            err_at(e->line, e->col, "this is %s, which cannot be called",
+                   ty_show(ft));
+            return ty_err();
+        }
+    }
+
     if (!e->a || e->a->kind != EX_IDENT) {
         err_at(e->line, e->col, "only named functions can be called");
         err_help("Cub does not have function values yet");
@@ -1228,8 +1358,37 @@ static Type *check_call(Expr *e, Type *hint) {
         return check_builtin(e, bi, hint);
     }
 
-    for (int i = 0; i < e->args.len; i++) check_expr(arg(e, i), NULL);
     VarSym *v = lookup(name);
+    if (v && v->type && v->type->kind == TY_FN) {
+        /* the name holds a function, so this is a call through it */
+        Type *ft = v->type;
+        if (e->args.len != ft->fparams.len) {
+            for (int i = 0; i < e->args.len; i++) check_expr(arg(e, i), NULL);
+            err_at(e->line, e->col, "`%s` takes %d argument%s, but got %d",
+                   name, ft->fparams.len, ft->fparams.len == 1 ? "" : "s",
+                   e->args.len);
+            return ft->elem;
+        }
+        for (int i = 0; i < e->args.len; i++) {
+            Type *at_ = check_expr(arg(e, i), ft->fparams.items[i]);
+            want(arg(e, i), at_, ft->fparams.items[i],
+                 cx_fmt("argument %d of `%s`", i + 1, name));
+        }
+        Expr *callee = cx_alloc(sizeof(Expr));
+        callee->kind = EX_IDENT;
+        callee->builtin = BI_NONE;
+        callee->line = e->line;
+        callee->col = e->col;
+        callee->name = e->name;
+        callee->var = v;
+        callee->type = ft;
+        e->a = callee;
+        e->kind = EX_CALLVAL;
+        e->type = ft->elem;
+        return ft->elem;
+    }
+
+    for (int i = 0; i < e->args.len; i++) check_expr(arg(e, i), NULL);
     if (v) {
         err_at(e->line, e->col, "`%s` is a variable, not a function", name);
         return ty_err();
@@ -1659,9 +1818,24 @@ static Type *check_expr(Expr *e, Type *hint) {
             err_help("make one with `%s { ... }`", e->name);
             break;
         }
-        if (find_fn(e->name) || builtin_lookup(e->name) != BI_NONE) {
+        FnDecl *named = find_fn(e->name);
+        if (named && !named->is_extern) {
+            /* the name of a function, standing in for the function itself */
+            Vec ptypes = {0};
+            for (int i = 0; i < named->params.len; i++)
+                vec_push(&ptypes, ((VarSym *)named->params.items[i])->type);
+            e->kind = EX_FNREF;
+            e->fn = named;
+            t = ty_fn(&ptypes, named->ret);
+            e->type = t;
+            break;
+        }
+        if (named || builtin_lookup(e->name) != BI_NONE) {
             err_at(e->line, e->col, "`%s` is a function; call it with `%s(...)`",
                    e->name, e->name);
+            if (!named)
+                err_help("a built-in cannot be held as a value; wrap it in one "
+                         "of your own");
             break;
         }
         if (cur_class && find_field(cur_class, e->name, NULL)) {
@@ -1738,6 +1912,52 @@ static Type *check_expr(Expr *e, Type *hint) {
 
     case EX_WRAP:
     case EX_ENUMMAKE: t = e->type; break; /* typed when the node was made */
+
+    case EX_FNLIT: {
+        FnDecl *f = e->lambda;
+        f->ret = resolve_type(f->ret, f->line, f->col);
+        Vec ptypes = {0};
+        for (int i = 0; i < f->params.len; i++) {
+            VarSym *v = f->params.items[i];
+            v->type = resolve_type(v->type, f->line, f->col);
+            v->cname = cx_fmt("cubp_%s_%d", v->name, ++uid);
+            vec_push(&ptypes, v->type);
+        }
+        f->lambda_id = ++uid;
+        f->cname = cx_fmt("cubl_%d", f->lambda_id);
+
+        FnDecl *saved_fn = cur_fn, *saved_lambda = cur_lambda;
+        Scope  *saved_barrier = fn_barrier;
+        cur_fn = f;
+        cur_lambda = f;
+        push_scope();
+        fn_barrier = scope;
+        for (int i = 0; i < f->params.len; i++) {
+            VarSym *v = f->params.items[i];
+            if (lookup_local(v->name))
+                err_at(f->line, f->col, "`%s` appears twice in the parameter list",
+                       v->name);
+            vec_push(&scope->syms, v);
+        }
+        check_stmts(&f->body);
+        pop_scope();
+        fn_barrier = saved_barrier;
+        cur_lambda = saved_lambda;
+        cur_fn = saved_fn;
+
+        if (f->ret->kind != TY_VOID && !ty_is_void_fail(f->ret) &&
+            !always_returns(&f->body)) {
+            err_at(f->line, f->col, "this function must return %s on every path",
+                   ty_show(f->ret));
+            err_help("add a `return` at the end, or an `else` branch that returns");
+        }
+        t = ty_fn(&ptypes, f->ret);
+        e->type = t;
+        break;
+    }
+
+    case EX_FNREF:
+    case EX_CALLVAL: t = e->type; break;
 
     case EX_MATCH:
         t = check_match(e->a, &e->arms, true, hint, e->line, e->col);
@@ -2045,6 +2265,14 @@ static void check_assignable(Expr *lhs) {
     if (!v) return;
     if (through_ref) return;
     if (!v->is_mut) {
+        if (v->is_capture) {
+            err_at(lhs->line, lhs->col,
+                   "`%s` is copied into this function when it is made, so "
+                   "changing it here would not change the one outside", v->name);
+            err_help("hold what changes in an array or an object, which are "
+                     "shared rather than copied");
+            return;
+        }
         if (lhs->kind == EX_IDENT)
             err_at(lhs->line, lhs->col, "`%s` was declared with `let`, so it never changes",
                    v->name);
@@ -2106,7 +2334,7 @@ static void check_stmt(Stmt *s) {
         while (doing && (doing->kind == EX_INSIST || doing->kind == EX_TRY))
             doing = doing->a;
         if (doing->kind != EX_CALL && doing->kind != EX_METHOD &&
-            doing->kind != EX_NEW) {
+            doing->kind != EX_NEW && doing->kind != EX_CALLVAL) {
             err_at(s->line, s->col, "this value is computed and then thrown away");
             err_help("did you mean to assign it, or to call a function?");
         } else if (t && t->kind == TY_FAIL) {

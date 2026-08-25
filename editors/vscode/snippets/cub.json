@@ -159,9 +159,9 @@
   "map": {
     "prefix": "map",
     "body": [
-      "var ${1:name}: [${2:string}: ${3:int}] = [:];"
+      "map(${1:items}, ${2:int}(${3:x}: ${4:int}) { return $0; })"
     ],
-    "description": "An empty map"
+    "description": "Build a new array from each item"
   },
   "if expression": {
     "prefix": "ifx",
@@ -240,5 +240,12 @@
       "}"
     ],
     "description": "An enum whose values carry things"
+  },
+  "function value": {
+    "prefix": "fnv2",
+    "body": [
+      "${1:int}(${2:x}: ${3:int}) { return $0; }"
+    ],
+    "description": "A function written where a value is wanted"
   }
 }

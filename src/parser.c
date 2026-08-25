@@ -120,6 +120,26 @@ static Type *parse_suffix(P *p, Type *base) {
 }
 
 static Type *parse_type(P *p) {
+    /* `(int, int) -> int` -- what a function held as a value looks like */
+    if (at(p, TK_LPAREN)) {
+        Token *open = cur(p);
+        p->i++;
+        Vec params = {0};
+        while (!at(p, TK_RPAREN)) {
+            vec_push(&params, parse_type(p));
+            if (!eat(p, TK_COMMA)) break;
+        }
+        expect(p, TK_RPAREN, "`)` to close the parameter types");
+        if (!eat(p, TK_ARROW)) {
+            err_at(open->line, open->col,
+                   "a function type says what it gives back with `->`");
+            err_help("write `(int, int) -> int`, or `(int) -> void` for one "
+                     "that gives nothing back");
+            stop_if_errors();
+        }
+        Type *ret = parse_type(p);
+        return parse_suffix(p, ty_fn(&params, ret));
+    }
     if (eat(p, TK_VOID)) return parse_suffix(p, ty_void());
     if (eat(p, TK_LBRACK)) {
         Type *el = parse_type(p);
@@ -150,7 +170,8 @@ static Type *parse_type(P *p) {
 
 /* A function declaration leads with its type, so this is what starts one. */
 static bool starts_type(P *p) {
-    return at(p, TK_VOID) || at(p, TK_LBRACK) || at(p, TK_IDENT);
+    return at(p, TK_VOID) || at(p, TK_LBRACK) || at(p, TK_IDENT) ||
+           at(p, TK_LPAREN);          /* `(int) -> int` gives back a function */
 }
 
 /* ---------------- expressions ---------------- */
@@ -229,8 +250,83 @@ static Expr *parse_if_expr(P *p) {
     return e;
 }
 
+/* An anonymous function is a declaration without a name:
+ *
+ *     let double = int(x: int) { return x * 2; };
+ *
+ * The only thing it could be confused with is a conversion like
+ * `int(count)`, and a parameter list always has `name:` in it. */
+static bool starts_fn_literal(P *p) {
+    int j = p->i;
+    if (j < p->n && p->t[j].kind == TK_LBRACK) {         /* [int](x: int) { } */
+        int nest = 0;
+        while (j < p->n) {
+            if (p->t[j].kind == TK_LBRACK) nest++;
+            else if (p->t[j].kind == TK_RBRACK && --nest == 0) { j++; break; }
+            j++;
+        }
+    } else if (j < p->n && (p->t[j].kind == TK_IDENT || p->t[j].kind == TK_VOID)) {
+        j++;
+    } else {
+        return false;
+    }
+    while (j < p->n && (p->t[j].kind == TK_QUESTION || p->t[j].kind == TK_BANG)) j++;
+    if (j >= p->n || p->t[j].kind != TK_LPAREN) return false;
+
+    /* `(name:` can only be a parameter list */
+    if (j + 2 < p->n && p->t[j + 1].kind == TK_IDENT &&
+        p->t[j + 2].kind == TK_COLON)
+        return true;
+
+    /* `f()` is a call and `void() { ... }` is a function of no arguments,
+     * told apart by the block that follows -- except in the header of an
+     * `if` or a loop, where the block belongs to the header. */
+    if (j + 2 < p->n && p->t[j + 1].kind == TK_RPAREN &&
+        p->t[j + 2].kind == TK_LBRACE)
+        return !p->no_struct_lit;
+    return false;
+}
+
+static Expr *parse_fn_literal(P *p) {
+    Token *t = cur(p);
+    FnDecl *f = cx_alloc(sizeof(FnDecl));
+    f->src = p->src;
+    f->line = t->line;
+    f->col = t->col;
+    f->name = "this function";
+    f->ret = parse_type(p);
+
+    expect(p, TK_LPAREN, "`(` to start the parameter list");
+    while (!at(p, TK_RPAREN)) {
+        Token *pn = cur(p);
+        expect(p, TK_IDENT, "a parameter name");
+        if (!eat(p, TK_COLON)) {
+            Token *c = cur(p);
+            err_at(c->line, c->col, "parameter `%s` needs a type", pn->lex);
+            stop_if_errors();
+        }
+        VarSym *v = cx_alloc(sizeof(VarSym));
+        v->name = pn->lex;
+        v->type = parse_type(p);
+        vec_push(&f->params, v);
+        if (!eat(p, TK_COMMA)) break;
+    }
+    expect(p, TK_RPAREN, "`)` to close the parameter list");
+    parse_block(p, &f->body);
+
+    Expr *e = cx_alloc(sizeof(Expr));
+    e->kind = EX_FNLIT;
+    e->builtin = BI_NONE;
+    e->line = t->line;
+    e->col = t->col;
+    e->lambda = f;
+    return e;
+}
+
 static Expr *parse_primary(P *p) {
     Token *t = cur(p);
+
+    if (starts_fn_literal(p)) return parse_fn_literal(p);
 
     if (at(p, TK_IF)) return parse_if_expr(p);
 

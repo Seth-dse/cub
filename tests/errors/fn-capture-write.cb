@@ -1,0 +1,6 @@
+void main() {
+    var count = 0;
+    let bump = void() { count += 1; };
+    bump();
+    print(count);
+}

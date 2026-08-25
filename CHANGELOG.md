@@ -1,5 +1,43 @@
 # Changelog
 
+## 0.9.0
+
+Functions are values.
+
+A function can be kept in a variable, handed to another function, and
+written where a value is wanted -- which looks like a declaration with the
+name left out:
+
+    int apply(f: (int) -> int, n: int) { return f(n); }
+
+    let double = int(x: int) { return x * 2; };
+    print(apply(double, 5));            // 10
+
+The type is written `(what goes in) -> what comes back`. The name of a
+function you declared is a value too, so `apply(add_one, 5)` works.
+
+**What a function written inline uses from around it is copied in when it is
+made.** Changing one of those copies would not change the original, so Cub
+refuses rather than letting it look as though it worked:
+
+    error: `count` is copied into this function when it is made, so changing
+           it here would not change the one outside
+      help: hold what changes in an array or an object, which are shared
+            rather than copied
+
+Arrays, maps, and objects are shared whether captured or passed, exactly as
+they are everywhere else, so a closure can still add to one. What a closure
+captures goes on the heap, so it may outlive the call that made it.
+
+**Six built-ins now take a function of yours:** `map`, `filter`, `any`,
+`all`, `find_by`, and `sort_by`. `find_by` gives back a `T?`, which the
+optional machinery from 0.6 already knows what to do with:
+
+    print(find_by(nums, bool(n: int) { return n % 2 == 0; }) or -1);
+
+`sort_by` is stable, and wants a negative number when the first item comes
+first. A built-in cannot be held as a value yet; wrapping one takes a line.
+
 ## 0.8.0
 
 Enum values can carry things, and `match` takes them back out.

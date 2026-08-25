@@ -70,6 +70,26 @@ Type *ty_fail(Type *inner) { return mk_maybe(TY_FAIL, inner); }
 
 bool ty_is_maybe(Type *t) { return t && (t->kind == TY_OPT || t->kind == TY_FAIL); }
 
+/* `(int, string) -> bool`.  Interned like the rest, so two spellings of
+ * the same shape are the same Type. */
+static Vec fn_cache;
+
+Type *ty_fn(Vec *params, Type *ret) {
+    for (int i = 0; i < fn_cache.len; i++) {
+        Type *t = fn_cache.items[i];
+        if (t->elem != ret || t->fparams.len != params->len) continue;
+        bool same = true;
+        for (int j = 0; j < params->len; j++)
+            if (t->fparams.items[j] != params->items[j]) { same = false; break; }
+        if (same) return t;
+    }
+    Type *t = mk(TY_FN);
+    t->elem = ret;
+    for (int i = 0; i < params->len; i++) vec_push(&t->fparams, params->items[i]);
+    vec_push(&fn_cache, t);
+    return t;
+}
+
 Type *ty_named(TypeKind k, char *name) {
     Type *t = mk(k);
     t->name = name;
@@ -82,6 +102,12 @@ bool ty_same(Type *a, Type *b) {
     if (a->kind != b->kind) return false;
     if (a->kind == TY_ARRAY || a->kind == TY_OPT || a->kind == TY_FAIL)
         return ty_same(a->elem, b->elem);
+    if (a->kind == TY_FN) {
+        if (a->fparams.len != b->fparams.len) return false;
+        for (int i = 0; i < a->fparams.len; i++)
+            if (!ty_same(a->fparams.items[i], b->fparams.items[i])) return false;
+        return ty_same(a->elem, b->elem);
+    }
     if (a->kind == TY_MAP)   return ty_same(a->key, b->key) && ty_same(a->elem, b->elem);
     if (a->kind == TY_STRUCT || a->kind == TY_ENUM || a->kind == TY_CLASS)
         return strcmp(a->name, b->name) == 0;
@@ -117,6 +143,15 @@ const char *ty_show(Type *t) {
     case TY_STR:    return "string";
     case TY_ARRAY:  return cx_fmt("[%s]", ty_show(t->elem));
     case TY_MAP:    return cx_fmt("[%s: %s]", ty_show(t->key), ty_show(t->elem));
+    case TY_FN: {
+        Buf b;
+        buf_init(&b);
+        buf_puts(&b, "(");
+        for (int i = 0; i < t->fparams.len; i++)
+            buf_printf(&b, "%s%s", i ? ", " : "", ty_show(t->fparams.items[i]));
+        buf_printf(&b, ") -> %s", ty_show(t->elem));
+        return b.data;
+    }
     case TY_OPT:    return cx_fmt("%s?", ty_show(t->elem));
     case TY_FAIL:   return cx_fmt("%s!", ty_show(t->elem));
     case TY_STRUCT:
@@ -138,6 +173,15 @@ const char *ty_mangle(Type *t) {
     case TY_STRUCT: return cx_fmt("s_%s", t->name);
     case TY_ENUM:   return cx_fmt("e_%s", t->name);
     case TY_CLASS:  return cx_fmt("c_%s", t->name);
+    case TY_FN: {
+        Buf b;
+        buf_init(&b);
+        buf_puts(&b, "fn");
+        for (int i = 0; i < t->fparams.len; i++)
+            buf_printf(&b, "_%s", ty_mangle(t->fparams.items[i]));
+        buf_printf(&b, "_to_%s", ty_mangle(t->elem));
+        return b.data;
+    }
     case TY_OPT:    return cx_fmt("opt_%s", ty_mangle(t->elem));
     case TY_FAIL:   return cx_fmt("fail_%s", ty_mangle(t->elem));
     default:        return "err";

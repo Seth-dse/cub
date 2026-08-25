@@ -46,7 +46,7 @@ Nothing to install beyond a C compiler and `make`.
 
 ```bash
 make
-make test          # 77 tests: programs, compile errors, runtime failures
+make test          # 82 tests: programs, compile errors, runtime failures
 make check-linux   # optional: build and test under glibc in a container
 make examples      # run everything in examples/
 sudo make install  # optional: puts cubc in /usr/local/bin
@@ -191,6 +191,10 @@ import fs;
 print(math.sqrt(16.0));
 print(fs.exists("notes.txt"));
 
+// A function is a value: hold one, pass one, write one where it is used.
+let double = int(x: int) { return x * 2; };
+print(map([1, 2, 3], double));   // [2, 4, 6]
+
 // A program can span several files.
 import "shapes.cb";
 
@@ -277,7 +281,7 @@ compiler.
 
 `extern "header.h" { ... }` borrows a C function; `link "name";` puts
 `-lname` on the C compiler's command line. Everything Cub promises stops at
-that boundary — see [the reference](docs/LANGUAGE.md#19-reaching-into-c).
+that boundary — see [the reference](docs/LANGUAGE.md#20-reaching-into-c).
 
 Look at what your program becomes:
 
@@ -305,8 +309,8 @@ server meant to run for weeks. Reference counting is the next step.
 
 ## Status
 
-Version 0.8.0. The language described here works, and the test suite covers
-it. Not yet built: generics, closures, interfaces, and private declarations.
+Version 0.9.0. The language described here works, and the test suite covers
+it. Not yet built: generics, interfaces, and private declarations.
 [The reference](docs/LANGUAGE.md#20-what-cub-leaves-out-for-now) lists them
 with what is planned.
 

@@ -84,10 +84,13 @@ static bool needs_space(const Token *prev, const Token *cur, bool prev_was_prefi
     if (cur->kind == TK_QUESTION) return false;
     if (cur->kind == TK_BANG && !prefix_position(prev)) return false;
 
-    /* a call or an index binds tight; a keyword does not */
+    /* a call or an index binds tight; a keyword does not.  `void` is the
+     * exception: `void(n: int) { }` is a function with nothing to give
+     * back, and the parameters belong to it. */
     if (cur->kind == TK_LPAREN || cur->kind == TK_LBRACK) {
         switch (prev->kind) {
-        case TK_IDENT: case TK_RPAREN: case TK_RBRACK: return false;
+        case TK_IDENT: case TK_RPAREN: case TK_RBRACK: case TK_VOID:
+            return false;
         default: return true;
         }
     }

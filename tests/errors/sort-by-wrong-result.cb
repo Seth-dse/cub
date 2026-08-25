@@ -1,0 +1,5 @@
+void main() {
+    var ns = [3, 1];
+    sort_by(ns, bool(a: int, b: int) { return a < b; });
+    print(ns);
+}

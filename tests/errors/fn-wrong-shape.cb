@@ -1,0 +1,4 @@
+int apply(f: (int) -> int, n: int) { return f(n); }
+void main() {
+    print(apply(int(a: int, b: int) { return a + b; }, 1));
+}

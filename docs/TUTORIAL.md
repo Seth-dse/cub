@@ -484,7 +484,93 @@ for name in names {
 
 ---
 
-## 12. Classes
+## 12. Functions as values
+
+A function is a value like any other. You can keep one in a variable, hand
+one to another function, or write one on the spot.
+
+Writing one on the spot looks like a declaration with the name left out:
+
+```cub
+void main() {
+    let double = int(x: int) { return x * 2; };
+    print(double(21));           // 42
+}
+```
+
+A function that takes one says so in its type, written
+`(what goes in) -> what comes back`:
+
+```cub
+int apply(f: (int) -> int, n: int) {
+    return f(n);
+}
+
+int add_one(n: int) { return n + 1; }
+
+void main() {
+    print(apply(add_one, 5));                          // 6
+    print(apply(int(x: int) { return x * x; }, 5));     // 25
+}
+```
+
+### It can use what is around it
+
+```cub
+void main() {
+    let factor = 10;
+    let scale = int(x: int) { return x * factor; };
+    print(scale(3));             // 30
+}
+```
+
+`factor` is **copied in** when `scale` is made. That means a function written
+inline cannot change a number from outside it — and rather than letting you
+write something that quietly does nothing, Cub stops you:
+
+```
+error: `count` is copied into this function when it is made, so changing it
+       here would not change the one outside
+```
+
+Arrays and objects are shared rather than copied, in a closure exactly as
+everywhere else, so this works:
+
+```cub
+void main() {
+    var seen: [int] = [];
+    let note = void(n: int) { push(seen, n); };
+    note(1);
+    note(2);
+    print(seen);                 // [1, 2]
+}
+```
+
+### Where this pays off
+
+Six built-ins take a function and walk an array with it:
+
+```cub
+void main() {
+    let nums = [5, 3, 8, 1, 9, 2];
+
+    print(map(nums, int(n: int) { return n * 2; }));
+    print(filter(nums, bool(n: int) { return n > 3; }));
+    print(any(nums, bool(n: int) { return n > 8; }));
+    print(find_by(nums, bool(n: int) { return n % 2 == 0; }) or -1);
+
+    var words = ["pear", "fig", "banana"];
+    sort_by(words, int(a: string, b: string) { return len(a) - len(b); });
+    print(words);
+}
+```
+
+`sort_by` wants a negative number when the first item comes first, a
+positive one when it comes second, and `0` when they are equal.
+
+---
+
+## 13. Classes
 
 A struct holds data. A **class** holds data *and* the things you can do with
 it:
@@ -649,7 +735,7 @@ Without one you still get something useful: `Point{x: 3, y: 4}`.
 
 ---
 
-## 13. When there might be nothing
+## 14. When there might be nothing
 
 Ask a program to read a number out of whatever someone typed, and there are
 two answers: the number, or an explanation. Cub makes you say which one you
@@ -764,7 +850,7 @@ is an error, because that discards whether the work happened at all.
 
 ---
 
-## 14. Imports
+## 15. Imports
 
 Some of the library is always there — `print`, `len`, `push`, `str`, and the
 text and array functions. Anything that reaches outside your program lives in
@@ -820,7 +906,7 @@ to `cubc` may have a `main`.
 
 ---
 
-## 15. Writing things down
+## 16. Writing things down
 
 Three slashes document what comes next:
 
@@ -844,7 +930,7 @@ You can document classes, methods, fields, structs, and enums the same way.
 
 ---
 
-## 16. Putting it together
+## 17. Putting it together
 
 A program that reads numbers, and reports on them. It uses almost everything
 above.

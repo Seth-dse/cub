@@ -1,0 +1,56 @@
+// A function can be held in a variable, written where a value is wanted,
+// and passed to something else.
+int apply(f: (int) -> int, n: int) { return f(n); }
+
+int add_one(n: int) { return n + 1; }
+
+(int) -> int adder(n: int) {
+    return int(x: int) { return x + n; };
+}
+
+void main() {
+    let double = int(x: int) { return x * 2; };
+    print(double(21));
+    print(apply(double, 5));
+    print(apply(add_one, 5));
+
+    // what it captures is copied in when it is made
+    let factor = 10;
+    let scale = int(x: int) { return x * factor; };
+    print(scale(3));
+
+    // a closure outliving the call that made it
+    let add5 = adder(5);
+    print(add5(10));
+
+    // an array captured stays shared, because arrays always are
+    var seen: [int] = [];
+    let note = void(n: int) { push(seen, n); };
+    note(1);
+    note(2);
+    print(seen);
+
+    // held in an array and in a map
+    let steps = [double, add_one, scale];
+    var v = 1;
+    for step in steps { v = step(v); }
+    print(v);
+
+    var ops: [string: (int) -> int] = [:];
+    ops["double"] = double;
+    print(ops["double"](7));
+
+    // walking an array with a function
+    let nums = [5, 3, 8, 1, 9, 2];
+    print(map(nums, int(n: int) { return n * 2; }));
+    print(map(nums, string(n: int) { return "n{n}"; }));
+    print(filter(nums, bool(n: int) { return n > 3; }));
+    print(any(nums, bool(n: int) { return n > 8; }));
+    print(all(nums, bool(n: int) { return n > 0; }));
+    print(find_by(nums, bool(n: int) { return n % 2 == 0; }) or -1);
+    print(find_by(nums, bool(n: int) { return n > 100; }) or -1);
+
+    var words = ["pear", "fig", "banana", "kiwi"];
+    sort_by(words, int(a: string, b: string) { return len(a) - len(b); });
+    print(words);
+}

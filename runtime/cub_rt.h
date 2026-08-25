@@ -261,6 +261,12 @@ static void cub_stack_check(const char *name, const char *f, int l) {
                            "nested too deeply to finish", name);
 }
 
+/* ---------------- functions held as values ---------------- */
+
+/* A function value is the code to run and the values it captured when it
+ * was made.  `env` is NULL when it captured nothing. */
+typedef struct { void *fn; void *env; } CubFn;
+
 /* ---------------- values that may not be there ---------------- */
 
 /* `T?` and `T!` become a struct per inner type.  The ones the library

@@ -1,6 +1,6 @@
 # The Cub Language Reference
 
-Version 0.8.0
+Version 0.9.0
 
 Cub is a small statically typed language in the C family. It compiles to
 standalone C99, so a Cub program runs anywhere a C compiler runs and starts
@@ -174,10 +174,11 @@ Cub has six kinds of type.
 | `[K: V]` | a map from `K` to `V` | `["ada": 36]`, `[:]` |
 | `struct` / `enum` | data you declare | `Point { x: 1, y: 2 }`, `Color.Red` |
 | `class` | an object with methods | `Dog("Rex")` |
+| `(A, B) -> R` | a function held as a value | `int(x: int) { ... }` |
 | `T?` | a `T`, or nothing | `nothing`, `3` |
 | `T!` | a `T`, or a failure with a reason | `fail("no")`, `3` |
 
-`T?` and `T!` are covered in [section 18](#18-values-that-may-not-be-there).
+`T?` and `T!` are covered in [section 19](#19-values-that-may-not-be-there).
 
 Underscores may be used to group digits: `1_000_000`. Hexadecimal literals
 are written `0xff`.
@@ -700,7 +701,111 @@ Like arrays, maps are shared rather than copied.
 
 ---
 
-## 17. Classes
+## 17. Functions as values
+
+A function can be held in a variable, passed to another function, and
+written where a value is wanted.
+
+The type is written `(what goes in) -> what comes back`:
+
+```cub
+int apply(f: (int) -> int, n: int) {
+    return f(n);
+}
+```
+
+A function written inline is a declaration without a name:
+
+```cub
+let double = int(x: int) { return x * 2; };
+print(double(21));                  // 42
+print(apply(double, 5));            // 10
+```
+
+The name of a function you declared is also a value:
+
+```cub
+int add_one(n: int) { return n + 1; }
+
+print(apply(add_one, 5));           // 6
+```
+
+### What a function written inline can see
+
+It can use names from around it, and what it uses is **copied in when it is
+made**:
+
+```cub
+let factor = 10;
+let scale = int(x: int) { return x * factor; };
+print(scale(3));                    // 30
+```
+
+Because it is a copy, changing it inside would not change the one outside,
+and Cub says so rather than letting you try:
+
+```
+error: `count` is copied into this function when it is made, so changing it
+       here would not change the one outside
+  help: hold what changes in an array or an object, which are shared rather
+        than copied
+```
+
+That last part is the way round it: arrays, maps, and objects are shared
+whether they are captured or passed, so a function can still add to one.
+
+```cub
+var seen: [int] = [];
+let note = void(n: int) { push(seen, n); };
+note(1);
+note(2);
+print(seen);                        // [1, 2]
+```
+
+A function made inside another may outlive the call that made it — what it
+captured goes on the heap with everything else:
+
+```cub
+(int) -> int adder(n: int) {
+    return int(x: int) { return x + n; };
+}
+
+let add5 = adder(5);
+print(add5(10));                    // 15
+```
+
+### Walking an array with one
+
+Six built-ins take a function of yours:
+
+| Call | Gives back |
+|---|---|
+| `map(a, f)` | a new array of whatever `f` gives back |
+| `filter(a, keep)` | a new array of the items `keep` said `true` to |
+| `any(a, test)` / `all(a, test)` | `bool` |
+| `find_by(a, test)` | `T?` — the first item that matched, or nothing |
+| `sort_by(a, compare)` | nothing; sorts in place, keeping equal items in order |
+
+```cub
+let nums = [5, 3, 8, 1, 9, 2];
+
+print(map(nums, int(n: int) { return n * 2; }));
+print(filter(nums, bool(n: int) { return n > 3; }));
+print(find_by(nums, bool(n: int) { return n % 2 == 0; }) or -1);
+
+var words = ["pear", "fig", "banana"];
+sort_by(words, int(a: string, b: string) { return len(a) - len(b); });
+```
+
+`compare` gives a negative number when the first item comes first, a
+positive one when it comes second, and `0` when they are the same.
+
+A built-in cannot be held as a value — `map(nums, str)` will not do — but
+wrapping one takes a line: `map(nums, string(n: int) { return str(n); })`.
+
+---
+
+## 18. Classes
 
 A `struct` is data. A **class** is data with behaviour: fields, methods, and
 the option to build on another class.
@@ -858,7 +963,7 @@ for a `class` when the thing has behaviour, or when sharing it is the point.
 
 ---
 
-## 18. Values that may not be there
+## 19. Values that may not be there
 
 Some questions have no answer, and some work does not succeed. Cub says so
 in the type, so that the empty case is impossible to walk past.
@@ -991,7 +1096,7 @@ condition to handle, and stops it with a message.
 
 ---
 
-## 19. Reaching into C
+## 20. Reaching into C
 
 Cub compiles to C, so it can call C. An `extern` block names a header and
 the functions to borrow from it:
@@ -1064,7 +1169,7 @@ being careful is your job rather than the compiler's.
 
 ---
 
-## 20. Errors
+## 21. Errors
 
 **Compile-time errors** point at the exact spot, explain the problem in
 words, and suggest a fix:
@@ -1101,7 +1206,7 @@ panic("this should be unreachable");
 
 ---
 
-## 21. The standard library
+## 22. The standard library
 
 Ninety-seven built-ins. The everyday ones are always in scope; the rest live
 in a module you `import` (see [section 15](#15-imports)) and are marked here
@@ -1150,6 +1255,10 @@ with the module they belong to.
 | `slice(a, from, to)` / `copy(a)` / `concat(a, b)` | a new array |
 | `contains(a, v)` / `index_of(a, v)` / `count(a, v)` | `bool` / `int` / `int` |
 | `sort(a)` / `reverse(a)` / `shuffle(a)` | nothing; in place |
+| `sort_by(a, compare)` | nothing; in place, and stable |
+| `map(a, f)` / `filter(a, keep)` | a new array |
+| `any(a, test)` / `all(a, test)` | `bool` |
+| `find_by(a, test)` | `T?` |
 | `swap(a, i, j)` / `clear(a)` | nothing; in place |
 | `sum(a)` | `int` or `float` |
 | `min_of(a)` / `max_of(a)` | one item, from `[int]` `[float]` `[string]` |
@@ -1204,7 +1313,7 @@ All of these need `import fs`.
 
 Anything that touches the file system can fail for reasons a program cannot
 foresee, so each one hands back a `T!` carrying what the system said. See
-[section 18](#18-values-that-may-not-be-there).
+[section 19](#19-values-that-may-not-be-there).
 
 ### The world outside
 
@@ -1232,7 +1341,7 @@ rather than silently shadowing it.
 
 ---
 
-## 22. How memory works
+## 23. How memory works
 
 Cub has no manual memory management and no pointers. Text and arrays live on
 the heap; the runtime records every allocation and releases all of it when
@@ -1247,7 +1356,7 @@ allocation registry is already the hook for it.
 
 ---
 
-## 23. What Cub leaves out, for now
+## 24. What Cub leaves out, for now
 
 Left out deliberately, and not missed: pointers, pointer arithmetic, manual
 `malloc`/`free`, header files, the preprocessor, `goto`, implicit
@@ -1257,22 +1366,20 @@ Genuinely missing, and planned:
 
 - **Private declarations** — an imported file shares everything it declares.
 - **Structs and arrays across `extern`** — only the types in
-  [section 19](#19-reaching-into-c) can cross into C.
+  [section 20](#20-reaching-into-c) can cross into C.
 - **Renaming on import** — no `import os as system` yet.
 - **Generics** — arrays and maps are the only generic types.
-- **Closures and function values** — functions cannot yet be passed around,
-  so there is no `map`/`filter`/`sort_by`.
 - **Interfaces** — a class can build on one parent; there is no way to say
   "anything with an `area()`" without a shared parent.
 - **Asking an object what it is** — no `is` test and no downcast, so once a
   `Dog` is held as an `Animal` you can call it but not narrow it back.
 - **Private fields** — every field is readable and writable from anywhere.
-- **Reference counting** — see section 22.
+- **Reference counting** — see section 23.
 - **`==` on structs, arrays, and maps** — compare the parts for now.
 
 ---
 
-## 24. Grammar
+## 25. Grammar
 
 ```ebnf
 program     = { import | externblock | linkdecl | declaration } ;
@@ -1298,7 +1405,8 @@ binding     = ( "let" | "var" ) IDENT [ ":" type ] "=" expr ;
 
 type        = base [ "?" | "!" ] ;
 base        = "void" | "int" | "float" | "bool" | "string"
-            | "[" type "]" | "[" type ":" type "]" | IDENT ;
+            | "[" type "]" | "[" type ":" type "]" | IDENT
+            | "(" [ type { "," type } ] ")" "->" type ;
 
 block       = "{" { statement } "}" ;
 statement   = binding ";" | assignment ";" | expr ";"
@@ -1325,10 +1433,12 @@ sum         = product { ( "+" | "-" ) product } ;
 product     = unary { ( "*" | "/" | "%" ) unary } ;
 unary       = "try" unary | [ "-" | "not" | "!" ] postfix ;
 postfix     = primary { "(" [ args ] ")" | "[" expr "]" | "." IDENT | "!" } ;
+              (* `f(x)` calls a named function or whatever the value holds *)
 primary     = INT | FLOAT | STRING | "true" | "false" | "nothing" | IDENT
             | "self" | "super" | ifexpr
             | "(" expr ")" | "[" [ args ] "]" | maplit
-            | IDENT "{" [ inits ] "}" | matchexpr ;
+            | IDENT "{" [ inits ] "}" | matchexpr | fnlit ;
+fnlit       = type "(" [ params [ "," ] ] ")" block ;
 matchexpr   = "match" expr "{" { armvalue } "}" ;
 armvalue    = ( IDENT [ "(" IDENT { "," IDENT } ")" ] | "_" ) "=>" expr [ "," ] ;
 maplit      = "[" ( ":" | expr ":" expr { "," expr ":" expr } [ "," ] ) "]" ;
@@ -1341,7 +1451,7 @@ is.
 
 ---
 
-## 25. The compiler
+## 26. The compiler
 
 ```
 cubc program.cb              compile to ./program

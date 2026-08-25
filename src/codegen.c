@@ -15,6 +15,7 @@
  */
 #include "cub.h"
 
+static Buf     lambdas;    /* functions written inline, lifted to the top */
 static Buf     out;        /* everything before the function bodies */
 static Buf     bodies;     /* user function bodies                  */
 static Buf     helpers;    /* generated stringify helpers           */
@@ -113,6 +114,7 @@ static const char *ctype(Type *t) {
     switch (t->kind) {
     case TY_OPT:
     case TY_FAIL:   return maybe_ctype(t);
+    case TY_FN:     return "CubFn";
     case TY_INT:    return "int64_t";
     case TY_FLOAT:  return "double";
     case TY_BOOL:   return "bool";
@@ -125,6 +127,60 @@ static const char *ctype(Type *t) {
     case TY_VOID:   return "void";
     default:        return "void";
     }
+}
+
+/* The C signature a function value is called through: every one takes the
+ * values it captured first, as a `void *`. */
+static char *fn_ptr_cast(Type *ft) {
+    Buf b;
+    buf_init(&b);
+    buf_printf(&b, "%s (*)(void *", ctype(ft->elem));
+    for (int i = 0; i < ft->fparams.len; i++)
+        buf_printf(&b, ", %s", ctype(ft->fparams.items[i]));
+    buf_puts(&b, ")");
+    return b.data;
+}
+
+/* `map`, `filter` and friends need a loop written for the types in play,
+ * so one is generated per shape and remembered here. */
+typedef struct {
+    int   bi;
+    Type *elem;
+    Type *out;
+    char *name;
+} WalkHelper;
+
+static Vec walk_helpers;
+
+static const char *need_walk(int bi, Type *elem, Type *out) {
+    for (int i = 0; i < walk_helpers.len; i++) {
+        WalkHelper *w = walk_helpers.items[i];
+        if (w->bi == bi && ty_same(w->elem, elem) &&
+            (out == NULL) == (w->out == NULL) &&
+            (out == NULL || ty_same(w->out, out)))
+            return w->name;
+    }
+    WalkHelper *w = cx_alloc(sizeof(WalkHelper));
+    w->bi = bi;
+    w->elem = elem;
+    w->out = out;
+    static const char *verb[] = { "map", "filter", "any", "all", "find_by", "sort_by" };
+    w->name = cx_fmt("cub_%s_%s%s%s", verb[bi - BI_MAP], ty_mangle(elem),
+                     out ? "_to_" : "", out ? ty_mangle(out) : "");
+    vec_push(&walk_helpers, w);
+    return w->name;
+}
+
+/* A named function used as a value gets a wrapper, so that everything
+ * called through a `CubFn` has the same shape. */
+static Vec fn_wrappers;
+
+static void gen_stmts(Vec *body, int lvl);
+
+static void need_fn_wrapper(FnDecl *f) {
+    for (int i = 0; i < fn_wrappers.len; i++)
+        if (fn_wrappers.items[i] == f) return;
+    vec_push(&fn_wrappers, f);
 }
 
 /* ------------------------------------------------------------------ */
@@ -328,6 +384,7 @@ static char *default_value(Type *t) {
     case TY_MAP:   return cx_fmt("cub_map_new(sizeof(%s), %d)",
                                  ctype(t->elem), t->key->kind == TY_STR ? 1 : 0);
     case TY_CLASS: return cx_fmt("NULL");
+    case TY_FN:    return cx_fmt("((CubFn){ 0, 0 })");
     case TY_ENUM:  return cx_fmt("(CubE_%s)0", t->name);
     /* a field that may be missing starts out missing */
     case TY_OPT:
@@ -530,6 +587,16 @@ static void gen_builtin(Expr *e) {
         E("cub_arr_insert(%s, %s, (%s[]){%s}, %s)", expr_str(a0), expr_str(a1),
           ctype(a0->type->elem), expr_str(a2), loc(e->line));
         return;
+
+    case BI_MAP: case BI_FILTER: case BI_ANY: case BI_ALL:
+    case BI_FIND_BY: case BI_SORT_BY: {
+        Type *elem = a0->type->elem;
+        Type *out = e->builtin == BI_MAP ? e->type->elem
+                  : e->builtin == BI_FIND_BY ? NULL : NULL;
+        E("%s(%s, %s)", need_walk(e->builtin, elem, out),
+          expr_str(a0), expr_str(a1));
+        return;
+    }
 
     case BI_FAIL:
         E("(%s){ .ok = false, .err = %s }", ctype(e->type), expr_str(a0));
@@ -995,6 +1062,84 @@ static void gen_expr(Expr *e) {
             E("%s .f_%s = %s", i ? "," : "", f->name, expr_str(e->args.items[i]));
         }
         E(" } })");
+        break;
+    }
+
+    case EX_FNLIT: {
+        FnDecl *f = e->lambda;
+        Buf body;
+        buf_init(&body);
+        Buf *saved_dst = dst, *saved_pre = prelude;
+        int saved_lvl = prelude_lvl;
+        Type *saved_ret = cur_ret;
+        dst = &body;
+        prelude = NULL;
+        cur_ret = f->ret;
+
+        if (f->captures.len) {
+            E("struct CubEnv_%d {\n", f->lambda_id);
+            for (int i = 0; i < f->captures.len; i++) {
+                VarSym *c = f->captures.items[i];
+                E("    %s %s;\n", ctype(c->type), strchr(c->cname, '>') + 1);
+            }
+            E("};\n\n");
+        }
+
+        E("static %s %s(void *cub_env", ctype(f->ret), f->cname);
+        for (int i = 0; i < f->params.len; i++) {
+            VarSym *v = f->params.items[i];
+            E(", %s %s", ctype(v->type), v->cname);
+        }
+        E(") {\n");
+        if (f->captures.len)
+            E("    struct CubEnv_%d *env = (struct CubEnv_%d *)cub_env;\n",
+              f->lambda_id, f->lambda_id);
+        else
+            E("    (void)cub_env;\n");
+        E("    cub_stack_check(%s, %s);\n", lit("this function"), loc(f->line));
+        gen_stmts(&f->body, 1);
+        if (f->ret->kind == TY_VOID) { indent(1); E("return;\n"); }
+        else if (f->ret->kind == TY_STR) { indent(1); E("return cub_str_lit(\"\", 0);\n"); }
+        else if (f->ret->kind == TY_ARRAY) { indent(1); E("return cub_arr_new(1, 0);\n"); }
+        else { indent(1); E("{ %s cub_unreachable = {0}; return cub_unreachable; }\n",
+                            ctype(f->ret)); }
+        E("}\n\n");
+
+        dst = saved_dst;
+        prelude = saved_pre;
+        prelude_lvl = saved_lvl;
+        cur_ret = saved_ret;
+        buf_puts(&lambdas, body.data);
+
+        if (!f->captures.len) {
+            E("((CubFn){ (void *)%s, 0 })", f->cname);
+        } else {
+            int id = ++tmp_id;
+            hoist("struct CubEnv_%d *cub_e%d = "
+                  "(struct CubEnv_%d *)cub_alloc(sizeof *cub_e%d);\n",
+                  f->lambda_id, id, f->lambda_id, id);
+            for (int i = 0; i < f->captures.len; i++) {
+                VarSym *c = f->captures.items[i];
+                VarSym *o = f->cap_outer.items[i];
+                hoist("cub_e%d->%s = %s;\n", id, strchr(c->cname, '>') + 1, o->cname);
+            }
+            E("((CubFn){ (void *)%s, (void *)cub_e%d })", f->cname, id);
+        }
+        break;
+    }
+
+    case EX_FNREF:
+        need_fn_wrapper(e->fn);
+        E("((CubFn){ (void *)cubw_%s, 0 })", e->fn->name);
+        break;
+
+    case EX_CALLVAL: {
+        Type *ft = e->a->type;
+        char *fv = expr_str(e->a);
+        E("((%s)(%s).fn)((%s).env", fn_ptr_cast(ft), fv, fv);
+        for (int i = 0; i < e->args.len; i++)
+            E(", %s", expr_str(e->args.items[i]));
+        E(")");
         break;
     }
 
@@ -1522,6 +1667,7 @@ char *codegen_program(Program *p, const char *unit_name) {
     unit = unit_name;
     buf_init(&out);
     buf_init(&bodies);
+    buf_init(&lambdas);
     buf_init(&helpers);
     dst = &out;
 
@@ -1737,6 +1883,88 @@ char *codegen_program(Program *p, const char *unit_name) {
     }
     E("\n/* ---- printing helpers ---- */\n\n");
     buf_puts(&out, helpers.data);
+    /* Functions written inline, and wrappers for named ones used as
+     * values: both are ordinary C functions, lifted out to file scope. */
+    for (int i = 0; i < fn_wrappers.len; i++) {
+        FnDecl *f = fn_wrappers.items[i];
+        E("static %s cubw_%s(void *cub_env", ctype(f->ret), f->name);
+        for (int j = 0; j < f->params.len; j++) {
+            VarSym *v = f->params.items[j];
+            E(", %s %s", ctype(v->type), v->cname);
+        }
+        E(") {\n    (void)cub_env;\n    ");
+        if (f->ret->kind != TY_VOID) E("return ");
+        E("%s(", f->cname);
+        for (int j = 0; j < f->params.len; j++)
+            E("%s%s", j ? ", " : "", ((VarSym *)f->params.items[j])->cname);
+        E(");\n}\n\n");
+    }
+    /* the loops that `map` and friends turned out to need */
+    for (int i = 0; i < walk_helpers.len; i++) {
+        WalkHelper *w = walk_helpers.items[i];
+        const char *et = ctype(w->elem);
+        const char *fcall_ret = w->bi == BI_MAP ? ctype(w->out)
+                              : w->bi == BI_SORT_BY ? "int64_t" : "bool";
+
+        Buf sig;
+        buf_init(&sig);
+        buf_printf(&sig, "%s (*)(void *, %s", fcall_ret, et);
+        if (w->bi == BI_SORT_BY) buf_printf(&sig, ", %s", et);
+        buf_puts(&sig, ")");
+
+        switch (w->bi) {
+        case BI_MAP:
+            E("static CubArr %s(CubArr a, CubFn f) {\n", w->name);
+            E("    CubArr out = cub_arr_new((int64_t)sizeof(%s), a->len);\n", ctype(w->out));
+            E("    for (int64_t i = 0; i < a->len; i++) {\n");
+            E("        %s v = ((%s *)a->data)[i];\n", et, et);
+            E("        %s r = ((%s)f.fn)(f.env, v);\n", ctype(w->out), sig.data);
+            E("        cub_arr_push(out, &r);\n    }\n    return out;\n}\n\n");
+            break;
+        case BI_FILTER:
+            E("static CubArr %s(CubArr a, CubFn f) {\n", w->name);
+            E("    CubArr out = cub_arr_new(a->esz, 4);\n");
+            E("    for (int64_t i = 0; i < a->len; i++) {\n");
+            E("        %s v = ((%s *)a->data)[i];\n", et, et);
+            E("        if (((%s)f.fn)(f.env, v)) cub_arr_push(out, &v);\n", sig.data);
+            E("    }\n    return out;\n}\n\n");
+            break;
+        case BI_ANY:
+        case BI_ALL:
+            E("static bool %s(CubArr a, CubFn f) {\n", w->name);
+            E("    for (int64_t i = 0; i < a->len; i++) {\n");
+            E("        %s v = ((%s *)a->data)[i];\n", et, et);
+            E("        if (%s((%s)f.fn)(f.env, v)) return %s;\n",
+              w->bi == BI_ALL ? "!" : "", sig.data, w->bi == BI_ALL ? "false" : "true");
+            E("    }\n    return %s;\n}\n\n", w->bi == BI_ALL ? "true" : "false");
+            break;
+        case BI_FIND_BY: {
+            Type *opt = ty_opt(w->elem);
+            E("static %s %s(CubArr a, CubFn f) {\n", ctype(opt), w->name);
+            E("    for (int64_t i = 0; i < a->len; i++) {\n");
+            E("        %s v = ((%s *)a->data)[i];\n", et, et);
+            E("        if (((%s)f.fn)(f.env, v))\n", sig.data);
+            E("            return (%s){ .ok = true, .value = v };\n", ctype(opt));
+            E("    }\n    return (%s){ .ok = false };\n}\n\n", ctype(opt));
+            break;
+        }
+        case BI_SORT_BY:
+            /* an insertion sort: it is stable, and the comparison is a
+             * call through a pointer, so a clever sort would not pay */
+            E("static void %s(CubArr a, CubFn f) {\n", w->name);
+            E("    %s *d = (%s *)a->data;\n", et, et);
+            E("    for (int64_t i = 1; i < a->len; i++) {\n");
+            E("        %s v = d[i];\n", et);
+            E("        int64_t j = i - 1;\n");
+            E("        while (j >= 0 && ((%s)f.fn)(f.env, d[j], v) > 0) {\n", sig.data);
+            E("            d[j + 1] = d[j];\n            j--;\n        }\n");
+            E("        d[j + 1] = v;\n    }\n}\n\n");
+            break;
+        }
+    }
+
+    if (lambdas.data) buf_puts(&out, lambdas.data);
+
     E("/* ---- program ---- */\n\n");
     buf_puts(&out, ginit.data);
     buf_puts(&out, bodies.data);

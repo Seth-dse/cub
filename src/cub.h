@@ -17,7 +17,7 @@
 #include <stdbool.h>
 #include <stdarg.h>
 
-#define CUB_VERSION "0.8.0"
+#define CUB_VERSION "0.9.0"
 
 /* ------------------------------------------------------------------ */
 /* small utilities                                                     */
@@ -125,7 +125,8 @@ typedef enum {
     TY_ERR, TY_VOID, TY_INT, TY_FLOAT, TY_BOOL, TY_STR,
     TY_ARRAY, TY_STRUCT, TY_ENUM, TY_CLASS, TY_MAP,
     TY_OPT,    /* `T?` -- a T, or nothing              */
-    TY_FAIL    /* `T!` -- a T, or a failure with a message */
+    TY_FAIL,   /* `T!` -- a T, or a failure with a message */
+    TY_FN      /* `(int, int) -> int` -- a function held as a value */
 } TypeKind;
 
 typedef struct Type      Type;
@@ -135,7 +136,8 @@ typedef struct ClassDef  ClassDef;
 
 struct Type {
     TypeKind   kind;
-    Type      *elem;   /* TY_ARRAY element, TY_MAP value */
+    Type      *elem;   /* TY_ARRAY element, TY_MAP value, TY_FN result */
+    Vec        fparams;/* TY_FN: Type* for each parameter */
     Type      *key;    /* TY_MAP key */
     char      *name;   /* TY_STRUCT / TY_ENUM / TY_CLASS */
     StructDef *sdef;
@@ -151,6 +153,7 @@ Type *ty_bool(void);
 Type *ty_str(void);
 Type *ty_array(Type *elem);          /* interned: same elem -> same Type* */
 Type *ty_map(Type *key, Type *val);  /* interned the same way            */
+Type *ty_fn(Vec *params, Type *ret); /* `(A, B) -> R`, interned          */
 Type *ty_opt(Type *inner);           /* `T?`, interned                   */
 Type *ty_fail(Type *inner);          /* `T!`, interned                   */
 bool  ty_is_maybe(Type *t);          /* either of the two above          */
@@ -181,6 +184,7 @@ typedef struct VarSym {
     char *name;
     Type *type;
     bool  is_mut;
+    bool  is_capture;     /* a copy taken by a function written inline */
     bool  is_global;
     char *cname;      /* unique name used in the generated C */
 } VarSym;
@@ -204,7 +208,10 @@ typedef enum {
     EX_INSIST,    /* `maybe!`, which stops the program if it is missing */
     EX_WRAP,      /* a plain value on its way into a `T?` or `T!` slot   */
     EX_ENUMMAKE,  /* `Shape.Circle(2.0)` -- a value with something in it */
-    EX_MATCH      /* `match s { ... }` used where a value is expected    */
+    EX_MATCH,     /* `match s { ... }` used where a value is expected    */
+    EX_FNLIT,     /* `int(x: int) { ... }` -- a function written inline  */
+    EX_FNREF,     /* a named function used as a value                   */
+    EX_CALLVAL    /* calling whatever a function-shaped value holds     */
 } ExprKind;
 
 struct Expr {
@@ -230,6 +237,7 @@ struct Expr {
     int       builtin;     /* BI_* or -1 */
     int       enum_index;
     ClassDef *cls;         /* EX_NEW: the class being made          */
+    FnDecl   *lambda;      /* EX_FNLIT: the body, params, and captures */
     Type     *obj_type;    /* EX_METHOD / EX_FIELD: type of the target */
 };
 
@@ -278,6 +286,11 @@ struct FnDecl {
     bool      is_extern;
     char     *c_name;
     char     *header;
+
+    /* function values only */
+    Vec       captures;   /* VarSym* the body uses from around it   */
+    Vec       cap_outer;  /* VarSym* they refer to, one for one     */
+    int       lambda_id;  /* names the generated C function and env */
 
     /* methods only */
     bool      is_static;  /* belongs to the class, not to an object */
@@ -384,7 +397,9 @@ typedef enum {
     BI_SHUFFLE, BI_SWAP, BI_MIN_OF, BI_MAX_OF, BI_EPRINT, BI_EXIT, BI_ARGS,
     BI_ENV, BI_SLEEP_MS, BI_CLOCK_MS, BI_FILE_EXISTS, BI_APPEND_FILE,
     BI_DELETE_FILE, BI_READ_LINES, BI_PLATFORM,
-    BI_FAIL          /* `fail(reason)` -- the failure side of a `T!` */
+    BI_FAIL,         /* `fail(reason)` -- the failure side of a `T!` */
+    /* the ones that take a function */
+    BI_MAP, BI_FILTER, BI_ANY, BI_ALL, BI_FIND_BY, BI_SORT_BY
 } Builtin;
 
 int  builtin_lookup(const char *name);   /* -1 when not a builtin */

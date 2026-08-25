@@ -1,0 +1,2 @@
+`sort_by` needs a function that gives back int, but this gives bool
+give a negative number when the first comes first
