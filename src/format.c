@@ -115,9 +115,30 @@ static bool is_closer(TokKind k) { return k == TK_RBRACE || is_close(k); }
  *         1,
  *     ))
  */
+/* `first<T>(...)` names the types a function works for, and reads as one
+ * word.  Everywhere else `<` and `>` are comparisons and want space around
+ * them, so the two are told apart by shape: a name, then only names and
+ * commas between the brackets, then a `(`. */
+static bool *type_param_tokens(Token *toks, int n) {
+    bool *tight = cx_alloc(sizeof(bool) * (size_t)(n + 1));
+    for (int i = 1; i < n; i++) {
+        if (toks[i].kind != TK_LT || toks[i - 1].kind != TK_IDENT) continue;
+        int j = i + 1;
+        bool ok = j < n && toks[j].kind == TK_IDENT;
+        while (j < n && (toks[j].kind == TK_IDENT || toks[j].kind == TK_COMMA)) j++;
+        if (!ok || j + 1 >= n || toks[j].kind != TK_GT ||
+            toks[j + 1].kind != TK_LPAREN)
+            continue;
+        for (int k = i; k <= j; k++) tight[k] = true;
+        i = j;
+    }
+    return tight;
+}
+
 static char *render(Token *toks, int n) {
     Buf out;
     buf_init(&out);
+    bool *tight = type_param_tokens(toks, n);
 
     enum { MAX_NEST = 256 };
     int open_level[MAX_NEST];      /* indent of the line each bracket opened on */
@@ -146,6 +167,9 @@ static char *render(Token *toks, int n) {
             if (carried_on) cur_level++;
 
             for (int k = 0; k < cur_level; k++) buf_puts(&out, INDENT);
+        } else if ((tight[i] || (i > 0 && tight[i - 1])) &&
+                   !(i > 0 && toks[i - 1].kind == TK_COMMA)) {
+            /* `first<T>(` is one word, but a comma still breathes */
         } else if (t->kind == TK_COMMENT || needs_space(prev, t, prev_prefix)) {
             buf_putc(&out, ' ');
         }

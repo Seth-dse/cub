@@ -262,11 +262,29 @@ static Type *find_named(const char *name) {
     return NULL;
 }
 
+/* While a generic function's signature and body are being checked, its
+ * type names stand for themselves. */
+static Vec active_tparams;      /* char* */
+
+static bool is_tparam(const char *name) {
+    for (int i = 0; i < active_tparams.len; i++)
+        if (strcmp((char *)active_tparams.items[i], name) == 0) return true;
+    return false;
+}
+
 static Type *resolve_type(Type *t, int line, int col) {
     if (!t) return ty_err();
+    if (t->kind == TY_STRUCT && t->sdef == NULL && t->name && is_tparam(t->name))
+        return ty_var(t->name);
     if (t->kind == TY_ARRAY) return ty_array(resolve_type(t->elem, line, col));
     if (t->kind == TY_MAP)
         return ty_map(resolve_type(t->key, line, col), resolve_type(t->elem, line, col));
+    if (t->kind == TY_FN) {
+        Vec ps = {0};
+        for (int i = 0; i < t->fparams.len; i++)
+            vec_push(&ps, resolve_type(t->fparams.items[i], line, col));
+        return ty_fn(&ps, resolve_type(t->elem, line, col));
+    }
     if (t->kind == TY_OPT)  return ty_opt(resolve_type(t->elem, line, col));
     if (t->kind == TY_FAIL) return ty_fail(resolve_type(t->elem, line, col));
     if (t->kind == TY_STRUCT && t->sdef == NULL && t->name) {
@@ -423,6 +441,131 @@ static void check_extern_types(FnDecl *f) {
     if (strcmp(f->name, "main") == 0)
         err_at(f->line, f->col, "`main` is where a Cub program starts, "
                "so it cannot be an `extern`");
+}
+
+/* ------------------------------------------------------------------ */
+/* working out what a generic call stands for                          */
+/* ------------------------------------------------------------------ */
+
+/* Put the real types in place of the names. */
+static Type *subst(Type *t, Vec *names, Vec *types) {
+    if (!t) return t;
+    switch (t->kind) {
+    case TY_VAR:
+        for (int i = 0; i < names->len; i++)
+            if (strcmp((char *)names->items[i], t->name) == 0)
+                return i < types->len && types->items[i] ? types->items[i] : t;
+        return t;
+    case TY_ARRAY: return ty_array(subst(t->elem, names, types));
+    case TY_OPT:   return ty_opt(subst(t->elem, names, types));
+    case TY_FAIL:  return ty_fail(subst(t->elem, names, types));
+    case TY_MAP:   return ty_map(subst(t->key, names, types),
+                                 subst(t->elem, names, types));
+    case TY_FN: {
+        Vec ps = {0};
+        for (int i = 0; i < t->fparams.len; i++)
+            vec_push(&ps, subst(t->fparams.items[i], names, types));
+        return ty_fn(&ps, subst(t->elem, names, types));
+    }
+    default: return t;
+    }
+}
+
+/* Match what a parameter looks like against what was handed over, filling
+ * in each name the first time it is met and insisting on it after that.
+ * When a name is asked to be two things, these say which and what. */
+static const char *unify_clash_name;
+static Type       *unify_clash_bound;
+
+static bool unify(Type *pattern, Type *actual, Vec *names, Vec *types) {
+    if (!pattern || !actual) return false;
+    if (pattern->kind == TY_VAR) {
+        for (int i = 0; i < names->len; i++) {
+            if (strcmp((char *)names->items[i], pattern->name) != 0) continue;
+            if (!types->items[i]) { types->items[i] = actual; return true; }
+            if (ty_same(types->items[i], actual)) return true;
+            unify_clash_name = pattern->name;
+            unify_clash_bound = types->items[i];
+            return false;
+        }
+        return false;
+    }
+    if (pattern->kind != actual->kind) return true;   /* left to `want` to report */
+    switch (pattern->kind) {
+    case TY_ARRAY: case TY_OPT: case TY_FAIL:
+        return unify(pattern->elem, actual->elem, names, types);
+    case TY_MAP:
+        return unify(pattern->key, actual->key, names, types) &&
+               unify(pattern->elem, actual->elem, names, types);
+    case TY_FN: {
+        if (pattern->fparams.len != actual->fparams.len) return true;
+        for (int i = 0; i < pattern->fparams.len; i++)
+            if (!unify(pattern->fparams.items[i], actual->fparams.items[i],
+                       names, types))
+                return false;
+        return unify(pattern->elem, actual->elem, names, types);
+    }
+    default: return true;
+    }
+}
+
+/* One copy of the function per set of real types, reused when the same set
+ * turns up again. */
+static bool has_var(Type *t) {
+    if (!t) return false;
+    if (t->kind == TY_VAR) return true;
+    if (t->kind == TY_ARRAY || t->kind == TY_OPT || t->kind == TY_FAIL)
+        return has_var(t->elem);
+    if (t->kind == TY_MAP) return has_var(t->key) || has_var(t->elem);
+    if (t->kind == TY_FN) {
+        for (int i = 0; i < t->fparams.len; i++)
+            if (has_var(t->fparams.items[i])) return true;
+        return has_var(t->elem);
+    }
+    return false;
+}
+
+/* A generic function that calls itself, or another generic one, settles
+ * nothing new: the types are still whatever the outer call decides, and
+ * the generator resolves them when it writes that copy out. */
+static FnInst *instantiate(FnDecl *f, Vec *types) {
+    for (int i = 0; i < types->len; i++)
+        if (has_var(types->items[i])) return NULL;
+
+    for (int i = 0; i < f->insts.len; i++) {
+        FnInst *inst = f->insts.items[i];
+        bool same = true;
+        for (int j = 0; j < types->len; j++)
+            if (!ty_same(inst->types.items[j], types->items[j])) { same = false; break; }
+        if (same) return inst;
+    }
+    FnInst *inst = cx_alloc(sizeof(FnInst));
+    for (int j = 0; j < types->len; j++) vec_push(&inst->types, types->items[j]);
+
+    Buf b;
+    buf_init(&b);
+    buf_printf(&b, "cubf_%s", f->name);
+    for (int j = 0; j < types->len; j++)
+        buf_printf(&b, "_%s", ty_mangle(types->items[j]));
+    inst->cname = b.data;
+    vec_push(&f->insts, inst);
+    return inst;
+}
+
+/* Does this type use the name `tn` anywhere inside it? */
+static bool type_mentions(Type *t, const char *tn) {
+    if (!t) return false;
+    if (t->kind == TY_VAR) return strcmp(t->name, tn) == 0;
+    if (t->kind == TY_ARRAY || t->kind == TY_OPT || t->kind == TY_FAIL)
+        return type_mentions(t->elem, tn);
+    if (t->kind == TY_MAP)
+        return type_mentions(t->key, tn) || type_mentions(t->elem, tn);
+    if (t->kind == TY_FN) {
+        for (int i = 0; i < t->fparams.len; i++)
+            if (type_mentions(t->fparams.items[i], tn)) return true;
+        return type_mentions(t->elem, tn);
+    }
+    return false;
 }
 
 /* `void!` gives nothing back, so like `void` it needs no `return`. */
@@ -1327,6 +1470,58 @@ static Type *check_call(Expr *e, Type *hint) {
     }
 
     FnDecl *f = find_fn(name);
+    if (f && f->tparams.len) {
+        e->fn = f;
+        if (e->args.len != f->params.len) {
+            for (int i = 0; i < e->args.len; i++) check_expr(arg(e, i), NULL);
+            err_at(e->line, e->col, "`%s` takes %d argument%s, but got %d",
+                   name, f->params.len, f->params.len == 1 ? "" : "s",
+                   e->args.len);
+            err_help("it is declared on line %d", f->line);
+            return ty_err();
+        }
+
+        Vec types = {0};
+        for (int i = 0; i < f->tparams.len; i++) vec_push(&types, NULL);
+
+        bool clash = false;
+        for (int i = 0; i < e->args.len; i++) {
+            Type *at_ = check_expr(arg(e, i), NULL);
+            if (is_err(at_)) return ty_err();
+            VarSym *pv = f->params.items[i];
+            unify_clash_name = NULL;
+            if (!unify(pv->type, at_, &f->tparams, &types)) {
+                err_at(arg(e, i)->line, arg(e, i)->col,
+                       "`%s` is %s here, and %s earlier in the same call",
+                       unify_clash_name ? unify_clash_name : "a type",
+                       ty_show(at_), ty_show(unify_clash_bound));
+                err_help("a name stands for one type in any one call");
+                clash = true;
+            }
+        }
+        if (clash) return ty_err();
+
+        for (int i = 0; i < f->tparams.len; i++)
+            if (!types.items[i]) {
+                err_at(e->line, e->col, "nothing here says what `%s` is",
+                       (char *)f->tparams.items[i]);
+                return ty_err();
+            }
+
+        /* now that the names are settled, the ordinary checks apply */
+        for (int i = 0; i < e->args.len; i++) {
+            VarSym *pv = f->params.items[i];
+            Type *want_ = subst(pv->type, &f->tparams, &types);
+            want(arg(e, i), arg(e, i)->type, want_,
+                 cx_fmt("parameter `%s`", pv->name));
+        }
+
+        FnInst *inst = instantiate(f, &types);
+        (void)inst;
+        for (int i = 0; i < types.len; i++) vec_push(&e->targs, types.items[i]);
+        return subst(f->ret, &f->tparams, &types);
+    }
+
     if (f) {
         e->fn = f;
         if (e->args.len != f->params.len) {
@@ -1457,6 +1652,15 @@ static Type *check_binary(Expr *e, Type *hint) {
         return ty_bool();
 
     case TK_EQ: case TK_NE:
+        if (a->kind == TY_VAR || b->kind == TY_VAR) {
+            err_at(e->line, e->col,
+                   "two `%s` values cannot be compared, because `%s` could be "
+                   "anything", ty_show(a->kind == TY_VAR ? a : b),
+                   ty_show(a->kind == TY_VAR ? a : b));
+            err_help("compare something the caller works out, or take the "
+                     "type as one Cub knows how to compare");
+            return ty_bool();
+        }
         /* Two enum values are the same when they are the same value
          * carrying the same things, so everything carried has to be
          * comparable in the first place. */
@@ -2836,6 +3040,15 @@ void check_program(Program *p, bool require_main) {
         }
         if (find_named(f->name))
             err_at(f->line, f->col, "`%s` is already the name of a type", f->name);
+
+        active_tparams = f->tparams;
+        for (int j = 0; j < f->tparams.len; j++) {
+            char *tn = f->tparams.items[j];
+            if (find_named(tn))
+                err_at(f->line, f->col,
+                       "`%s` already names a type, so it cannot stand in for one",
+                       tn);
+        }
         f->ret = resolve_type(f->ret, f->line, f->col);
         for (int j = 0; j < f->params.len; j++) {
             VarSym *v = f->params.items[j];
@@ -2844,6 +3057,26 @@ void check_program(Program *p, bool require_main) {
         }
         f->cname = f->is_extern ? f->c_name : cx_fmt("cubf_%s", f->name);
         if (f->is_extern) check_extern_types(f);
+        if (f->is_extern && f->tparams.len)
+            err_at(f->line, f->col, "an `extern` names a C function, which "
+                   "works for one set of types only");
+
+        /* every name has to turn up somewhere in the arguments, or a call
+         * could never say what it stands for */
+        for (int j = 0; j < f->tparams.len; j++) {
+            char *tn = f->tparams.items[j];
+            bool used = false;
+            for (int k = 0; k < f->params.len; k++)
+                if (type_mentions(((VarSym *)f->params.items[k])->type, tn))
+                    used = true;
+            if (!used) {
+                err_at(f->line, f->col,
+                       "nothing in `%s` says what `%s` stands for", f->name, tn);
+                err_help("use `%s` in one of the parameters, so that a call "
+                         "settles it", tn);
+            }
+        }
+        active_tparams = (Vec){0};
     }
 
     /* 4. globals live in the outermost scope */
@@ -2863,6 +3096,7 @@ void check_program(Program *p, bool require_main) {
         if (f->is_extern) continue;         /* the body lives in C */
         in_file(f->src);
         cur_fn = f;
+        active_tparams = f->tparams;
         push_scope();
         for (int j = 0; j < f->params.len; j++) {
             VarSym *v = f->params.items[j];

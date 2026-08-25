@@ -1,6 +1,6 @@
 # The Cub Language Reference
 
-Version 0.9.0
+Version 0.10.0
 
 Cub is a small statically typed language in the C family. It compiles to
 standalone C99, so a Cub program runs anywhere a C compiler runs and starts
@@ -178,7 +178,7 @@ Cub has six kinds of type.
 | `T?` | a `T`, or nothing | `nothing`, `3` |
 | `T!` | a `T`, or a failure with a reason | `fail("no")`, `3` |
 
-`T?` and `T!` are covered in [section 19](#19-values-that-may-not-be-there).
+`T?` and `T!` are covered in [section 20](#20-values-that-may-not-be-there).
 
 Underscores may be used to group digits: `1_000_000`. Hexadecimal literals
 are written `0xff`.
@@ -805,7 +805,79 @@ wrapping one takes a line: `map(nums, string(n: int) { return str(n); })`.
 
 ---
 
-## 18. Classes
+## 18. Working for any type
+
+A function can name the types it works for, between `<` and `>` after its
+name. Inside, that name stands for whatever a call turns out to use:
+
+```cub
+T first<T>(items: [T]) {
+    return items[0];
+}
+
+void main() {
+    print(first([1, 2, 3]));       // 1
+    print(first(["a", "b"]));      // a
+}
+```
+
+Nothing is written at the call: the types are worked out from the arguments.
+Every name must turn up somewhere in the parameters, so that a call can
+settle it — a name only in the return type would leave nothing to go on, and
+the compiler says so.
+
+More than one name is fine, and they may appear anywhere a type can:
+
+```cub
+[V] values_of<K, V>(m: [K: V], keys: [K]) {
+    var out: [V] = [];
+    for k in keys { push(out, m[k]); }
+    return out;
+}
+
+[U] convert<T, U>(items: [T], f: (T) -> U) {
+    var out: [U] = [];
+    for item in items { push(out, f(item)); }
+    return out;
+}
+```
+
+A name stands for one type within one call. Asking for two is an error that
+names both:
+
+```
+error: `T` is string here, and int earlier in the same call
+  help: a name stands for one type in any one call
+```
+
+### What you can do with a value of that type
+
+Anything that does not depend on which type it is: hold it, pass it, return
+it, put it in an array or a map, make it a `T?`, print it.
+
+What you cannot do is anything that needs to know: arithmetic, comparison,
+indexing into it, or reaching a field. `T` could be a `Point` as easily as an
+`int`, and Cub has no way yet for a function to ask for "any type that can
+be added". Both are errors when the generic function is checked, rather than
+surprises at some call:
+
+```
+error: two `T` values cannot be compared, because `T` could be anything
+```
+
+### What it compiles to
+
+One copy of the function per set of types it is called with, with the real
+types in place — so `first([1, 2, 3])` and `first(["a"])` become two C
+functions, each as direct as one you wrote by hand. Nothing is boxed and
+nothing is looked up at runtime.
+
+Types you declare yourself work as well as the built-in ones, and a generic
+function may call itself or another one.
+
+---
+
+## 19. Classes
 
 A `struct` is data. A **class** is data with behaviour: fields, methods, and
 the option to build on another class.
@@ -963,7 +1035,7 @@ for a `class` when the thing has behaviour, or when sharing it is the point.
 
 ---
 
-## 19. Values that may not be there
+## 20. Values that may not be there
 
 Some questions have no answer, and some work does not succeed. Cub says so
 in the type, so that the empty case is impossible to walk past.
@@ -1096,7 +1168,7 @@ condition to handle, and stops it with a message.
 
 ---
 
-## 20. Reaching into C
+## 21. Reaching into C
 
 Cub compiles to C, so it can call C. An `extern` block names a header and
 the functions to borrow from it:
@@ -1169,7 +1241,7 @@ being careful is your job rather than the compiler's.
 
 ---
 
-## 21. Errors
+## 22. Errors
 
 **Compile-time errors** point at the exact spot, explain the problem in
 words, and suggest a fix:
@@ -1206,7 +1278,7 @@ panic("this should be unreachable");
 
 ---
 
-## 22. The standard library
+## 23. The standard library
 
 Ninety-seven built-ins. The everyday ones are always in scope; the rest live
 in a module you `import` (see [section 15](#15-imports)) and are marked here
@@ -1313,7 +1385,7 @@ All of these need `import fs`.
 
 Anything that touches the file system can fail for reasons a program cannot
 foresee, so each one hands back a `T!` carrying what the system said. See
-[section 19](#19-values-that-may-not-be-there).
+[section 20](#20-values-that-may-not-be-there).
 
 ### The world outside
 
@@ -1341,7 +1413,7 @@ rather than silently shadowing it.
 
 ---
 
-## 23. How memory works
+## 24. How memory works
 
 Cub has no manual memory management and no pointers. Text and arrays live on
 the heap; the runtime records every allocation and releases all of it when
@@ -1356,7 +1428,7 @@ allocation registry is already the hook for it.
 
 ---
 
-## 24. What Cub leaves out, for now
+## 25. What Cub leaves out, for now
 
 Left out deliberately, and not missed: pointers, pointer arithmetic, manual
 `malloc`/`free`, header files, the preprocessor, `goto`, implicit
@@ -1366,20 +1438,25 @@ Genuinely missing, and planned:
 
 - **Private declarations** — an imported file shares everything it declares.
 - **Structs and arrays across `extern`** — only the types in
-  [section 20](#20-reaching-into-c) can cross into C.
+  [section 21](#21-reaching-into-c) can cross into C.
 - **Renaming on import** — no `import os as system` yet.
-- **Generics** — arrays and maps are the only generic types.
+- **Generic types of your own** — a function can work for any type
+  ([section 18](#18-working-for-any-type)), but a `struct` or a `class`
+  cannot yet, so there is no `Stack<T>` you could write.
+- **Saying what a type must be able to do** — there is no way to ask for
+  "any type that can be added", so a generic function is limited to what
+  works for every type.
 - **Interfaces** — a class can build on one parent; there is no way to say
   "anything with an `area()`" without a shared parent.
 - **Asking an object what it is** — no `is` test and no downcast, so once a
   `Dog` is held as an `Animal` you can call it but not narrow it back.
 - **Private fields** — every field is readable and writable from anywhere.
-- **Reference counting** — see section 23.
+- **Reference counting** — see section 24.
 - **`==` on structs, arrays, and maps** — compare the parts for now.
 
 ---
 
-## 25. Grammar
+## 26. Grammar
 
 ```ebnf
 program     = { import | externblock | linkdecl | declaration } ;
@@ -1389,7 +1466,9 @@ linkdecl    = "link" STRING ";" ;
 import      = "import" ( IDENT | STRING ) ";" ;
 declaration = function | classdecl | structdecl | enumdecl | binding ";" ;
 
-function    = [ "static" ] type IDENT "(" [ params [ "," ] ] ")" block ;
+function    = [ "static" ] type IDENT [ tparams ] "(" [ params [ "," ] ] ")"
+              block ;
+tparams     = "<" IDENT { "," IDENT } ">" ;
 params      = param { "," param } ;
 param       = IDENT ":" type ;
 
@@ -1451,7 +1530,7 @@ is.
 
 ---
 
-## 26. The compiler
+## 27. The compiler
 
 ```
 cubc program.cb              compile to ./program

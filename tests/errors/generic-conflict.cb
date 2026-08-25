@@ -1,0 +1,2 @@
+T pick<T>(a: T, b: T) { return a; }
+void main() { print(pick(1, "two")); }

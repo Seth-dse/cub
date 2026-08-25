@@ -96,21 +96,52 @@ static void in_unit(Source *src) { if (src) unit = src->path; }
 /* C type names                                                        */
 /* ------------------------------------------------------------------ */
 
+/* While one instance of a generic function is being written out, its type
+ * names stand for the real types that instance was called with.  Every
+ * place the generator looks at a type goes through here first. */
+static Vec cg_names;      /* char*  */
+static Vec cg_types;      /* Type*  */
+
+static Type *cg(Type *t) {
+    if (!t || cg_names.len == 0) return t;
+    switch (t->kind) {
+    case TY_VAR:
+        for (int i = 0; i < cg_names.len; i++)
+            if (strcmp((char *)cg_names.items[i], t->name) == 0)
+                return cg_types.items[i];
+        return t;
+    case TY_ARRAY: return ty_array(cg(t->elem));
+    case TY_OPT:   return ty_opt(cg(t->elem));
+    case TY_FAIL:  return ty_fail(cg(t->elem));
+    case TY_MAP:   return ty_map(cg(t->key), cg(t->elem));
+    case TY_FN: {
+        Vec ps = {0};
+        for (int i = 0; i < t->fparams.len; i++) vec_push(&ps, cg(t->fparams.items[i]));
+        return ty_fn(&ps, cg(t->elem));
+    }
+    default: return t;
+    }
+}
+
+static const char *mangle(Type *t) { return ty_mangle(cg(t)); }
+
 /* `T?` and `T!` share one C shape: a flag, the value, and the reason it is
  * missing (empty for a `T?`, which has no reason to give).  One struct is
  * generated per inner type and both spellings use it. */
 static Vec maybe_types;
 
 static const char *maybe_ctype(Type *t) {
+    t = cg(t);
     Type *inner = t->elem;
     for (int i = 0; i < maybe_types.len; i++)
         if (ty_same(((Type *)maybe_types.items[i])->elem, inner))
-            return cx_fmt("CubMaybe_%s", ty_mangle(inner));
+            return cx_fmt("CubMaybe_%s", mangle(inner));
     vec_push(&maybe_types, t);
-    return cx_fmt("CubMaybe_%s", ty_mangle(inner));
+    return cx_fmt("CubMaybe_%s", mangle(inner));
 }
 
 static const char *ctype(Type *t) {
+    t = cg(t);
     switch (t->kind) {
     case TY_OPT:
     case TY_FAIL:   return maybe_ctype(t);
@@ -165,7 +196,7 @@ static const char *need_walk(int bi, Type *elem, Type *out) {
     w->elem = elem;
     w->out = out;
     static const char *verb[] = { "map", "filter", "any", "all", "find_by", "sort_by" };
-    w->name = cx_fmt("cub_%s_%s%s%s", verb[bi - BI_MAP], ty_mangle(elem),
+    w->name = cx_fmt("cub_%s_%s%s%s", verb[bi - BI_MAP], mangle(elem),
                      out ? "_to_" : "", out ? ty_mangle(out) : "");
     vec_push(&walk_helpers, w);
     return w->name;
@@ -228,9 +259,10 @@ static char *obj_vt(const char *expr, ClassDef *cd, int line) {
 /* stringify helpers                                                   */
 /* ------------------------------------------------------------------ */
 
-static const char *helper_name(Type *t) { return cx_fmt("cubstr_%s", ty_mangle(t)); }
+static const char *helper_name(Type *t) { return cx_fmt("cubstr_%s", mangle(t)); }
 
 static const char *need_helper(Type *t) {
+    t = cg(t);
     for (int i = 0; i < helper_types.len; i++)
         if (ty_same(helper_types.items[i], t)) return helper_name(t);
     vec_push(&helper_types, t);
@@ -241,6 +273,7 @@ static const char *need_helper(Type *t) {
  * `quoted` adds quotes around text, which is what you want inside a
  * container so that ["a", "b"] is distinguishable from [a, b]. */
 static char *str_of(Type *t, const char *src, bool quoted) {
+    t = cg(t);
     switch (t->kind) {
     case TY_INT:   return cx_fmt("cub_str_from_int(%s)", src);
     case TY_FLOAT: return cx_fmt("cub_str_from_float(%s)", src);
@@ -375,6 +408,7 @@ static void gen_expr(Expr *e);
 /* What a field holds before `init` runs.  Objects start empty, and using
  * an empty one is caught at runtime with a message naming the class. */
 static char *default_value(Type *t) {
+    t = cg(t);
     switch (t->kind) {
     case TY_INT:   return cx_fmt("0");
     case TY_FLOAT: return cx_fmt("0.0");
@@ -455,7 +489,7 @@ static const char *need_eq_helper(Type *t) {
 static void emit_eq_helper(Type *t) {
     EnumDef *ed = t->edef;
     E("static bool cub_eq_%s(CubE_%s a, CubE_%s b) {\n",
-      ty_mangle(t), ed->name, ed->name);
+      mangle(t), ed->name, ed->name);
     E("    if (a.tag != b.tag) return false;\n");
     bool any = false;
     for (int i = 0; i < ed->vals.len; i++)
@@ -475,7 +509,7 @@ static void emit_eq_helper(Type *t) {
                 if (f->type->kind == TY_STR)
                     E(" cub_str_eq(%s, %s)", av, bv);
                 else if (f->type->kind == TY_ENUM && f->type->edef->tagged)
-                    E(" cub_eq_%s(%s, %s)", ty_mangle(f->type), av, bv);
+                    E(" cub_eq_%s(%s, %s)", mangle(f->type), av, bv);
                 else
                     E(" %s == %s", av, bv);
             }
@@ -487,12 +521,12 @@ static void emit_eq_helper(Type *t) {
 }
 
 static void gen_binary(Expr *e) {
-    Type *t = e->a->type;
+    Type *t = cg(e->a->type);
 
     if (t->kind == TY_ENUM && t->edef->tagged &&
         (e->op == TK_EQ || e->op == TK_NE)) {
         need_eq_helper(t);
-        E("%scub_eq_%s(%s, %s)", e->op == TK_NE ? "!" : "", ty_mangle(t),
+        E("%scub_eq_%s(%s, %s)", e->op == TK_NE ? "!" : "", mangle(t),
           expr_str(e->a), expr_str(e->b));
         return;
     }
@@ -535,6 +569,7 @@ static void gen_binary(Expr *e) {
 /* Maps are keyed by text or by number; the runtime takes both and uses the
  * one that matches. */
 static char *map_key_args(Type *mt, Expr *key) {
+    mt = cg(mt);
     return mt->key->kind == TY_STR
         ? cx_fmt("%s, 0", expr_str(key))
         : cx_fmt("cub_str_lit(\"\", 0), %s", expr_str(key));
@@ -815,6 +850,20 @@ static void gen_builtin(Expr *e) {
  * match is being used as one. */
 static void gen_match(Expr *subject, Vec *arms, const char *into, int lvl);
 
+/* Which C function a call turns into: a generic one has a copy per set of
+ * real types, and the checker recorded which set this call settled on. */
+static char *fn_cname(Expr *e) {
+    FnDecl *f = e->fn;
+    if (!f->tparams.len) return f->cname;
+
+    Buf b;
+    buf_init(&b);
+    buf_printf(&b, "cubf_%s", f->name);
+    for (int i = 0; i < e->targs.len; i++)
+        buf_printf(&b, "_%s", mangle(e->targs.items[i]));
+    return b.data;
+}
+
 static void gen_expr(Expr *e) {
     switch (e->kind) {
     case EX_NOTHING:
@@ -830,13 +879,13 @@ static void gen_expr(Expr *e) {
         /* the type being looked into may appear nowhere else, so make sure
          * its definition and helper get written out */
         (void)ctype(e->a->type);
-        E("cub_insist_%s(%s, %s)", ty_mangle(e->type),
+        E("cub_insist_%s(%s, %s)", mangle(e->type),
           expr_str(e->a), loc(e->line));
         break;
 
     case EX_ORELSE: {
         int id = ++tmp_id;
-        Type *mt = e->a->type;
+        Type *mt = cg(e->a->type);
         char *m = expr_str(e->a);
         hoist("%s cub_m%d = %s;\n", ctype(mt), id, m);
         hoist("%s cub_v%d;\n", ctype(mt->elem), id);
@@ -849,7 +898,7 @@ static void gen_expr(Expr *e) {
 
     case EX_TRY: {
         int id = ++tmp_id;
-        Type *mt = e->a->type;
+        Type *mt = cg(e->a->type);
         char *m = expr_str(e->a);
         hoist("%s cub_m%d = %s;\n", ctype(mt), id, m);
         hoist("if (!cub_m%d.ok) return (%s){ .ok = false, .err = cub_m%d.err };\n",
@@ -900,7 +949,7 @@ static void gen_expr(Expr *e) {
             E(")");
             if (gives_text) E(")");
         } else if (e->fn) {
-            E("%s(", e->fn->cname);
+            E("%s(", fn_cname(e));
             for (int i = 0; i < e->args.len; i++) {
                 if (i) E(", ");
                 gen_expr(e->args.items[i]);
@@ -911,11 +960,12 @@ static void gen_expr(Expr *e) {
         }
         break;
 
-    case EX_INDEX:
-        if (e->a->type->kind == TY_MAP) {
+    case EX_INDEX: {
+        Type *at_ = cg(e->a->type);
+        if (at_->kind == TY_MAP) {
             E("(*(%s *)cub_map_at(%s, %s, %s))", ctype(e->type),
               expr_str(e->a),
-              e->a->type->key->kind == TY_STR
+              cg(at_->key)->kind == TY_STR
                   ? cx_fmt("%s, 0", expr_str(e->b))
                   : cx_fmt("cub_str_lit(\"\", 0), %s", expr_str(e->b)),
               loc(e->line));
@@ -924,6 +974,7 @@ static void gen_expr(Expr *e) {
         E("(*(%s *)cub_arr_at(%s, %s, %s))", ctype(e->type),
           expr_str(e->a), expr_str(e->b), loc(e->line));
         break;
+    }
 
     case EX_FIELD: {
         Type *ot = e->a->type;
@@ -1001,8 +1052,8 @@ static void gen_expr(Expr *e) {
     }
 
     case EX_MAPLIT: {
-        Type *mt = e->type;
-        bool str_key = mt->key->kind == TY_STR;
+        Type *mt = cg(e->type);
+        bool str_key = cg(mt->key)->kind == TY_STR;
         E("cub_map_lit(sizeof(%s), %d, %d", ctype(mt->elem), str_key, e->args.len / 2);
         for (int i = 0; i + 1 < e->args.len; i += 2) {
             E(", ");
@@ -1134,7 +1185,7 @@ static void gen_expr(Expr *e) {
         break;
 
     case EX_CALLVAL: {
-        Type *ft = e->a->type;
+        Type *ft = cg(e->a->type);
         char *fv = expr_str(e->a);
         E("((%s)(%s).fn)((%s).env", fn_ptr_cast(ft), fv, fv);
         for (int i = 0; i < e->args.len; i++)
@@ -1170,8 +1221,8 @@ static void gen_stmts(Vec *body, int lvl);
 static void gen_assign_target(Expr *lhs) {
     /* `m[key] = value` puts the key there if it is new, so it cannot go
      * through the read path, which insists the key already exists. */
-    if (lhs->kind == EX_INDEX && lhs->a->type->kind == TY_MAP) {
-        Type *mt = lhs->a->type;
+    if (lhs->kind == EX_INDEX && cg(lhs->a->type)->kind == TY_MAP) {
+        Type *mt = cg(lhs->a->type);
         buf_printf(dst, "(*(%s *)cub_map_put(%s, %s))", ctype(lhs->type),
                    expr_str(lhs->a),
                    mt->key->kind == TY_STR
@@ -1318,7 +1369,7 @@ static void gen_stmt_inner(Stmt *s, int lvl) {
 
     case ST_IFLET: {
         int id = ++tmp_id;
-        Type *mt = s->rhs->type;
+        Type *mt = cg(s->rhs->type);
         indent(lvl);
         E("{\n");
         indent(lvl + 1);
@@ -1489,7 +1540,7 @@ static Vec maybe_emitted;
 
 /* The runtime declares the shapes it hands back itself. */
 static bool maybe_predefined(Type *m) {
-    const char *n = ty_mangle(m->elem);
+    const char *n = mangle(m->elem);
     return strcmp(n, "int") == 0 || strcmp(n, "float") == 0 ||
            strcmp(n, "string") == 0 || strcmp(n, "arr_string") == 0 ||
            strcmp(n, "void") == 0;
@@ -1503,7 +1554,7 @@ static void emit_maybe_type(Type *m) {
     const char *nm = ctype(m);
     if (maybe_predefined(m)) {                 /* only the helper is ours */
         E("static %s cub_insist_%s(%s m, const char *f, int l) {\n",
-          m->elem->kind == TY_VOID ? "void" : ctype(m->elem), ty_mangle(m->elem), nm);
+          m->elem->kind == TY_VOID ? "void" : ctype(m->elem), mangle(m->elem), nm);
         E("    if (!m.ok) cub_panic_at(f, l, \"%%s\", m.err.len\n"
           "        ? (const char *)m.err.data\n"
           "        : \"there is nothing here\");\n");
@@ -1516,7 +1567,7 @@ static void emit_maybe_type(Type *m) {
     E("    CubStr err;\n} %s;\n\n", nm);
 
     E("static %s cub_insist_%s(%s m, const char *f, int l) {\n",
-      m->elem->kind == TY_VOID ? "void" : ctype(m->elem), ty_mangle(m->elem), nm);
+      m->elem->kind == TY_VOID ? "void" : ctype(m->elem), mangle(m->elem), nm);
     E("    if (!m.ok) cub_panic_at(f, l, \"%%s\", m.err.len\n"
       "        ? (const char *)m.err.data\n"
       "        : \"there is nothing here\");\n");
@@ -1792,6 +1843,32 @@ char *codegen_program(Program *p, const char *unit_name) {
     for (int i = 0; i < p->fns.len; i++) {
         FnDecl *f = p->fns.items[i];
         if (f->is_extern) continue;          /* C already has the body */
+        if (f->tparams.len) {                /* written out once per instance */
+            for (int k = 0; k < f->insts.len; k++) {
+                FnInst *inst = f->insts.items[k];
+                in_unit(f->src);
+                cg_names = f->tparams;
+                cg_types = inst->types;
+                char *saved = f->cname;
+                f->cname = inst->cname;
+                fn_signature(f);
+                cur_ret = f->ret;
+                E(" {\n");
+                E("    cub_stack_check(%s, %s);\n", lit(f->name), loc(f->line));
+                gen_stmts(&f->body, 1);
+                Type *r = cg(f->ret);
+                if (r->kind == TY_VOID) { indent(1); E("return;\n"); }
+                else if (r->kind == TY_STR) { indent(1); E("return cub_str_lit(\"\", 0);\n"); }
+                else if (r->kind == TY_ARRAY) { indent(1); E("return cub_arr_new(1, 0);\n"); }
+                else { indent(1); E("{ %s cub_unreachable = {0}; return cub_unreachable; }\n",
+                                    ctype(f->ret)); }
+                E("}\n\n");
+                f->cname = saved;
+                cg_names = (Vec){0};
+                cg_types = (Vec){0};
+            }
+            continue;
+        }
         in_unit(f->src);
         fn_signature(f);
         cur_ret = f->ret;
@@ -1851,6 +1928,21 @@ char *codegen_program(Program *p, const char *unit_name) {
     for (int i = 0; i < p->fns.len; i++) {
         FnDecl *f = p->fns.items[i];
         if (f->is_extern) continue;
+        if (f->tparams.len) {
+            for (int k = 0; k < f->insts.len; k++) {
+                FnInst *inst = f->insts.items[k];
+                cg_names = f->tparams;
+                cg_types = inst->types;
+                char *saved = f->cname;
+                f->cname = inst->cname;
+                fn_signature(f);
+                E(";\n");
+                f->cname = saved;
+                cg_names = (Vec){0};
+                cg_types = (Vec){0};
+            }
+            continue;
+        }
         fn_signature(f);
         E(";\n");
     }

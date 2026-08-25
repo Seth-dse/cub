@@ -1,0 +1,68 @@
+// A function can name the types it works for, and a call settles them.
+T first<T>(items: [T]) { return items[0]; }
+T last<T>(items: [T]) { return items[len(items) - 1]; }
+
+[T] pair<T>(a: T, b: T) { return [a, b]; }
+
+void swap_ends<T>(items: [T]) {
+    let a = items[0];
+    items[0] = items[len(items) - 1];
+    items[len(items) - 1] = a;
+}
+
+[V] values_of<K, V>(m: [K: V], keys: [K]) {
+    var out: [V] = [];
+    for k in keys { push(out, m[k]); }
+    return out;
+}
+
+[U] convert<T, U>(items: [T], f: (T) -> U) {
+    var out: [U] = [];
+    for item in items { push(out, f(item)); }
+    return out;
+}
+
+T? head_of<T>(items: [T]) {
+    if len(items) == 0 { return nothing; }
+    return items[0];
+}
+
+// one generic function calling another, and itself
+[T] reversed<T>(items: [T], i: int) {
+    if i >= len(items) { return []; }
+    var rest = reversed(items, i + 1);
+    push(rest, items[i]);
+    return rest;
+}
+
+struct Point { x: int; y: int; }
+
+void main() {
+    print(first([1, 2, 3]));
+    print(first(["a", "b"]));
+    print(last([1.5, 2.5]));
+    print(pair("x", "y"));
+
+    var ns = [1, 2, 3];
+    swap_ends(ns);
+    print(ns);
+
+    let ages = ["ada": 36, "alan": 41];
+    print(values_of(ages, ["alan", "ada"]));
+
+    print(convert([1, 2, 3], string(n: int) { return "n{n}"; }));
+    print(convert(["a", "bb"], int(s: string) { return len(s); }));
+
+    print(head_of([9, 8]) or -1);
+    print(head_of(["only"]) or "(none)");
+    let empty: [int] = [];
+    print(head_of(empty) or -1);
+
+    print(reversed([1, 2, 3], 0));
+    print(reversed(["a", "b"], 0));
+
+    // any type at all, including your own
+    let pts = [Point { x: 1, y: 2 }, Point { x: 5, y: 6 }];
+    print(first(pts));
+    print(convert(pts, int(p: Point) { return p.x; }));
+}

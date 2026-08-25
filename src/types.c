@@ -90,6 +90,20 @@ Type *ty_fn(Vec *params, Type *ret) {
     return t;
 }
 
+/* `T` -- a stand-in for whatever type a call turns out to use. */
+static Vec var_cache;
+
+Type *ty_var(const char *name) {
+    for (int i = 0; i < var_cache.len; i++) {
+        Type *t = var_cache.items[i];
+        if (strcmp(t->name, name) == 0) return t;
+    }
+    Type *t = mk(TY_VAR);
+    t->name = cx_strdup(name);
+    vec_push(&var_cache, t);
+    return t;
+}
+
 Type *ty_named(TypeKind k, char *name) {
     Type *t = mk(k);
     t->name = name;
@@ -109,7 +123,8 @@ bool ty_same(Type *a, Type *b) {
         return ty_same(a->elem, b->elem);
     }
     if (a->kind == TY_MAP)   return ty_same(a->key, b->key) && ty_same(a->elem, b->elem);
-    if (a->kind == TY_STRUCT || a->kind == TY_ENUM || a->kind == TY_CLASS)
+    if (a->kind == TY_STRUCT || a->kind == TY_ENUM || a->kind == TY_CLASS ||
+        a->kind == TY_VAR)
         return strcmp(a->name, b->name) == 0;
     return true;
 }
@@ -154,6 +169,7 @@ const char *ty_show(Type *t) {
     }
     case TY_OPT:    return cx_fmt("%s?", ty_show(t->elem));
     case TY_FAIL:   return cx_fmt("%s!", ty_show(t->elem));
+    case TY_VAR:
     case TY_STRUCT:
     case TY_ENUM:
     case TY_CLASS:  return t->name;
@@ -182,6 +198,7 @@ const char *ty_mangle(Type *t) {
         buf_printf(&b, "_to_%s", ty_mangle(t->elem));
         return b.data;
     }
+    case TY_VAR:    return cx_fmt("v_%s", t->name);
     case TY_OPT:    return cx_fmt("opt_%s", ty_mangle(t->elem));
     case TY_FAIL:   return cx_fmt("fail_%s", ty_mangle(t->elem));
     default:        return "err";

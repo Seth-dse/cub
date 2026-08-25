@@ -570,7 +570,55 @@ positive one when it comes second, and `0` when they are equal.
 
 ---
 
-## 13. Classes
+## 13. Working for any type
+
+Some functions do not care what they are working with. Taking the first item
+of an array is the same job whether the array holds numbers or names:
+
+```cub
+T first<T>(items: [T]) {
+    return items[0];
+}
+
+void main() {
+    print(first([1, 2, 3]));       // 1
+    print(first(["a", "b"]));      // a
+}
+```
+
+`<T>` after the name says "T stands for a type". You never write it at the
+call — Cub works it out from what you pass.
+
+More than one name is fine:
+
+```cub
+[U] convert<T, U>(items: [T], f: (T) -> U) {
+    var out: [U] = [];
+    for item in items { push(out, f(item)); }
+    return out;
+}
+
+void main() {
+    print(convert([1, 2, 3], string(n: int) { return "n{n}"; }));
+}
+```
+
+Inside the function you can do anything that does not depend on which type
+`T` is: hold it, pass it, put it in an array, print it. What you cannot do is
+add two of them or compare them — `T` might be a `Point`, and Cub has no way
+yet to ask for "any type that can be added". It tells you at the declaration
+rather than at some call:
+
+```
+error: two `T` values cannot be compared, because `T` could be anything
+```
+
+Each set of types you call it with gets its own copy of the function, with
+the real types filled in, so it is as fast as one you wrote by hand.
+
+---
+
+## 14. Classes
 
 A struct holds data. A **class** holds data *and* the things you can do with
 it:
@@ -735,7 +783,7 @@ Without one you still get something useful: `Point{x: 3, y: 4}`.
 
 ---
 
-## 14. When there might be nothing
+## 15. When there might be nothing
 
 Ask a program to read a number out of whatever someone typed, and there are
 two answers: the number, or an explanation. Cub makes you say which one you
@@ -850,7 +898,7 @@ is an error, because that discards whether the work happened at all.
 
 ---
 
-## 15. Imports
+## 16. Imports
 
 Some of the library is always there — `print`, `len`, `push`, `str`, and the
 text and array functions. Anything that reaches outside your program lives in
@@ -906,7 +954,7 @@ to `cubc` may have a `main`.
 
 ---
 
-## 16. Writing things down
+## 17. Writing things down
 
 Three slashes document what comes next:
 
@@ -930,7 +978,7 @@ You can document classes, methods, fields, structs, and enums the same way.
 
 ---
 
-## 17. Putting it together
+## 18. Putting it together
 
 A program that reads numbers, and reports on them. It uses almost everything
 above.

@@ -1,0 +1,2 @@
+bool same<T>(a: T, b: T) { return a == b; }
+void main() { print(same(1, 2)); }

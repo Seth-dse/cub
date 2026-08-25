@@ -17,7 +17,7 @@
 #include <stdbool.h>
 #include <stdarg.h>
 
-#define CUB_VERSION "0.9.0"
+#define CUB_VERSION "0.10.0"
 
 /* ------------------------------------------------------------------ */
 /* small utilities                                                     */
@@ -126,7 +126,8 @@ typedef enum {
     TY_ARRAY, TY_STRUCT, TY_ENUM, TY_CLASS, TY_MAP,
     TY_OPT,    /* `T?` -- a T, or nothing              */
     TY_FAIL,   /* `T!` -- a T, or a failure with a message */
-    TY_FN      /* `(int, int) -> int` -- a function held as a value */
+    TY_FN,     /* `(int, int) -> int` -- a function held as a value */
+    TY_VAR     /* `T` in a declaration that works for any type */
 } TypeKind;
 
 typedef struct Type      Type;
@@ -154,6 +155,7 @@ Type *ty_str(void);
 Type *ty_array(Type *elem);          /* interned: same elem -> same Type* */
 Type *ty_map(Type *key, Type *val);  /* interned the same way            */
 Type *ty_fn(Vec *params, Type *ret); /* `(A, B) -> R`, interned          */
+Type *ty_var(const char *name);      /* `T`, interned by name            */
 Type *ty_opt(Type *inner);           /* `T?`, interned                   */
 Type *ty_fail(Type *inner);          /* `T!`, interned                   */
 bool  ty_is_maybe(Type *t);          /* either of the two above          */
@@ -179,6 +181,13 @@ typedef struct {
     int     index;        /* which value of the enum, filled by the checker */
     int     line, col;
 } MatchArm;
+
+/* A generic function is checked once with its type names standing in for
+ * anything, and written out once per set of real types it is called with. */
+typedef struct {
+    Vec   types;          /* Type* -- one per name in `tparams` */
+    char *cname;          /* the C function this instance becomes */
+} FnInst;
 
 typedef struct VarSym {
     char *name;
@@ -234,6 +243,7 @@ struct Expr {
     /* resolution results */
     VarSym   *var;
     FnDecl   *fn;
+    Vec       targs;       /* Type* -- what a generic call settled on */
     int       builtin;     /* BI_* or -1 */
     int       enum_index;
     ClassDef *cls;         /* EX_NEW: the class being made          */
@@ -288,6 +298,9 @@ struct FnDecl {
     char     *header;
 
     /* function values only */
+    Vec       tparams;    /* char* -- the type names it works for   */
+    Vec       insts;      /* FnInst* -- one per set of real types    */
+
     Vec       captures;   /* VarSym* the body uses from around it   */
     Vec       cap_outer;  /* VarSym* they refer to, one for one     */
     int       lambda_id;  /* names the generated C function and env */

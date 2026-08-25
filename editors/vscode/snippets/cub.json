@@ -247,5 +247,14 @@
       "${1:int}(${2:x}: ${3:int}) { return $0; }"
     ],
     "description": "A function written where a value is wanted"
+  },
+  "generic function": {
+    "prefix": "fng",
+    "body": [
+      "${1:T} ${2:name}<${1:T}>(${3:items}: [${1:T}]) {",
+      "\t$0",
+      "}"
+    ],
+    "description": "A function that works for any type"
   }
 }

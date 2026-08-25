@@ -880,6 +880,29 @@ static FnDecl *parse_fn(P *p, bool is_static) {
     expect(p, TK_IDENT, "a name for the function");
     f->name = nm->lex;
 
+    /* `T first<T>(items: [T])` -- names that stand in for any type.  They
+     * go after the function name, where nothing else could start with `<`. */
+    if (eat(p, TK_LT)) {
+        while (!at(p, TK_GT) && !at(p, TK_EOF)) {
+            Token *tn = cur(p);
+            expect(p, TK_IDENT, "a name to stand in for a type");
+            for (int i = 0; i < f->tparams.len; i++)
+                if (strcmp((char *)f->tparams.items[i], tn->lex) == 0) {
+                    err_at(tn->line, tn->col, "`%s` is named twice", tn->lex);
+                    stop_if_errors();
+                }
+            vec_push(&f->tparams, tn->lex);
+            if (!eat(p, TK_COMMA)) break;
+        }
+        expect(p, TK_GT, "`>` after the type names");
+        if (f->tparams.len == 0) {
+            err_at(nm->line, nm->col, "`%s` names no types between `<` and `>`",
+                   f->name);
+            err_help("write `%s<T>(...)`, or drop the `< >`", f->name);
+            stop_if_errors();
+        }
+    }
+
     expect(p, TK_LPAREN, "`(` to start the parameter list");
     while (!at(p, TK_RPAREN)) {
         Token *pn = cur(p);

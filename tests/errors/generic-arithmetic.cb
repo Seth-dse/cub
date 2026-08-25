@@ -1,0 +1,2 @@
+T total<T>(a: T, b: T) { return a + b; }
+void main() { print(total(1, 2)); }

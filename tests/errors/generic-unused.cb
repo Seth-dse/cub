@@ -1,0 +1,2 @@
+int size<T>(n: int) { return n; }
+void main() { print(size(1)); }

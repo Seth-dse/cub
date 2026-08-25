@@ -1,5 +1,41 @@
 # Changelog
 
+## 0.10.0
+
+A function can work for any type.
+
+    T first<T>(items: [T]) {
+        return items[0];
+    }
+
+    print(first([1, 2, 3]));       // 1
+    print(first(["a", "b"]));      // a
+
+The names go between `<` and `>` after the function name, and nothing is
+written at the call: the types are worked out from the arguments. Several
+names are fine, and they may appear anywhere a type can -- inside an array,
+a map, a `T?`, or a function type:
+
+    [U] convert<T, U>(items: [T], f: (T) -> U) { ... }
+
+A name stands for one type within one call, and asking for two names both
+types is an error that shows both.
+
+**What you can do with such a value** is anything that does not depend on
+which type it is: hold it, pass it, return it, put it in an array or a map,
+print it. Arithmetic, comparison, indexing into it, and reaching a field are
+all refused, because `T` could be a `Point` as easily as an `int` and there
+is no way yet to ask for "any type that can be added". These are reported
+where the generic function is written, not at some call.
+
+**It compiles to one copy per set of types**, with the real types filled in,
+so a generic function is as direct as one written by hand. Nothing is boxed
+and nothing is looked up at runtime. A generic function may call itself, and
+types you declared work as well as the built-in ones.
+
+Structs and classes cannot name types yet, so there is no `Stack<T>` you
+could write. That is the next step.
+
 ## 0.9.0
 
 Functions are values.
