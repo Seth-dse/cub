@@ -1,0 +1,4 @@
+enum Bag { Items(things: [int]), Empty }
+void main() {
+    print(Bag.Empty == Bag.Items([1]));
+}

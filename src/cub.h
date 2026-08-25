@@ -17,7 +17,7 @@
 #include <stdbool.h>
 #include <stdarg.h>
 
-#define CUB_VERSION "0.7.0"
+#define CUB_VERSION "0.8.0"
 
 /* ------------------------------------------------------------------ */
 /* small utilities                                                     */
@@ -73,11 +73,11 @@ typedef enum {
     TK_RETURN, TK_BREAK, TK_CONTINUE, TK_TYPE, TK_STRUCT, TK_ENUM,
     TK_TRUE, TK_FALSE, TK_AND, TK_OR, TK_NOT,
     TK_CLASS, TK_EXTENDS, TK_SELF, TK_SUPER, TK_VOID, TK_STATIC, TK_IMPORT,
-    TK_NOTHING, TK_TRY, TK_EXTERN, TK_LINK,
+    TK_NOTHING, TK_TRY, TK_EXTERN, TK_LINK, TK_MATCH,
     /* punctuation */
     TK_LPAREN, TK_RPAREN, TK_LBRACE, TK_RBRACE, TK_LBRACK, TK_RBRACK,
     TK_COMMA, TK_DOT, TK_RANGE, TK_RANGEEQ, TK_COLON, TK_SEMI, TK_ARROW,
-    TK_QUESTION,
+    TK_QUESTION, TK_FATARROW,
     /* operators */
     TK_PLUS, TK_MINUS, TK_STAR, TK_SLASH, TK_PERCENT,
     TK_ASSIGN, TK_PLUSEQ, TK_MINUSEQ, TK_STAREQ, TK_SLASHEQ, TK_PERCENTEQ,
@@ -165,6 +165,18 @@ bool  ty_assignable(Type *from, Type *to);  /* allows a subclass for a base */
 /* symbols                                                             */
 /* ------------------------------------------------------------------ */
 
+/* One arm of a `match`: the value it answers to, the names it binds, and
+ * what to do.  `is_default` marks `_`. */
+typedef struct {
+    char   *variant;      /* NULL for `_`                     */
+    Vec     binds;        /* VarSym* -- one per carried value */
+    Vec     body;         /* Stmt*                            */
+    struct Expr *value;   /* set instead of body in a match expression */
+    bool    is_default;
+    int     index;        /* which value of the enum, filled by the checker */
+    int     line, col;
+} MatchArm;
+
 typedef struct VarSym {
     char *name;
     Type *type;
@@ -190,7 +202,9 @@ typedef enum {
     EX_ORELSE,    /* `maybe or fallback`; the checker retypes `or`      */
     EX_TRY,       /* `try maybe`, which hands a failure to the caller   */
     EX_INSIST,    /* `maybe!`, which stops the program if it is missing */
-    EX_WRAP       /* a plain value on its way into a `T?` or `T!` slot   */
+    EX_WRAP,      /* a plain value on its way into a `T?` or `T!` slot   */
+    EX_ENUMMAKE,  /* `Shape.Circle(2.0)` -- a value with something in it */
+    EX_MATCH      /* `match s { ... }` used where a value is expected    */
 } ExprKind;
 
 struct Expr {
@@ -207,6 +221,7 @@ struct Expr {
     TokKind  op;
     Expr    *a, *b;       /* operands / target / index                   */
     Vec      args;        /* Expr*: call args, array items, interp parts */
+    Vec      arms;        /* MatchArm* for EX_MATCH                      */
     Vec      fnames;      /* char*: struct literal field names           */
 
     /* resolution results */
@@ -221,7 +236,8 @@ struct Expr {
 typedef enum {
     ST_LET, ST_ASSIGN, ST_EXPR, ST_IF, ST_WHILE,
     ST_FORRANGE, ST_FORIN, ST_RETURN, ST_BREAK, ST_CONTINUE, ST_BLOCK,
-    ST_IFLET      /* `if let name = maybe { } else why { }` */
+    ST_IFLET,     /* `if let name = maybe { } else why { }` */
+    ST_MATCH      /* `match value { Circle(r) => ..., _ => ... }` */
 } StmtKind;
 
 struct Stmt {
@@ -244,6 +260,7 @@ struct Stmt {
 
     Vec      body;        /* Stmt* */
     Vec      els;         /* Stmt* */
+    Vec      arms;        /* MatchArm* for ST_MATCH */
 };
 
 struct FnDecl {
@@ -303,11 +320,24 @@ struct StructDef {
     int   line, col;
 };
 
+/* An enum value may carry values of its own:
+ *
+ *     enum Shape {
+ *         Circle(radius: float),
+ *         Rect(width: float, height: float),
+ *         Nothing,
+ *     }
+ *
+ * `vals` names them and `vfields` holds what each one carries, so the two
+ * run in step.  When nothing carries anything the enum stays a plain C
+ * enum; otherwise it becomes a tag and a union. */
 struct EnumDef {
     char *doc;
     Source *src;
     char *name;
-    Vec   vals;           /* char* */
+    Vec   vals;           /* char*  -- one per value            */
+    Vec   vfields;        /* Vec*   -- VarSym* carried, may be empty */
+    bool  tagged;         /* true when any value carries something   */
     int   line, col;
 };
 

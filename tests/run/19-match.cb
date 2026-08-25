@@ -1,0 +1,59 @@
+// An enum value may carry things of its own, and `match` is how they come
+// back out.
+enum Token {
+    Number(value: int),
+    Word(text: string),
+    End,
+}
+
+enum Colour { Red, Green, Blue }
+
+string describe(t: Token) {
+    return match t {
+        Number(n) => "number {n}",
+        Word(w) => "word \"{w}\"",
+        End => "the end",
+    };
+}
+
+void main() {
+    let ts = [Token.Number(42), Token.Word("hello"), Token.End];
+    for t in ts { print(describe(t)); }
+
+    // printing shows what a value carries
+    print(ts[0]);
+    print(ts[2]);
+
+    // two values are the same when they carry the same things
+    print(Token.Number(1) == Token.Number(1));
+    print(Token.Number(1) == Token.Number(2));
+    print(Token.Word("a") == Token.Word("a"));
+    print(Token.Word("a") == Token.End);
+
+    // a plain enum is unchanged
+    let c = Colour.Green;
+    print(c);
+    print(c == Colour.Green);
+    match c {
+        Red => print("red"),
+        _ => print("not red"),
+    }
+
+    // an arm may be a block
+    match ts[0] {
+        Number(n) => {
+            var total = 0;
+            for i in 1..=n { total += i; }
+            print("sum to {n} is {total}");
+        }
+        _ => print("not a number"),
+    }
+
+    // and a match may produce a value
+    let width = match ts[1] {
+        Number(n) => n,
+        Word(w) => len(w),
+        End => 0,
+    };
+    print(width);
+}

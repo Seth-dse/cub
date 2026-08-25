@@ -1,5 +1,48 @@
 # Changelog
 
+## 0.8.0
+
+Enum values can carry things, and `match` takes them back out.
+
+    enum Shape {
+        Circle(radius: float),
+        Rect(width: float, height: float),
+        Empty,
+    }
+
+    float area(s: Shape) {
+        return match s {
+            Circle(r) => 3.14159 * r * r,
+            Rect(w, h) => w * h,
+            Empty => 0.0,
+        };
+    }
+
+What a value carries is named where the enum is declared, checked when the
+value is made, and reachable only through `match` -- so there is no way to
+read a `Circle`'s radius out of a `Rect`.
+
+**Every value must be answered.** A `match` that leaves one out is a compile
+error naming it, and `_` answers the rest. This is what makes an enum worth
+using: add a value later and the compiler walks you to every place that has
+to decide what it means.
+
+    error: this `match` does not say what to do about `Rect`, `Empty`
+      help: give them an arm, or add `_ =>` for everything else
+
+An arm is a statement or a block, a trailing `,` is optional, and a `match`
+can produce a value the way an `if` can. A `_` that could never run is an
+error too.
+
+**Equality looks at what is carried.** Two enum values are the same when
+they are the same value carrying the same things. Where something carried
+cannot be compared -- an array, say -- the compiler says so and points at
+`match` rather than quietly comparing tags.
+
+Enums whose values carry nothing are unchanged, and still compile to a plain
+C enum. Printing a value that carries something shows what it holds:
+`Circle(2.0)`.
+
 ## 0.7.0
 
 Cub can call C.

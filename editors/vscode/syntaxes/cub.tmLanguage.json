@@ -247,7 +247,7 @@
       "patterns": [
         {
           "name": "keyword.control.cub",
-          "match": "\\b(if|else|while|for|in|return|break|continue|try)\\b"
+          "match": "\\b(if|else|while|for|in|return|break|continue|try|match)\\b"
         },
         {
           "name": "keyword.declaration.cub",

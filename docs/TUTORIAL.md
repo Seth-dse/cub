@@ -370,7 +370,77 @@ where a name comes from.
 
 ---
 
-## 10. Maps
+## 10. Values that carry things
+
+An enum value can carry values of its own. Say what each one carries where
+the enum is declared:
+
+```cub
+enum Shape {
+    Circle(radius: float),
+    Rect(width: float, height: float),
+    Empty,
+}
+
+void main() {
+    let s = Shape.Circle(2.0);
+    print(s);                    // Circle(2.0)
+}
+```
+
+To get at what a value carries, use `match`:
+
+```cub
+float area(s: Shape) {
+    return match s {
+        Circle(r) => 3.14159 * r * r,
+        Rect(w, h) => w * h,
+        Empty => 0.0,
+    };
+}
+```
+
+Each arm names a value on the left of `=>` and what to do on the right. The
+names in `Circle(r)` are yours to choose, and only exist inside that arm.
+
+**You have to answer every value.** Leave one out and the compiler tells you
+which:
+
+```
+error: this `match` does not say what to do about `Rect`, `Empty`
+  help: give them an arm, or add `_ =>` for everything else
+```
+
+That is the point of `match`, and it is worth more than it looks. Add a
+value to `Shape` a month from now and the compiler walks you to every place
+that has to decide what the new value means — instead of the program
+guessing at runtime.
+
+Use `_` for "everything else":
+
+```cub
+match s {
+    Circle(r) => print("round, {r} across"),
+    _ => print("not round"),
+}
+```
+
+An arm can be a block when one line is not enough, and `match` works on
+plain enums too:
+
+```cub
+match light {
+    Red => {
+        stop();
+        wait();
+    }
+    _ => go(),
+}
+```
+
+---
+
+## 11. Maps
 
 An array finds things by position. A map finds them by name:
 
@@ -414,7 +484,7 @@ for name in names {
 
 ---
 
-## 11. Classes
+## 12. Classes
 
 A struct holds data. A **class** holds data *and* the things you can do with
 it:
@@ -579,7 +649,7 @@ Without one you still get something useful: `Point{x: 3, y: 4}`.
 
 ---
 
-## 12. When there might be nothing
+## 13. When there might be nothing
 
 Ask a program to read a number out of whatever someone typed, and there are
 two answers: the number, or an explanation. Cub makes you say which one you
@@ -694,7 +764,7 @@ is an error, because that discards whether the work happened at all.
 
 ---
 
-## 13. Imports
+## 14. Imports
 
 Some of the library is always there — `print`, `len`, `push`, `str`, and the
 text and array functions. Anything that reaches outside your program lives in
@@ -750,7 +820,7 @@ to `cubc` may have a `main`.
 
 ---
 
-## 14. Writing things down
+## 15. Writing things down
 
 Three slashes document what comes next:
 
@@ -774,7 +844,7 @@ You can document classes, methods, fields, structs, and enums the same way.
 
 ---
 
-## 15. Putting it together
+## 16. Putting it together
 
 A program that reads numbers, and reports on them. It uses almost everything
 above.

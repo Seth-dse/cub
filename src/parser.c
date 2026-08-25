@@ -25,6 +25,7 @@ typedef struct {
     Token  *t;
     int     n, i;
     bool    no_struct_lit;  /* while parsing if/while/for headers */
+    bool    in_arm;         /* a one-statement match arm ends at `,` */
     Source *src;            /* the file these tokens came from    */
 } P;
 
@@ -56,6 +57,9 @@ static void expect(P *p, TokKind k, const char *what) {
  * the statement, which is where the semicolon should have gone. */
 static void expect_semi(P *p, const char *what) {
     if (eat(p, TK_SEMI)) return;
+    /* `Circle(r) => print(r),` -- the comma ends the arm, and so does the
+     * brace that closes the match. */
+    if (p->in_arm && (at(p, TK_COMMA) || at(p, TK_RBRACE))) return;
     Token *pv = prev(p);
     err_at(pv->line, pv->col + pv->raw_len, "expected `;` to end this %s", what);
     if (strcmp(what, "field") == 0)
@@ -154,6 +158,8 @@ static bool starts_type(P *p) {
 static Expr *parse_expr(P *p);
 static void  parse_block(P *p, Vec *out);
 static FnDecl *parse_fn(P *p, bool is_static);
+static Stmt *parse_stmt(P *p);
+static void  parse_arms(P *p, Vec *out, bool as_value);
 
 static Expr *parse_string(P *p, Token *t) {
     /* A literal with no interpolation is just text. */
@@ -227,6 +233,21 @@ static Expr *parse_primary(P *p) {
     Token *t = cur(p);
 
     if (at(p, TK_IF)) return parse_if_expr(p);
+
+    if (at(p, TK_MATCH)) {
+        Token *mt = cur(p);
+        p->i++;
+        Expr *e = cx_alloc(sizeof(Expr));
+        e->kind = EX_MATCH;
+        e->builtin = BI_NONE;
+        e->line = mt->line; e->col = mt->col;
+        bool saved = p->no_struct_lit;
+        p->no_struct_lit = true;
+        e->a = parse_expr(p);
+        p->no_struct_lit = saved;
+        parse_arms(p, &e->arms, true);
+        return e;
+    }
 
     if (eat(p, TK_NOTHING)) { Expr *e = mkexpr(p, EX_NOTHING); return e; }
     if (eat(p, TK_SELF))  { Expr *e = mkexpr(p, EX_SELF);  return e; }
@@ -452,7 +473,7 @@ Expr *parse_expr_source(const char *src, int line, int col) {
     int n = 0;
     Token *toks = lex_all(&s, 1, &n);
 
-    P sub = { toks, n, 0, false, g_source };
+    P sub = { toks, n, 0, false, false, g_source };
     if (sub.t[0].kind == TK_EOF) {
         err_at(line, col, "there is no expression inside these braces");
         err_help("write `{name}` to insert a value, or `\\{` for a real brace");
@@ -466,6 +487,72 @@ Expr *parse_expr_source(const char *src, int line, int col) {
         stop_if_errors();
     }
     return e;
+}
+
+/* ---------------- match ---------------- */
+
+/* One arm: `Circle(r) => <statement>` or `_ => { ... }`.  A `,` after an
+ * arm is optional, the way it is after the last item of a list. */
+static MatchArm *parse_arm(P *p, bool as_value);
+
+static void parse_arms(P *p, Vec *out, bool as_value) {
+    expect(p, TK_LBRACE, "`{` to start the arms of the match");
+    skip_semis(p);
+    while (!at(p, TK_RBRACE) && !at(p, TK_EOF)) {
+        vec_push(out, parse_arm(p, as_value));
+        eat(p, TK_COMMA);
+        skip_semis(p);
+    }
+    expect(p, TK_RBRACE, "`}` to close the match");
+}
+
+static MatchArm *parse_arm(P *p, bool as_value) {
+    MatchArm *a = cx_alloc(sizeof(MatchArm));
+    a->line = cur(p)->line;
+    a->col = cur(p)->col;
+
+    Token *nm = cur(p);
+    expect(p, TK_IDENT, "the name of a value, or `_` for everything else");
+    if (strcmp(nm->lex, "_") == 0) a->is_default = true;
+    else                           a->variant = nm->lex;
+
+    if (eat(p, TK_LPAREN)) {
+        if (a->is_default) {
+            err_at(nm->line, nm->col, "`_` stands for every value, so it "
+                   "cannot name what one carries");
+            stop_if_errors();
+        }
+        while (!at(p, TK_RPAREN)) {
+            Token *bn = cur(p);
+            expect(p, TK_IDENT, "a name for what this value carries");
+            VarSym *v = cx_alloc(sizeof(VarSym));
+            v->name = bn->lex;
+            vec_push(&a->binds, v);
+            if (!eat(p, TK_COMMA)) break;
+        }
+        expect(p, TK_RPAREN, "`)` after the names");
+    }
+
+    if (!eat(p, TK_FATARROW)) {
+        Token *c = cur(p);
+        err_at(c->line, c->col, "expected `=>` after the value being matched");
+        err_help("an arm reads `%s => <what to do>`", nm->lex);
+        stop_if_errors();
+    }
+
+    if (as_value) {
+        a->value = parse_expr(p);
+        return a;
+    }
+    if (at(p, TK_LBRACE)) {
+        parse_block(p, &a->body);
+    } else {
+        bool saved = p->in_arm;
+        p->in_arm = true;
+        vec_push(&a->body, parse_stmt(p));
+        p->in_arm = saved;
+    }
+    return a;
 }
 
 /* ---------------- statements ---------------- */
@@ -506,6 +593,16 @@ static Stmt *parse_stmt(P *p) {
 
     /* `if let name = maybe { } else why { }` -- the only way into a value
      * that might not be there, so the empty case is never forgotten. */
+    if (at(p, TK_MATCH)) {
+        Stmt *s = mkstmt(p, ST_MATCH);
+        p->i++;
+        p->no_struct_lit = true;
+        s->rhs = parse_expr(p);
+        p->no_struct_lit = false;
+        parse_arms(p, &s->arms, false);
+        return s;
+    }
+
     if (at(p, TK_IF) && at_next(p, TK_LET)) {
         Stmt *s = mkstmt(p, ST_IFLET);
         p->i += 2;
@@ -586,7 +683,9 @@ static Stmt *parse_stmt(P *p) {
     if (at(p, TK_RETURN)) {
         Stmt *s = mkstmt(p, ST_RETURN);
         p->i++;
-        if (!at(p, TK_SEMI)) s->rhs = parse_expr(p);
+        /* `End => return,` gives nothing back, the same as `return;` */
+        bool ends_arm = p->in_arm && (at(p, TK_COMMA) || at(p, TK_RBRACE));
+        if (!at(p, TK_SEMI) && !ends_arm) s->rhs = parse_expr(p);
         expect_semi(p, "`return`");
         return s;
     }
@@ -641,6 +740,8 @@ static Stmt *parse_stmt(P *p) {
 }
 
 static void parse_block(P *p, Vec *out) {
+    bool saved_arm = p->in_arm;
+    p->in_arm = false;
     if (!at(p, TK_LBRACE)) {
         Token *c = cur(p);
         err_at(c->line, c->col, "expected `{` to start a block, but found `%s`", tok_name(c->kind));
@@ -654,6 +755,7 @@ static void parse_block(P *p, Vec *out) {
         skip_semis(p);
     }
     expect(p, TK_RBRACE, "`}` to close the block");
+    p->in_arm = saved_arm;
 }
 
 /* ---------------- declarations ---------------- */
@@ -840,6 +942,34 @@ static void parse_enum_decl(P *p, Program *prog) {
         Token *vn = cur(p);
         expect(p, TK_IDENT, "a value name");
         vec_push(&ed->vals, vn->lex);
+
+        /* `Circle(radius: float)` -- what this value carries */
+        Vec *fields = cx_alloc(sizeof(Vec));
+        if (eat(p, TK_LPAREN)) {
+            while (!at(p, TK_RPAREN)) {
+                Token *fn = cur(p);
+                expect(p, TK_IDENT, "a name for what this value carries");
+                if (!eat(p, TK_COLON)) {
+                    Token *c = cur(p);
+                    err_at(c->line, c->col, "`%s` needs a type", fn->lex);
+                    err_help("write `%s(%s: int)`", vn->lex, fn->lex);
+                    stop_if_errors();
+                }
+                VarSym *v = cx_alloc(sizeof(VarSym));
+                v->name = fn->lex;
+                v->type = parse_type(p);
+                vec_push(fields, v);
+                if (!eat(p, TK_COMMA)) break;
+            }
+            expect(p, TK_RPAREN, "`)` after what the value carries");
+            if (fields->len == 0) {
+                err_at(vn->line, vn->col, "`%s` carries nothing, so it needs no `( )`",
+                       vn->lex);
+                stop_if_errors();
+            }
+            ed->tagged = true;
+        }
+        vec_push(&ed->vfields, fields);
         if (!eat(p, TK_COMMA)) break;
     }
     expect(p, TK_RBRACE, "`}` to close the value list");
@@ -1051,7 +1181,7 @@ static void parse_import(P *p, Program *prog) {
 }
 
 static void parse_into(Program *prog, Token *toks, int ntoks, Source *src) {
-    P p = { toks, ntoks, 0, false, src };
+    P p = { toks, ntoks, 0, false, false, src };
 
     skip_semis(&p);
     while (!at(&p, TK_EOF)) {

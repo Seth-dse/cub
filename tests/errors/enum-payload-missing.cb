@@ -1,0 +1,5 @@
+enum Shape { Circle(radius: float), Empty }
+void main() {
+    let s = Shape.Circle;
+    print(s);
+}

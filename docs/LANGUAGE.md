@@ -1,6 +1,6 @@
 # The Cub Language Reference
 
-Version 0.7.0
+Version 0.8.0
 
 Cub is a small statically typed language in the C family. It compiles to
 standalone C99, so a Cub program runs anywhere a C compiler runs and starts
@@ -63,7 +63,7 @@ int main() {
 ```
 
 There is no `#include` and no header. A program may span several files, and
-`import` is how they meet — see [section 14](#14-imports).
+`import` is how they meet — see [section 15](#15-imports).
 
 ---
 
@@ -177,7 +177,7 @@ Cub has six kinds of type.
 | `T?` | a `T`, or nothing | `nothing`, `3` |
 | `T!` | a `T`, or a failure with a reason | `fail("no")`, `3` |
 
-`T?` and `T!` are covered in [section 17](#17-values-that-may-not-be-there).
+`T?` and `T!` are covered in [section 18](#18-values-that-may-not-be-there).
 
 Underscores may be used to group digits: `1_000_000`. Hexadecimal literals
 are written `0xff`.
@@ -500,9 +500,99 @@ print(state);                 // Doing
 Enum values are always written with the type name in front, so it is obvious
 where a name comes from. Printing an enum gives its name.
 
+### Values that carry something
+
+A value may carry values of its own, named where the enum is declared:
+
+```cub
+enum Shape {
+    Circle(radius: float),
+    Rect(width: float, height: float),
+    Empty,
+}
+
+let s = Shape.Circle(2.0);
+print(s);                     // Circle(2.0)
+```
+
+What a value carries is checked when you make it, and there is no way to
+reach in and take it back out except by `match`, which is the next section.
+An enum may not carry itself — that value would have no size — so hold it in
+an array if you need to.
+
+Two enum values are equal when they are the same value carrying the same
+things. If a value carries something that cannot be compared, such as an
+array, the compiler says so and points at `match`.
+
 ---
 
-## 14. Imports
+## 14. Match
+
+`match` chooses between the values of an enum, and takes out whatever they
+carry:
+
+```cub
+float area(s: Shape) {
+    return match s {
+        Circle(r) => 3.14159 * r * r,
+        Rect(w, h) => w * h,
+        Empty => 0.0,
+    };
+}
+```
+
+The names in `Circle(r)` are yours to pick, and exist only inside that arm.
+
+**Every value must be answered.** Leave one out and the compiler names it:
+
+```
+error: this `match` does not say what to do about `Rect`, `Empty`
+  help: give them an arm, or add `_ =>` for everything else
+```
+
+That check is the point of `match`. Add a value to an enum later and every
+`match` that has not been brought up to date is a compile error rather than a
+surprise at runtime.
+
+`_` answers everything not named above it. Using it when every value is
+already answered is an error too, because it could never run.
+
+**An arm is a statement or a block**, and a `,` after it is optional:
+
+```cub
+match token {
+    Number(n) => print("number {n}"),
+    Word(w) => {
+        let clean = trim(w);
+        print("word {clean}");
+    }
+    End => return,
+}
+```
+
+**A `match` can produce a value**, in which case every arm gives one and they
+all have the same type — the same rule as an `if` used as a value:
+
+```cub
+let width = match token {
+    Number(n) => n,
+    Word(w) => len(w),
+    End => 0,
+};
+```
+
+`match` works on plain enums too, where there is nothing to take out:
+
+```cub
+match colour {
+    Red => print("stop"),
+    _ => print("go"),
+}
+```
+
+---
+
+## 15. Imports
 
 `import` does two jobs: it brings in part of the standard library, and it
 brings in another one of your files.
@@ -563,7 +653,7 @@ yet: an imported file shares everything it declares.
 
 ---
 
-## 15. Maps
+## 16. Maps
 
 A map holds values under keys. Keys are `string` or `int`; values are any
 type.
@@ -610,7 +700,7 @@ Like arrays, maps are shared rather than copied.
 
 ---
 
-## 16. Classes
+## 17. Classes
 
 A `struct` is data. A **class** is data with behaviour: fields, methods, and
 the option to build on another class.
@@ -768,7 +858,7 @@ for a `class` when the thing has behaviour, or when sharing it is the point.
 
 ---
 
-## 17. Values that may not be there
+## 18. Values that may not be there
 
 Some questions have no answer, and some work does not succeed. Cub says so
 in the type, so that the empty case is impossible to walk past.
@@ -901,7 +991,7 @@ condition to handle, and stops it with a message.
 
 ---
 
-## 18. Reaching into C
+## 19. Reaching into C
 
 Cub compiles to C, so it can call C. An `extern` block names a header and
 the functions to borrow from it:
@@ -974,7 +1064,7 @@ being careful is your job rather than the compiler's.
 
 ---
 
-## 19. Errors
+## 20. Errors
 
 **Compile-time errors** point at the exact spot, explain the problem in
 words, and suggest a fix:
@@ -1011,10 +1101,10 @@ panic("this should be unreachable");
 
 ---
 
-## 20. The standard library
+## 21. The standard library
 
 Ninety-seven built-ins. The everyday ones are always in scope; the rest live
-in a module you `import` (see [section 14](#14-imports)) and are marked here
+in a module you `import` (see [section 15](#15-imports)) and are marked here
 with the module they belong to.
 
 ### Output and input
@@ -1114,7 +1204,7 @@ All of these need `import fs`.
 
 Anything that touches the file system can fail for reasons a program cannot
 foresee, so each one hands back a `T!` carrying what the system said. See
-[section 17](#17-values-that-may-not-be-there).
+[section 18](#18-values-that-may-not-be-there).
 
 ### The world outside
 
@@ -1142,7 +1232,7 @@ rather than silently shadowing it.
 
 ---
 
-## 21. How memory works
+## 22. How memory works
 
 Cub has no manual memory management and no pointers. Text and arrays live on
 the heap; the runtime records every allocation and releases all of it when
@@ -1157,7 +1247,7 @@ allocation registry is already the hook for it.
 
 ---
 
-## 22. What Cub leaves out, for now
+## 23. What Cub leaves out, for now
 
 Left out deliberately, and not missed: pointers, pointer arithmetic, manual
 `malloc`/`free`, header files, the preprocessor, `goto`, implicit
@@ -1167,7 +1257,7 @@ Genuinely missing, and planned:
 
 - **Private declarations** — an imported file shares everything it declares.
 - **Structs and arrays across `extern`** — only the types in
-  [section 18](#18-reaching-into-c) can cross into C.
+  [section 19](#19-reaching-into-c) can cross into C.
 - **Renaming on import** — no `import os as system` yet.
 - **Generics** — arrays and maps are the only generic types.
 - **Closures and function values** — functions cannot yet be passed around,
@@ -1177,12 +1267,12 @@ Genuinely missing, and planned:
 - **Asking an object what it is** — no `is` test and no downcast, so once a
   `Dog` is held as an `Animal` you can call it but not narrow it back.
 - **Private fields** — every field is readable and writable from anywhere.
-- **Reference counting** — see section 21.
+- **Reference counting** — see section 22.
 - **`==` on structs, arrays, and maps** — compare the parts for now.
 
 ---
 
-## 23. Grammar
+## 24. Grammar
 
 ```ebnf
 program     = { import | externblock | linkdecl | declaration } ;
@@ -1201,7 +1291,8 @@ member      = function | field ;
 field       = IDENT ":" type ";" ;
 
 structdecl  = "struct" IDENT "{" { field } "}" ;
-enumdecl    = "enum" IDENT "{" [ IDENT { "," IDENT } [ "," ] ] "}" ;
+enumdecl    = "enum" IDENT "{" [ evalue { "," evalue } [ "," ] ] "}" ;
+evalue      = IDENT [ "(" params [ "," ] ")" ] ;
 
 binding     = ( "let" | "var" ) IDENT [ ":" type ] "=" expr ;
 
@@ -1211,7 +1302,7 @@ base        = "void" | "int" | "float" | "bool" | "string"
 
 block       = "{" { statement } "}" ;
 statement   = binding ";" | assignment ";" | expr ";"
-            | ifstmt | ifletstmt | whilestmt | forstmt
+            | ifstmt | ifletstmt | matchstmt | whilestmt | forstmt
             | "return" [ expr ] ";" | "break" ";" | "continue" ";"
             | block ;
 
@@ -1219,6 +1310,9 @@ assignment  = expr ( "=" | "+=" | "-=" | "*=" | "/=" | "%=" ) expr ;
 ifstmt      = "if" expr block [ "else" ( ifstmt | block ) ] ;
 ifletstmt   = "if" "let" IDENT "=" expr block
               [ "else" [ IDENT ] block ] ;
+matchstmt   = "match" expr "{" { arm } "}" ;
+arm         = ( IDENT [ "(" IDENT { "," IDENT } ")" ] | "_" ) "=>"
+              ( block | statement | expr ) [ "," ] ;
 whilestmt   = "while" expr block ;
 forstmt     = "for" IDENT "in" ( expr ( ".." | "..=" ) expr | expr ) block ;
 
@@ -1234,7 +1328,9 @@ postfix     = primary { "(" [ args ] ")" | "[" expr "]" | "." IDENT | "!" } ;
 primary     = INT | FLOAT | STRING | "true" | "false" | "nothing" | IDENT
             | "self" | "super" | ifexpr
             | "(" expr ")" | "[" [ args ] "]" | maplit
-            | IDENT "{" [ inits ] "}" ;
+            | IDENT "{" [ inits ] "}" | matchexpr ;
+matchexpr   = "match" expr "{" { armvalue } "}" ;
+armvalue    = ( IDENT [ "(" IDENT { "," IDENT } ")" ] | "_" ) "=>" expr [ "," ] ;
 maplit      = "[" ( ":" | expr ":" expr { "," expr ":" expr } [ "," ] ) "]" ;
 ifexpr      = "if" expr "{" expr "}" "else" ( ifexpr | "{" expr "}" ) ;
 ```
@@ -1245,7 +1341,7 @@ is.
 
 ---
 
-## 24. The compiler
+## 25. The compiler
 
 ```
 cubc program.cb              compile to ./program

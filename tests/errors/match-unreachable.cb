@@ -1,0 +1,8 @@
+enum Colour { Red, Green }
+void main() {
+    match Colour.Red {
+        Red => print("red"),
+        Green => print("green"),
+        _ => print("never"),
+    }
+}

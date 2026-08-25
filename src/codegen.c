@@ -206,11 +206,27 @@ static void emit_helper(Type *t) {
     if (t->kind == TY_ENUM) {
         EnumDef *ed = t->edef;
         E("static CubStr %s(CubE_%s v) {\n", helper_name(t), t->name);
-        E("    switch (v) {\n");
+        E("    switch (v%s) {\n", ed->tagged ? ".tag" : "");
         for (int i = 0; i < ed->vals.len; i++) {
             char *vn = ed->vals.items[i];
-            E("    case CubE_%s_%s: return cub_str_lit(%s, %d);\n",
-              t->name, vn, lit(vn), (int)strlen(vn));
+            Vec *carries = ed->tagged ? ed->vfields.items[i] : NULL;
+            if (!carries || carries->len == 0) {
+                E("    case CubE_%s_%s: return cub_str_lit(%s, %d);\n",
+                  t->name, vn, lit(vn), (int)strlen(vn));
+                continue;
+            }
+            /* a value that carries something prints what it carries */
+            E("    case CubE_%s_%s: {\n", t->name, vn);
+            E("        CubStr r = cub_str_lit(%s, %d);\n",
+              lit(cx_fmt("%s(", vn)), (int)strlen(vn) + 1);
+            for (int k = 0; k < carries->len; k++) {
+                VarSym *f = carries->items[k];
+                if (k) E("        r = cub_str_concat(r, cub_str_lit(\", \", 2));\n");
+                E("        r = cub_str_concat(r, %s);\n",
+                  str_of(f->type, cx_fmt("v.as.v_%s.f_%s", vn, f->name), true));
+            }
+            E("        return cub_str_concat(r, cub_str_lit(\")\", 1));\n");
+            E("    }\n");
         }
         E("    }\n    return cub_str_lit(\"?\", 1);\n}\n\n");
     } else if (t->kind == TY_STRUCT) {
@@ -368,8 +384,61 @@ static const char *op_c(TokKind k) {
     }
 }
 
+/* Enums that carry things need an equality of their own: same value, and
+ * the same things carried. */
+static Vec eq_helpers;
+
+static const char *need_eq_helper(Type *t) {
+    for (int i = 0; i < eq_helpers.len; i++)
+        if (ty_same(eq_helpers.items[i], t)) return "";
+    vec_push(&eq_helpers, t);
+    return "";
+}
+
+static void emit_eq_helper(Type *t) {
+    EnumDef *ed = t->edef;
+    E("static bool cub_eq_%s(CubE_%s a, CubE_%s b) {\n",
+      ty_mangle(t), ed->name, ed->name);
+    E("    if (a.tag != b.tag) return false;\n");
+    bool any = false;
+    for (int i = 0; i < ed->vals.len; i++)
+        if (((Vec *)ed->vfields.items[i])->len) any = true;
+    if (any) {
+        E("    switch (a.tag) {\n");
+        for (int i = 0; i < ed->vals.len; i++) {
+            Vec *fields = ed->vfields.items[i];
+            if (!fields->len) continue;
+            char *vn = ed->vals.items[i];
+            E("    case CubE_%s_%s:\n        return", ed->name, vn);
+            for (int k = 0; k < fields->len; k++) {
+                VarSym *f = fields->items[k];
+                const char *av = cx_fmt("a.as.v_%s.f_%s", vn, f->name);
+                const char *bv = cx_fmt("b.as.v_%s.f_%s", vn, f->name);
+                if (k) E(" &&");
+                if (f->type->kind == TY_STR)
+                    E(" cub_str_eq(%s, %s)", av, bv);
+                else if (f->type->kind == TY_ENUM && f->type->edef->tagged)
+                    E(" cub_eq_%s(%s, %s)", ty_mangle(f->type), av, bv);
+                else
+                    E(" %s == %s", av, bv);
+            }
+            E(";\n");
+        }
+        E("    }\n");
+    }
+    E("    return true;\n}\n\n");
+}
+
 static void gen_binary(Expr *e) {
     Type *t = e->a->type;
+
+    if (t->kind == TY_ENUM && t->edef->tagged &&
+        (e->op == TK_EQ || e->op == TK_NE)) {
+        need_eq_helper(t);
+        E("%scub_eq_%s(%s, %s)", e->op == TK_NE ? "!" : "", ty_mangle(t),
+          expr_str(e->a), expr_str(e->b));
+        return;
+    }
 
     if (t->kind == TY_STR) {
         char *a = expr_str(e->a), *b = expr_str(e->b);
@@ -674,6 +743,11 @@ static void gen_builtin(Expr *e) {
     E("/* unhandled builtin */ 0");
 }
 
+/* `match` becomes a switch on the tag, with what each value carries bound
+ * to names inside its case.  `into` is where an arm's value goes when the
+ * match is being used as one. */
+static void gen_match(Expr *subject, Vec *arms, const char *into, int lvl);
+
 static void gen_expr(Expr *e) {
     switch (e->kind) {
     case EX_NOTHING:
@@ -904,7 +978,39 @@ static void gen_expr(Expr *e) {
         E(")");
         break;
 
-    case EX_ENUMVAL: E("CubE_%s_%s", e->sval, e->name); break;
+    case EX_ENUMVAL:
+        if (e->type && e->type->kind == TY_ENUM && e->type->edef->tagged)
+            E("((CubE_%s){ .tag = CubE_%s_%s })", e->sval, e->sval, e->name);
+        else
+            E("CubE_%s_%s", e->sval, e->name);
+        break;
+
+    case EX_ENUMMAKE: {
+        EnumDef *ed = e->type->edef;
+        Vec *carries = ed->vfields.items[e->enum_index];
+        E("((CubE_%s){ .tag = CubE_%s_%s, .as.v_%s = {",
+          ed->name, ed->name, e->name, e->name);
+        for (int i = 0; i < e->args.len; i++) {
+            VarSym *f = carries->items[i];
+            E("%s .f_%s = %s", i ? "," : "", f->name, expr_str(e->args.items[i]));
+        }
+        E(" } })");
+        break;
+    }
+
+    case EX_MATCH: {
+        int id = ++tmp_id;
+        char *tmp = cx_fmt("cub_r%d", id);
+        hoist("%s %s = %s;\n", ctype(e->type), tmp, default_value(e->type));
+        /* the switch itself is a statement, so it goes in front of the one
+         * being emitted, and what is left behind is the temporary */
+        Buf *saved = dst;
+        dst = prelude;
+        gen_match(e->a, &e->arms, tmp, prelude_lvl);
+        dst = saved;
+        E("%s", tmp);
+        break;
+    }
     }
 }
 
@@ -1061,6 +1167,10 @@ static void gen_stmt_inner(Stmt *s, int lvl) {
         E("\n");
         break;
 
+    case ST_MATCH:
+        gen_match(s->rhs, &s->arms, NULL, lvl);
+        break;
+
     case ST_IFLET: {
         int id = ++tmp_id;
         Type *mt = s->rhs->type;
@@ -1157,6 +1267,67 @@ static void gen_stmt_inner(Stmt *s, int lvl) {
         E("}\n");
         break;
     }
+}
+
+/* One switch, one case per arm.  The subject is worked out once into a
+ * temporary, because it may be a call. */
+static void gen_match(Expr *subject, Vec *arms, const char *into, int lvl) {
+    EnumDef *ed = subject->type->edef;
+    int id = ++tmp_id;
+    char *subj = cx_fmt("cub_s%d", id);
+
+    indent(lvl);
+    E("{\n");
+    indent(lvl + 1);
+    E("%s %s = %s;\n", ctype(subject->type), subj, expr_str(subject));
+    indent(lvl + 1);
+    E("switch (%s%s) {\n", subj, ed->tagged ? ".tag" : "");
+
+    for (int i = 0; i < arms->len; i++) {
+        MatchArm *a = arms->items[i];
+        indent(lvl + 1);
+        if (a->is_default) E("default: {\n");
+        else               E("case CubE_%s_%s: {\n", ed->name, a->variant);
+
+        Vec *carries = a->index >= 0 ? ed->vfields.items[a->index] : NULL;
+        for (int k = 0; carries && k < a->binds.len; k++) {
+            VarSym *b = a->binds.items[k];
+            VarSym *f = carries->items[k];
+            indent(lvl + 2);
+            E("%s %s = %s.as.v_%s.f_%s;\n", ctype(b->type), b->cname,
+              subj, a->variant, f->name);
+            indent(lvl + 2);
+            E("(void)%s;\n", b->cname);
+        }
+        if (into) {
+            Buf pre, val;
+            buf_init(&pre);
+            buf_init(&val);
+            Buf *sd = dst, *sp = prelude;
+            int sl = prelude_lvl;
+            prelude = &pre;
+            prelude_lvl = lvl + 2;
+            dst = &val;
+            gen_expr(a->value);
+            dst = sd;
+            prelude = sp;
+            prelude_lvl = sl;
+            buf_puts(dst, pre.data);
+            indent(lvl + 2);
+            E("%s = %s;\n", into, val.data);
+        } else {
+            gen_stmts(&a->body, lvl + 2);
+        }
+        indent(lvl + 2);
+        E("break;\n");
+        indent(lvl + 1);
+        E("}\n");
+    }
+
+    indent(lvl + 1);
+    E("}\n");
+    indent(lvl);
+    E("}\n");
 }
 
 static void gen_stmts(Vec *body, int lvl) {
@@ -1367,8 +1538,10 @@ char *codegen_program(Program *p, const char *unit_name) {
     }
 
     E("/* ---- types ---- */\n\n");
+    Vec done = {0};
     for (int i = 0; i < p->enums.len; i++) {
         EnumDef *ed = p->enums.items[i];
+        if (ed->tagged) continue;              /* written out below */
         E("typedef enum CubE_%s {", ed->name);
         for (int j = 0; j < ed->vals.len; j++)
             E("%s CubE_%s_%s%s", j ? "" : "", ed->name, (char *)ed->vals.items[j],
@@ -1377,8 +1550,43 @@ char *codegen_program(Program *p, const char *unit_name) {
     }
     if (p->enums.len) E("\n");
 
-    Vec done = {0};
     for (int i = 0; i < p->structs.len; i++) emit_struct(p->structs.items[i], &done);
+
+    /* An enum whose values carry things becomes a tag and a union, and
+     * anything it carries has to be defined first. */
+    for (int i = 0; i < p->enums.len; i++) {
+        EnumDef *ed = p->enums.items[i];
+        if (!ed->tagged) continue;
+        for (int j = 0; j < ed->vfields.len; j++) {
+            Vec *fields = ed->vfields.items[j];
+            for (int k = 0; k < fields->len; k++)
+                ensure_type(((VarSym *)fields->items[k])->type, &done);
+        }
+        E("enum {");
+        for (int j = 0; j < ed->vals.len; j++)
+            E("%s CubE_%s_%s%s", j ? "" : "", ed->name, (char *)ed->vals.items[j],
+              j + 1 < ed->vals.len ? "," : "");
+        E(" };\n");
+        E("typedef struct CubE_%s {\n    int tag;\n", ed->name);
+        bool any = false;
+        for (int j = 0; j < ed->vals.len; j++)
+            if (((Vec *)ed->vfields.items[j])->len) any = true;
+        if (any) {
+            E("    union {\n");
+            for (int j = 0; j < ed->vals.len; j++) {
+                Vec *fields = ed->vfields.items[j];
+                if (!fields->len) continue;
+                E("        struct {");
+                for (int k = 0; k < fields->len; k++) {
+                    VarSym *v = fields->items[k];
+                    E(" %s f_%s;", ctype(v->type), v->name);
+                }
+                E(" } v_%s;\n", (char *)ed->vals.items[j]);
+            }
+            E("    } as;\n");
+        }
+        E("} CubE_%s;\n\n", ed->name);
+    }
 
     /* ---- classes ---- */
     Vec ordered = {0};
@@ -1473,6 +1681,8 @@ char *codegen_program(Program *p, const char *unit_name) {
 
     /* ---- assemble ---- */
     dst = &out;
+    for (int i = 0; i < eq_helpers.len; i++) emit_eq_helper(eq_helpers.items[i]);
+
     /* Anything that turned up while the bodies were written: a local
      * `int?`, or the `int!` behind an `int(text)!`, need not appear in any
      * field.  This runs after the bodies for that reason. */

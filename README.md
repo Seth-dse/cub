@@ -46,7 +46,7 @@ Nothing to install beyond a C compiler and `make`.
 
 ```bash
 make
-make test          # 70 tests: programs, compile errors, runtime failures
+make test          # 77 tests: programs, compile errors, runtime failures
 make check-linux   # optional: build and test under glibc in a container
 make examples      # run everything in examples/
 sudo make install  # optional: puts cubc in /usr/local/bin
@@ -171,6 +171,15 @@ void shout(text: string) {
 struct Point { x: int; y: int; }
 enum Color { Red, Green, Blue }
 
+// An enum value may carry things, and `match` takes them back out --
+// leave a value unanswered and the compiler names it.
+enum Shape { Circle(radius: float), Rect(w: float, h: float) }
+
+let area = match Shape.Circle(2.0) {
+    Circle(r) => 3.14159 * r * r,
+    Rect(w, h) => w * h,
+};
+
 let p = Point { x: 1, y: 2 };
 print(p);                        // Point{x: 1, y: 2}
 print(Color.Green);              // Green
@@ -268,7 +277,7 @@ compiler.
 
 `extern "header.h" { ... }` borrows a C function; `link "name";` puts
 `-lname` on the C compiler's command line. Everything Cub promises stops at
-that boundary — see [the reference](docs/LANGUAGE.md#18-reaching-into-c).
+that boundary — see [the reference](docs/LANGUAGE.md#19-reaching-into-c).
 
 Look at what your program becomes:
 
@@ -296,7 +305,7 @@ server meant to run for weeks. Reference counting is the next step.
 
 ## Status
 
-Version 0.7.0. The language described here works, and the test suite covers
+Version 0.8.0. The language described here works, and the test suite covers
 it. Not yet built: generics, closures, interfaces, and private declarations.
 [The reference](docs/LANGUAGE.md#20-what-cub-leaves-out-for-now) lists them
 with what is planned.

@@ -53,10 +53,10 @@ after you have had a real go — the struggle is the part that teaches.
 | 9 | statistics | the array built-ins, and not changing your input | §7 |
 | 10 | points | `struct`, and how copying one behaves | §9 |
 | 11 | traffic | `enum`, and comparing choices | §9 |
-| 12 | tally | maps, and `get` with a fallback | §10 |
-| 13 | account | a class with state and methods | §11 |
-| 14 | shapes | building on a class, replacing a method | §11 |
-| 15 | catalogue | all of it, across two files, and text that may not parse | §12–15 |
+| 12 | tally | maps, and `get` with a fallback | §11 |
+| 13 | account | a class with state and methods | §12 |
+| 14 | shapes | building on a class, replacing a method | §12 |
+| 15 | catalogue | all of it, across two files, and text that may not parse | §13–16 |
 
 Do 1 through 8 in one sitting if you like — they are short. Stop after 8
 and write something of your own before starting 9.

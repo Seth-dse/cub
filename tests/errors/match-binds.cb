@@ -1,0 +1,7 @@
+enum Shape { Circle(radius: float), Empty }
+void main() {
+    match Shape.Empty {
+        Circle(r, extra) => print(r),
+        Empty => print("none"),
+    }
+}

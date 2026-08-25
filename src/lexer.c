@@ -24,9 +24,9 @@ static const char *tok_names[TK__COUNT] = {
     "return", "break", "continue", "type", "struct", "enum",
     "true", "false", "and", "or", "not",
     "class", "extends", "self", "super", "void", "static", "import",
-    "nothing", "try", "extern", "link",
+    "nothing", "try", "extern", "link", "match",
     "(", ")", "{", "}", "[", "]",
-    ",", ".", "..", "..=", ":", ";", "->", "?",
+    ",", ".", "..", "..=", ":", ";", "->", "?", "=>",
     "+", "-", "*", "/", "%",
     "=", "+=", "-=", "*=", "/=", "%=",
     "==", "!=", "<", "<=", ">", ">=",
@@ -48,7 +48,7 @@ static const struct { const char *word; TokKind kind; } keywords[] = {
     {"self", TK_SELF}, {"super", TK_SUPER},
     {"void", TK_VOID}, {"static", TK_STATIC}, {"import", TK_IMPORT},
     {"nothing", TK_NOTHING}, {"try", TK_TRY},
-    {"extern", TK_EXTERN}, {"link", TK_LINK},
+    {"extern", TK_EXTERN}, {"link", TK_LINK}, {"match", TK_MATCH},
     {NULL, TK_EOF}
 };
 
@@ -330,7 +330,11 @@ Token *lex_all(Source *src, int first_line, int *out_count) {
         case '*': if (d == '=') { advance(&L); t->kind = TK_STAREQ; }   else t->kind = TK_STAR;  break;
         case '/': if (d == '=') { advance(&L); t->kind = TK_SLASHEQ; }  else t->kind = TK_SLASH; break;
         case '%': if (d == '=') { advance(&L); t->kind = TK_PERCENTEQ; } else t->kind = TK_PERCENT; break;
-        case '=': if (d == '=') { advance(&L); t->kind = TK_EQ; }       else t->kind = TK_ASSIGN; break;
+        case '=':
+            if (d == '=')      { advance(&L); t->kind = TK_EQ; }
+            else if (d == '>') { advance(&L); t->kind = TK_FATARROW; }
+            else               { t->kind = TK_ASSIGN; }
+            break;
         case '!': if (d == '=') { advance(&L); t->kind = TK_NE; }       else t->kind = TK_BANG;   break;
         case '<': if (d == '=') { advance(&L); t->kind = TK_LE; }       else t->kind = TK_LT;     break;
         case '>': if (d == '=') { advance(&L); t->kind = TK_GE; }       else t->kind = TK_GT;     break;

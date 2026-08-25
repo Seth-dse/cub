@@ -1,0 +1,2 @@
+does not say what to do about `Rect`, `Empty`
+give them an arm, or add `_ =>` for everything else

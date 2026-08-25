@@ -307,6 +307,8 @@ static void collect_members(ClassDef *c, Vec *fields, Vec *methods) {
 /* ------------------------------------------------------------------ */
 
 static Type *check_expr(Expr *e, Type *hint);
+static Type *check_match(Expr *subject, Vec *arms, bool as_value, Type *hint,
+                         int line, int col);
 static void  check_stmts(Vec *body);
 
 static bool is_err(Type *t) { return !t || t->kind == TY_ERR; }
@@ -1008,6 +1010,50 @@ static Type *check_method_call(Expr *e, Type *hint) {
     const char *name = target->name;
     bool via_super = target->a->kind == EX_SUPER;
 
+    /* `Shape.Circle(2.0)` -- making an enum value that carries something */
+    if (target->a->kind == EX_IDENT && !lookup(target->a->name)) {
+        Type *et = find_named(target->a->name);
+        if (et && et->kind == TY_ENUM) {
+            EnumDef *ed = et->edef;
+            int idx = -1;
+            for (int i = 0; i < ed->vals.len; i++)
+                if (strcmp((char *)ed->vals.items[i], name) == 0) { idx = i; break; }
+            if (idx < 0) {
+                for (int i = 0; i < e->args.len; i++) check_expr(arg(e, i), NULL);
+                err_at(e->line, e->col, "`%s` has no value named `%s`",
+                       ed->name, name);
+                const char *m = best_match(name, &ed->vals);
+                if (m) err_help("did you mean `%s.%s`?", ed->name, m);
+                return ty_err();
+            }
+            Vec *carries = ed->vfields.items[idx];
+            if (carries->len == 0) {
+                for (int i = 0; i < e->args.len; i++) check_expr(arg(e, i), NULL);
+                err_at(e->line, e->col, "`%s.%s` carries nothing, so it takes "
+                       "no arguments", ed->name, name);
+                err_help("write `%s.%s`", ed->name, name);
+                return ty_err();
+            }
+            if (e->args.len != carries->len) {
+                for (int i = 0; i < e->args.len; i++) check_expr(arg(e, i), NULL);
+                err_at(e->line, e->col, "`%s.%s` carries %d value%s, but got %d",
+                       ed->name, name, carries->len,
+                       carries->len == 1 ? "" : "s", e->args.len);
+                return ty_err();
+            }
+            for (int i = 0; i < e->args.len; i++) {
+                VarSym *v = carries->items[i];
+                Type *at_ = check_expr(arg(e, i), v->type);
+                want(arg(e, i), at_, v->type, cx_fmt("`%s`", v->name));
+            }
+            e->kind = EX_ENUMMAKE;
+            e->enum_index = idx;
+            e->name = cx_strdup(name);
+            e->sval = ed->name;
+            return et;
+        }
+    }
+
     /* `os.env("USER")` -- a built-in reached through its module */
     if (target->a->kind == EX_IDENT && !lookup(target->a->name) &&
         is_module_name(target->a->name)) {
@@ -1252,6 +1298,29 @@ static Type *check_binary(Expr *e, Type *hint) {
         return ty_bool();
 
     case TK_EQ: case TK_NE:
+        /* Two enum values are the same when they are the same value
+         * carrying the same things, so everything carried has to be
+         * comparable in the first place. */
+        if (a->kind == TY_ENUM && a->edef->tagged && ty_same(a, b)) {
+            EnumDef *ed = a->edef;
+            for (int i = 0; i < ed->vfields.len; i++) {
+                Vec *fields = ed->vfields.items[i];
+                for (int k = 0; k < fields->len; k++) {
+                    Type *ft = ((VarSym *)fields->items[k])->type;
+                    if (ft->kind == TY_INT || ft->kind == TY_FLOAT ||
+                        ft->kind == TY_BOOL || ft->kind == TY_STR ||
+                        ft->kind == TY_ENUM)
+                        continue;
+                    err_at(e->line, e->col,
+                           "`%s` cannot be compared, because `%s` carries %s",
+                           ed->name, (char *)ed->vals.items[i], ty_show(ft));
+                    err_help("take them apart with `match` and compare the "
+                             "parts");
+                    return ty_bool();
+                }
+            }
+            return ty_bool();
+        }
         if (a->kind == TY_CLASS && b->kind == TY_CLASS &&
             (ty_assignable(a, b) || ty_assignable(b, a)))
             return ty_bool();               /* compares identity, not contents */
@@ -1342,6 +1411,20 @@ static Type *check_field(Expr *e) {
             EnumDef *ed = t->edef;
             for (int i = 0; i < ed->vals.len; i++) {
                 if (strcmp((char *)ed->vals.items[i], e->name) == 0) {
+                    Vec *carries = ed->vfields.items[i];
+                    if (carries->len > 0) {
+                        err_at(e->line, e->col,
+                               "`%s.%s` carries %d value%s, so it has to be made "
+                               "with them", ed->name, e->name, carries->len,
+                               carries->len == 1 ? "" : "s");
+                        Buf b;
+                        buf_init(&b);
+                        for (int k = 0; k < carries->len; k++)
+                            buf_printf(&b, "%s%s", k ? ", " : "",
+                                       ty_show(((VarSym *)carries->items[k])->type));
+                        err_help("write `%s.%s(%s)`", ed->name, e->name, b.data);
+                        return ty_err();
+                    }
                     e->kind = EX_ENUMVAL;
                     e->enum_index = i;
                     e->name = cx_strdup(e->name);
@@ -1653,7 +1736,12 @@ static Type *check_expr(Expr *e, Type *hint) {
     case EX_BINARY:
     case EX_ORELSE: t = check_binary(e, hint); break;
 
-    case EX_WRAP:   t = e->type; break;   /* already typed when it was made */
+    case EX_WRAP:
+    case EX_ENUMMAKE: t = e->type; break; /* typed when the node was made */
+
+    case EX_MATCH:
+        t = check_match(e->a, &e->arms, true, hint, e->line, e->col);
+        break;
     case EX_CALL:   t = check_call(e, hint); break;
 
     case EX_INDEX: {
@@ -1790,6 +1878,146 @@ static Type *check_expr(Expr *e, Type *hint) {
 }
 
 /* ------------------------------------------------------------------ */
+/* match                                                               */
+/* ------------------------------------------------------------------ */
+
+/* Common to both shapes of `match`: work out which value each arm answers
+ * to, bind what it carries, and insist that between them the arms cover
+ * every value the enum has. */
+static Type *check_match(Expr *subject, Vec *arms, bool as_value, Type *hint,
+                         int line, int col) {
+    Type *st = check_expr(subject, NULL);
+    if (is_err(st)) return ty_err();
+    if (st->kind != TY_ENUM) {
+        err_at(subject->line, subject->col,
+               "`match` chooses between the values of an enum, but this is %s",
+               ty_show(st));
+        if (ty_is_maybe(st)) maybe_help(st);
+        else err_help("use `if` for anything else");
+        return ty_err();
+    }
+
+    EnumDef *ed = st->edef;
+    bool *seen = cx_alloc(sizeof(bool) * (size_t)(ed->vals.len + 1));
+    bool has_default = false;
+    Type *result = NULL;
+    Expr *first_value = NULL;
+
+    for (int i = 0; i < arms->len; i++) {
+        MatchArm *a = arms->items[i];
+        Vec *carries = NULL;
+
+        if (a->is_default) {
+            if (has_default)
+                err_at(a->line, a->col, "this `match` already has a `_`");
+            has_default = true;
+            a->index = -1;
+        } else {
+            int idx = -1;
+            for (int j = 0; j < ed->vals.len; j++)
+                if (strcmp((char *)ed->vals.items[j], a->variant) == 0) { idx = j; break; }
+            if (idx < 0) {
+                err_at(a->line, a->col, "`%s` has no value named `%s`",
+                       ed->name, a->variant);
+                const char *m = best_match(a->variant, &ed->vals);
+                if (m) err_help("did you mean `%s`?", m);
+                continue;
+            }
+            if (seen[idx])
+                err_at(a->line, a->col, "`%s` is already answered above", a->variant);
+            seen[idx] = true;
+            a->index = idx;
+            carries = ed->vfields.items[idx];
+
+            if (a->binds.len != carries->len) {
+                err_at(a->line, a->col,
+                       "`%s` carries %d value%s, but this names %d",
+                       a->variant, carries->len, carries->len == 1 ? "" : "s",
+                       a->binds.len);
+                if (carries->len == 0)
+                    err_help("write `%s =>`", a->variant);
+                else {
+                    Buf b;
+                    buf_init(&b);
+                    for (int k = 0; k < carries->len; k++)
+                        buf_printf(&b, "%s%s", k ? ", " : "",
+                                   ((VarSym *)carries->items[k])->name);
+                    err_help("write `%s(%s) =>`", a->variant, b.data);
+                }
+                continue;
+            }
+        }
+
+        push_scope();
+        if (carries) {
+            for (int k = 0; k < a->binds.len; k++) {
+                VarSym *b = a->binds.items[k];
+                VarSym *f = carries->items[k];
+                b->type = f->type;
+                b->is_mut = false;
+                if (lookup_local(b->name))
+                    err_at(a->line, a->col, "`%s` is named twice here", b->name);
+                b->cname = cx_fmt("cubb_%s_%d", b->name, ++uid);
+                vec_push(&scope->syms, b);
+            }
+        }
+        if (as_value) {
+            Type *vt = check_expr(a->value, result ? result : hint);
+            if (!is_err(vt)) {
+                if (!result) { result = vt; first_value = a->value; }
+                else if (!ty_same(vt, result)) {
+                    if (ty_is_maybe(result) && ty_assignable(vt, result)) {
+                        wrap_into(a->value, vt, result);
+                    } else if (ty_is_maybe(vt) && ty_assignable(result, vt)) {
+                        wrap_into(first_value, result, vt);
+                        result = vt;
+                    } else {
+                        err_at(a->value->line, a->value->col,
+                               "every arm must give the same type, but this one "
+                               "is %s and an earlier one is %s",
+                               ty_show(vt), ty_show(result));
+                    }
+                }
+                if (vt->kind == TY_VOID)
+                    err_at(a->value->line, a->value->col,
+                           "a `match` used as a value needs something from "
+                           "every arm");
+            }
+        } else {
+            check_stmts(&a->body);
+        }
+        pop_scope();
+    }
+
+    if (!has_default) {
+        Buf missing;
+        buf_init(&missing);
+        int n = 0;
+        for (int i = 0; i < ed->vals.len; i++)
+            if (!seen[i]) {
+                buf_printf(&missing, "%s`%s`", n ? ", " : "",
+                           (char *)ed->vals.items[i]);
+                n++;
+            }
+        if (n > 0) {
+            err_at(line, col, "this `match` does not say what to do about %s",
+                   missing.data);
+            err_help("give %s an arm, or add `_ =>` for everything else",
+                     n == 1 ? "it" : "them");
+        }
+    } else {
+        bool all = true;
+        for (int i = 0; i < ed->vals.len; i++) if (!seen[i]) all = false;
+        if (all && ed->vals.len > 0)
+            err_at(line, col, "every value of `%s` is already answered, so `_` "
+                   "can never happen", ed->name);
+    }
+
+    if (as_value && !result) return ty_err();
+    return as_value ? result : ty_void();
+}
+
+/* ------------------------------------------------------------------ */
 /* assignability                                                       */
 /* ------------------------------------------------------------------ */
 
@@ -1895,6 +2123,10 @@ static void check_stmt(Stmt *s) {
 
     /* `if let v = maybe { } else why { }` -- `v` exists only where the
      * value does, and `why` only where it does not. */
+    case ST_MATCH:
+        check_match(s->rhs, &s->arms, false, NULL, s->line, s->col);
+        break;
+
     case ST_IFLET: {
         Type *m = check_expr(s->rhs, NULL);
         if (!is_err(m) && !ty_is_maybe(m)) {
@@ -2205,6 +2437,36 @@ void check_program(Program *p, bool require_main) {
         }
         cd->depth = steps;
     }
+    /* what each enum value carries */
+    for (int i = 0; i < p->enums.len; i++) {
+        EnumDef *ed = p->enums.items[i];
+        in_file(ed->src);
+        for (int j = 0; j < ed->vfields.len; j++) {
+            Vec *fields = ed->vfields.items[j];
+            for (int k = 0; k < fields->len; k++) {
+                VarSym *v = fields->items[k];
+                v->type = resolve_type(v->type, ed->line, ed->col);
+                if (v->type && v->type->kind == TY_VOID)
+                    err_at(ed->line, ed->col,
+                           "`%s.%s` cannot carry something that does not exist",
+                           ed->name, (char *)ed->vals.items[j]);
+                if (v->type && v->type->kind == TY_ENUM &&
+                    v->type->edef == ed) {
+                    err_at(ed->line, ed->col,
+                           "`%s.%s` cannot carry a `%s`, because that value "
+                           "would have no size", ed->name,
+                           (char *)ed->vals.items[j], ed->name);
+                    err_help("hold it in an array instead: `[%s]`", ed->name);
+                }
+                for (int m = 0; m < k; m++)
+                    if (strcmp(((VarSym *)fields->items[m])->name, v->name) == 0)
+                        err_at(ed->line, ed->col,
+                               "`%s.%s` names `%s` twice", ed->name,
+                               (char *)ed->vals.items[j], v->name);
+            }
+        }
+    }
+
     for (int i = 0; i < p->classes.len; i++) {
         ClassDef *cd = p->classes.items[i];
         in_file(cd->src);

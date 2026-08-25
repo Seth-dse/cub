@@ -220,5 +220,25 @@
       "}"
     ],
     "description": "Borrow functions from a C header"
+  },
+  "match": {
+    "prefix": "match",
+    "body": [
+      "match ${1:value} {",
+      "\t${2:First} => $0,",
+      "\t_ => ,",
+      "}"
+    ],
+    "description": "Choose between the values of an enum"
+  },
+  "enum carrying": {
+    "prefix": "enumc",
+    "body": [
+      "enum ${1:Name} {",
+      "\t${2:First}(${3:field}: ${4:int}),",
+      "\t${5:Second},",
+      "}"
+    ],
+    "description": "An enum whose values carry things"
   }
 }

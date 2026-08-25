@@ -1,0 +1,7 @@
+enum Shape { Circle(radius: float), Rect(width: float, height: float), Empty }
+void main() {
+    let s = Shape.Circle(2.0);
+    match s {
+        Circle(r) => print(r),
+    }
+}
